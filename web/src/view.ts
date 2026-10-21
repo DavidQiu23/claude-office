@@ -1,8 +1,6 @@
 import type { Employee } from '../../src/state/types.js';
 import { truncate } from '../../src/state/describe.js';
 
-export const DESK_W = 108;
-export const DESK_H = 128;
 export const PALETTE = [0xd9534f, 0xe98f3f, 0xe6c34a, 0x4fb477, 0x38a8a0, 0x4a90d9, 0x8e6fc9, 0xd9669a];
 
 const hash = (s: string): number => {
@@ -88,13 +86,14 @@ export const fitText = (text: string, fits: (s: string) => boolean): string => {
   return '…';
 };
 
-// ---- 版面：一個資料夾（cwd）一間小辦公室 ----
+// ---- 版面：一個專案（cwd）一座桌島 ----
 
-export const ROOM = { gutter: 44, header: 56, pad: 10, gap: 14, maxRowW: 760, minCols: 2, maxCols: 3 };
+export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, bottom: 10, gap: 44, marginX: 40, marginTop: 72, vgap: 72, marginBottom: 40, maxRowW: 1100, maxCols: 3 };
 export const BASE_W = 560; // 計算放大倍率時的參考尺寸（典型的 1~3 間辦公室）
 export const BASE_H = 400;
+export const PROJECT_COLORS: string[] = ['#4a90d9', '#e98f3f', '#4fb477', '#8e6fc9', '#d9669a', '#38a8a0', '#e6c34a', '#d9534f'];
 
-export interface Room {
+export interface Island {
   key: string; // cwd
   title: string;
   x: number;
@@ -102,11 +101,15 @@ export interface Room {
   w: number;
   h: number;
   cols: number;
+  rows: number;
   desks: number;
+  color: string;
 }
-export interface Layout { rooms: Room[]; width: number; height: number }
+export interface Layout { islands: Island[]; width: number; height: number }
 
 export const roomKey = (e: Pick<Employee, 'cwd'>): string => e.cwd ?? '';
+
+export const projectColor = (key: string): string => PROJECT_COLORS[hash(key ?? '') % PROJECT_COLORS.length];
 
 /** 路徑最後兩層，同名資料夾用來區分 */
 const shortPath = (cwd: string): string => cwd.split(/[\\/]+/).filter(Boolean).slice(-2).join('/');
@@ -117,54 +120,72 @@ export function layout(employees: Employee[]): Layout {
     const k = roomKey(e);
     groups.set(k, [...(groups.get(k) ?? []), e]);
   }
-  // 先到的資料夾排前面（以最早到班時間），同時間依路徑
+  // 先到的專案排前面（以最早到班時間），同時間依路徑
   const keys = [...groups.keys()].sort((a, b) => {
     const t = (k: string) => Math.min(...groups.get(k)!.map((e) => e.arrivedAt));
     return t(a) - t(b) || a.localeCompare(b);
   });
   const names = keys.map((k) => groups.get(k)![0].folder);
-  const rooms: Room[] = keys.map((k, i) => {
-    const need = Math.max(...groups.get(k)!.map((e) => e.seat + 1));
-    const cols = Math.min(ROOM.maxCols, Math.max(ROOM.minCols, need));
-    const desks = Math.ceil(Math.max(need, cols) / cols) * cols;
+  const islands: Island[] = keys.map((k, i) => {
+    const desks = Math.max(...groups.get(k)!.map((e) => e.seat + 1));
+    const cols = Math.min(ISLAND.maxCols, desks);
+    const rows = Math.ceil(desks / cols);
     const dup = names.filter((n) => n === names[i]).length > 1;
     return {
       key: k,
       title: dup && k ? shortPath(k) : names[i],
       x: 0,
       y: 0,
-      w: ROOM.gutter + cols * DESK_W + ROOM.pad,
-      h: ROOM.header + (desks / cols) * DESK_H + ROOM.pad,
+      w: cols * ISLAND.cellW + ISLAND.pad * 2,
+      h: ISLAND.top + rows * ISLAND.cellH + ISLAND.bottom,
       cols,
+      rows,
       desks,
+      color: projectColor(k),
     };
   });
   // 由左到右排，超過一行寬度就換行
-  let x = ROOM.gap, y = ROOM.gap, rowH = 0, width = 0;
-  for (const r of rooms) {
-    if (x > ROOM.gap && x + r.w > ROOM.maxRowW) {
-      x = ROOM.gap;
-      y += rowH + ROOM.gap;
+  let x = ISLAND.marginX, y = ISLAND.marginTop, rowH = 0, right = 0;
+  for (const r of islands) {
+    if (x > ISLAND.marginX && x + r.w > ISLAND.maxRowW) {
+      x = ISLAND.marginX;
+      y += rowH + ISLAND.vgap;
       rowH = 0;
     }
     r.x = x;
     r.y = y;
-    x += r.w + ROOM.gap;
+    x += r.w + ISLAND.gap;
     rowH = Math.max(rowH, r.h);
-    width = Math.max(width, x);
+    right = Math.max(right, r.x + r.w);
   }
-  return { rooms, width: Math.max(width, 320), height: Math.max(y + rowH + ROOM.gap, 200) };
+  return {
+    islands,
+    width: Math.max(right + ISLAND.marginX, 320),
+    height: Math.max(y + rowH + ISLAND.marginBottom, 200),
+  };
 }
 
 /** 某個座位那一格的左上角 */
-export const seatCell = (room: Room, seat: number): { x: number; y: number } => ({
-  x: room.x + ROOM.gutter + (seat % room.cols) * DESK_W,
-  y: room.y + ROOM.header + Math.floor(seat / room.cols) * DESK_H,
+export const seatCell = (island: Island, seat: number): { x: number; y: number } => ({
+  x: island.x + ISLAND.pad + (seat % island.cols) * ISLAND.cellW,
+  y: island.y + ISLAND.top + Math.floor(seat / island.cols) * ISLAND.cellH,
 });
 
-/** 辦公室的門（員工進出的位置），與第一排的人物同高 */
-export const doorPos = (room: Room): { x: number; y: number } => ({ x: room.x + 24, y: room.y + ROOM.header + 46 });
+/** 該專案底下等你回覆（waiting）的人數 */
+export const waitingCount = (employees: Iterable<Employee>, key: string): number => {
+  let n = 0;
+  for (const e of employees) if (roomKey(e) === key && e.status === 'waiting') n++;
+  return n;
+};
 
-/** 版面是否需要重畫（房間位置、大小、桌數有變才重畫） */
+/** 員工中心點的上班路線：最左緣 → 島上緣外的走道 → 座位（下班走反向） */
+export const entryPath = (island: Island, seat: number): { x: number; y: number }[] => {
+  const c = seatCell(island, seat);
+  const py = island.y - 16 - 28;
+  const sx = c.x + 48;
+  return [{ x: 0, y: py }, { x: sx, y: py }, { x: sx, y: c.y + 48 }];
+};
+
+/** 版面是否需要重畫（島的位置、大小、桌數有變才重畫） */
 export const layoutSig = (l: Layout): string =>
-  l.rooms.map((r) => [r.key, r.title, r.x, r.y, r.w, r.h, r.desks].join(':')).join('|');
+  l.islands.map((r) => [r.key, r.title, r.x, r.y, r.w, r.h, r.desks].join(':')).join('|');
