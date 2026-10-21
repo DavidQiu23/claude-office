@@ -42,3 +42,6 @@ test('被 dismiss 的 session 再有事件時會回來', () => {
   expect(r.state.employees.s1).toBeDefined();
   expect(r.changes[0].type).toBe('upsert');
 });
+test('dismiss 不會被原型鏈屬性名稱騙到', () => {
+  expect(dismiss(start(), 'toString').changes).toEqual([]);
+});

@@ -1,0 +1,172 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { AddressInfo } from 'node:net';
+import { afterEach, beforeEach, expect, test } from 'vitest';
+import { createApp, portInUseMessage } from '../src/server/app.js';
+
+let app: ReturnType<typeof createApp>;
+let base: string;
+let clock = 1000;
+const dir = mkdtempSync(join(tmpdir(), 'office-'));
+writeFileSync(join(dir, 'index.html'), '<h1>hi</h1>');
+writeFileSync(join(dir, 'a.js'), '1');
+
+beforeEach(async () => {
+  clock = 1000;
+  app = createApp({ staticDir: dir, now: () => clock });
+  await new Promise<void>((r) => app.server.listen(0, '127.0.0.1', r));
+  base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
+});
+afterEach(async () => {
+  app.server.closeAllConnections();
+  await new Promise((r) => app.server.close(r));
+});
+
+const post = (path: string, body: unknown) =>
+  fetch(base + path, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) });
+const start = (id = 's1') =>
+  post('/events', { hook_event_name: 'SessionStart', session_id: id, cwd: 'D:\\p\\api', sentAt: clock });
+const employees = async () => ((await (await fetch(base + '/state')).json()) as any).employees;
+const until = async (cond: () => boolean) => {
+  for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 20));
+  expect(cond()).toBe(true);
+};
+
+test('POST 事件後 GET /state 看得到員工', async () => {
+  expect((await start()).status).toBe(204);
+  const res = await fetch(base + '/state');
+  expect(res.status).toBe(200);
+  const list = (await res.json() as any).employees;
+  expect(list).toHaveLength(1);
+  expect(list[0].sessionId).toBe('s1');
+});
+
+test('SSE 用戶端收到 upsert', async () => {
+  const ac = new AbortController();
+  const res = await fetch(base + '/stream', { signal: ac.signal });
+  expect(res.headers.get('content-type')).toContain('text/event-stream');
+  expect(res.headers.get('cache-control')).toBe('no-cache');
+  await until(() => app.clientCount() === 1);
+  await start();
+  const reader = res.body!.getReader();
+  let text = '';
+  while (!text.includes('\n\n')) text += new TextDecoder().decode((await reader.read()).value);
+  expect(text.startsWith('data: ')).toBe(true);
+  expect(JSON.parse(text.slice(6)).type).toBe('upsert');
+  ac.abort();
+});
+
+test('壞掉的 JSON 回 400，伺服器仍可用', async () => {
+  expect((await post('/events', '{oops')).status).toBe(400);
+  expect((await post('/events', '[1]')).status).toBe(400);
+  expect((await post('/events', 'null')).status).toBe(400);
+  expect((await fetch(base + '/state')).status).toBe(200);
+});
+
+test('過大的 body 回 413', async () => {
+  expect((await post('/events', 'x'.repeat(1024 * 1024 + 1))).status).toBe(413);
+  expect((await fetch(base + '/state')).status).toBe(200);
+});
+
+test('缺少 sentAt 時以 now() 補上', async () => {
+  clock = 5000;
+  await post('/events', { hook_event_name: 'SessionStart', session_id: 's1', cwd: 'D:\\p\\api' });
+  expect((await employees())[0].lastEventAt).toBe(5000);
+});
+
+test('dismiss 後員工消失並推送 leave', async () => {
+  await start();
+  const ac = new AbortController();
+  const res = await fetch(base + '/stream', { signal: ac.signal });
+  await until(() => app.clientCount() === 1);
+  expect((await post('/employees/s1/dismiss', '')).status).toBe(204);
+  expect(await employees()).toHaveLength(0);
+  const reader = res.body!.getReader();
+  let text = '';
+  while (!text.includes('\n\n')) text += new TextDecoder().decode((await reader.read()).value);
+  expect(JSON.parse(text.slice(6))).toEqual({ type: 'leave', sessionId: 's1' });
+  ac.abort();
+  expect((await post('/employees/toString/dismiss', '')).status).toBe(204);
+});
+
+test('SSE 斷線後 clientCount 歸零，之後 POST 不出錯', async () => {
+  const ac = new AbortController();
+  await fetch(base + '/stream', { signal: ac.signal });
+  await until(() => app.clientCount() === 1);
+  ac.abort();
+  await until(() => app.clientCount() === 0);
+  expect((await start()).status).toBe(204);
+});
+
+test('靜態檔案無法用 .. 跳出 staticDir', async () => {
+  const get = (p: string) =>
+    new Promise<number>((resolve, reject) => {
+      // fetch 會正規化 ..，改用原始 http 送出
+      import('node:http').then(({ request }) => {
+        const u = new URL(base);
+        request({ host: u.hostname, port: u.port, path: p }, (r) => (r.resume(), resolve(r.statusCode!))).on('error', reject).end();
+      });
+    });
+  expect(await get('/../package.json')).toBe(404);
+  expect(await get('/%2e%2e/package.json')).toBe(404);
+  expect(await get('/..%5cpackage.json')).toBe(404);
+  const ok = await fetch(base + '/');
+  expect(ok.status).toBe(200);
+  expect(ok.headers.get('content-type')).toContain('text/html');
+  expect((await fetch(base + '/a.js')).headers.get('content-type')).toContain('javascript');
+  expect((await fetch(base + '/nope.png')).status).toBe(404);
+});
+
+test('sweepNow 移除逾時員工', async () => {
+  await start();
+  clock += 12 * 60 * 60 * 1000 + 1;
+  app.sweepNow();
+  expect(await employees()).toHaveLength(0);
+});
+
+test('portInUseMessage 字面輸出反斜線與實際 port', () => {
+  expect(portInUseMessage(1234)).toBe(
+    "port 1234 已被占用，請在 %USERPROFILE%\\.claude-office\\config.json 修改 port",
+  );
+});
+
+test.each([
+  ['toString', 204],
+  ['__proto__', 204],
+  [123, 400],
+  ['', 400],
+  [undefined, 400],
+])('session_id %j 回 %i 而非 500', async (sid, status) => {
+  const r = await post('/events', { hook_event_name: 'SessionStart', session_id: sid, sentAt: 1 });
+  expect(r.status).toBe(status);
+  expect((await fetch(base + '/state')).status).toBe(200);
+});
+
+test('cwd 為數字、tool_input 為字串時不會 500', async () => {
+  expect((await post('/events', { hook_event_name: 'SessionStart', session_id: 'a', cwd: 5, sentAt: 1 })).status).toBe(204);
+  const r = await post('/events', { hook_event_name: 'PreToolUse', session_id: 'a', tool_name: 'Bash', tool_input: 'x', sentAt: 2 });
+  expect(r.status).toBe(204);
+  expect((await employees())[0].folder).toBe('(未知)');
+});
+
+test('超過 1MB 後伺服器切斷連線，用戶端無法繼續塞資料', async () => {
+  const { request } = await import('node:http');
+  const u = new URL(base);
+  const TOTAL = 10 * 1024 * 1024;
+  const chunk = Buffer.alloc(64 * 1024, 'x');
+  const req = request({ host: u.hostname, port: u.port, path: '/events', method: 'POST' }); // 無 Content-Length → chunked
+  let closed = false;
+  req.on('error', () => {});
+  req.on('close', () => (closed = true));
+  let written = 0;
+  while (written < TOTAL && !closed) {
+    written += chunk.length;
+    if (!req.write(chunk))
+      await new Promise<void>((r) => (req.once('drain', r), req.once('close', r)));
+  }
+  req.destroy();
+  expect(closed).toBe(true);
+  expect(written).toBeLessThan(TOTAL);
+  expect((await fetch(base + '/state')).status).toBe(200);
+});

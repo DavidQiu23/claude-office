@@ -4,7 +4,7 @@ import type { Assistant, Change, Employee, HookEvent, OfficeState } from './type
 export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; changes: Change[] } {
   if (!e.session_id) return { state, changes: [] };
   const id = e.session_id;
-  const existing = state.employees[id];
+  const existing = Object.hasOwn(state.employees, id) ? state.employees[id] : undefined;
 
   if (e.hook_event_name === 'SessionEnd') {
     if (!existing) return { state, changes: [] };

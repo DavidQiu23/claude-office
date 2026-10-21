@@ -21,4 +21,4 @@ export const sweep = (state: OfficeState, now: number) =>
   );
 
 export const dismiss = (state: OfficeState, sessionId: string) =>
-  remove(state, sessionId in state.employees ? [sessionId] : []);
+  remove(state, Object.hasOwn(state.employees, sessionId) ? [sessionId] : []);

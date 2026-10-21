@@ -138,3 +138,9 @@ test('不修改傳入的 state', () => {
   reduce(s, ev('SessionStart', { session_id: 's9' }));
   expect(s).toEqual(before);
 });
+
+test.each(['toString', '__proto__', 'constructor'])('原型鏈名稱 %s 的 session_id 視為一般新員工', (id) => {
+  const r = reduce(emptyState(), ev('SessionStart', { session_id: id }));
+  expect(r.changes).toHaveLength(1);
+  expect(Object.hasOwn(r.state.employees, id)).toBe(true);
+});
