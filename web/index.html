@@ -1,1 +1,19 @@
-<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><title>Claude Office</title><body>Claude Office</body></html>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude 辦公室</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1e1e2e; color: #eee; font-family: system-ui, sans-serif; }
+    #summary { padding: 8px 16px; font-size: 16px; }
+    #summary.alert { background: #c0392b; }
+    #game { width: 100%; height: calc(100% - 40px); }
+  </style>
+</head>
+<body>
+  <div id="summary"></div>
+  <div id="game"></div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
