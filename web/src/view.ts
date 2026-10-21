@@ -20,7 +20,8 @@ export const appearance = (sessionId: string): { hair: number; shirt: number } =
   return { hair: h % PALETTE.length, shirt: Math.floor(h / PALETTE.length) % PALETTE.length };
 };
 
-export const nameplate = (e: Employee): [string, string] => [e.folder, truncate(e.lastPrompt, 30)];
+// 名牌只顯示最近的 prompt；換行/連續空白壓成一格，避免名牌變多行而蓋到下一排
+export const nameplate = (e: Employee): string => truncate(e.lastPrompt.replace(/\s+/g, ' ').trim(), 30);
 
 export function summary(employees: Employee[]): { text: string; alert: boolean } {
   const n = (s: Employee['status']) => employees.filter((e) => e.status === s).length;

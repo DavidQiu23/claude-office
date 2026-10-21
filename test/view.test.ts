@@ -17,10 +17,13 @@ test('appearance 對同一個 sessionId 永遠相同', () => {
 });
 
 test('nameplate 截斷 prompt', () => {
-  const [f, p] = nameplate(emp('a', 'idle', { lastPrompt: 'x'.repeat(100) }));
-  expect(f).toBe('proj');
+  const p = nameplate(emp('a', 'idle', { lastPrompt: 'x'.repeat(100) }));
   expect(p).toBe(truncate('x'.repeat(100), 30));
   expect(p.length).toBeLessThan(100);
+});
+
+test('nameplate 換行壓成單行', () => {
+  expect(nameplate(emp('a', 'idle', { lastPrompt: 'a\n\n  b\r\nc ' }))).toBe('a b c');
 });
 
 test('summary 文字與 alert', () => {

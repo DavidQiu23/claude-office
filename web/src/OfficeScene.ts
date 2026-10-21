@@ -526,12 +526,12 @@ export class OfficeScene extends Phaser.Scene {
     const d = this.desks.get(`${roomKey(t)}#${t.seat}`);
     if (!d) return;
     d.img.setTexture(deskKey(deskState(e)));
-    const str = e ? nameplate(e)[1] : '';
-    const obj = d.plate;
-    obj.setBackgroundColor(str ? 'rgba(43,34,51,0.72)' : '');
-    obj.setText(str);
+    const str = e ? nameplate(e) : '';
+    const plate = d.plate;
+    plate.setBackgroundColor(str ? 'rgba(43,34,51,0.72)' : '');
+    plate.setText(str);
     // 依實際寬度裁切並補「…」，避免被硬切在字中間
-    if (obj.width > PLATE_W) obj.setText(fitText(str, (x) => (obj.setText(x), obj.width <= PLATE_W)));
+    if (plate.width > PLATE_W) plate.setText(fitText(str, (x) => (plate.setText(x), plate.width <= PLATE_W)));
   }
 
   // ---- 助理 ----
