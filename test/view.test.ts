@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, nameplate, PALETTE, seatPosition, summary } from '../web/src/view.js';
+import { appearance, deskCount, DoneClock, DONE_MS, fitText, formatTime, nameplate, PALETTE, sceneHeight, seatPosition, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -49,4 +49,49 @@ test('OfficeStore 套用 upsert 與 leave 並通知監聽者', () => {
   s.reset([emp('b')]);
   expect([...s.employees.keys()]).toEqual(['b']);
   expect(seen).toEqual(['upsert', 'leave', 'reset']);
+});
+
+test('deskCount：至少 8 張，座位超過以整排加桌；sceneHeight 隨排數增加', () => {
+  expect(deskCount([])).toBe(8);
+  expect(deskCount([emp('a', 'idle', { seat: 7 })])).toBe(8);
+  expect(deskCount([emp('a', 'idle', { seat: 8 })])).toBe(12);
+  expect(sceneHeight(12)).toBe(sceneHeight(8) + 96);
+});
+
+test('formatTime：HH:mm 補零', () => {
+  expect(formatTime(new Date(2026, 0, 2, 3, 4).getTime())).toBe('03:04');
+});
+
+test('DoneClock：只記第一次完成時間，3 秒後剩餘為 0', () => {
+  const c = new DoneClock();
+  expect(c.remaining('x', 100)).toBe(DONE_MS);
+  c.mark('x', 1000);
+  c.mark('x', 2500);
+  expect(c.remaining('x', 2500)).toBe(DONE_MS - 1500);
+  expect(c.remaining('x', 9999)).toBe(0);
+  c.forget('x');
+  expect(c.remaining('x', 9999)).toBe(DONE_MS);
+});
+
+test('DoneClock：forget 後再 mark 會有全新的 3 秒；prune 只清沒保留的前綴', () => {
+  const c = new DoneClock();
+  c.mark('s/a', 0);
+  c.forget('s/a');
+  c.mark('s/a', 10_000);
+  expect(c.remaining('s/a', 11_000)).toBe(DONE_MS - 1000);
+  c.mark('s/b', 0);
+  c.mark('t/a', 0);
+  c.prune('s/', new Set(['s/a']));
+  expect(c.remaining('s/b', 9999)).toBe(DONE_MS);
+  expect(c.remaining('s/a', 11_000)).toBe(DONE_MS - 1000);
+  expect(c.remaining('t/a', 9999)).toBe(0);
+});
+
+test('fitText：放得下原樣；放不下以「…」結尾；已有「…」仍保留', () => {
+  const fits = (n: number) => (s: string) => [...s].length <= n;
+  expect(fitText('abc', fits(5))).toBe('abc');
+  expect(fitText('abcdefgh', fits(5))).toBe('abcd…');
+  expect(fitText('abcdefgh…', fits(5))).toBe('abcd…');
+  expect(fitText('abcde…', fits(6))).toBe('abcde…');
+  expect(fitText('abc', fits(0))).toBe('…');
 });

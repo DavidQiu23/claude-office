@@ -42,6 +42,19 @@ test('connect：先 reset 再開 SSE，訊息套用到 store，壞資料被忽�
   expect(seen).toEqual(['reset', 'upsert']);
 });
 
+test('型別錯誤的訊息被忽略；listener 丟錯不被吞掉', async () => {
+  const store = new OfficeStore();
+  const seen: string[] = [];
+  store.on((c) => seen.push(c.type));
+  connect(store);
+  await vi.advanceTimersByTimeAsync(0);
+  for (const data of ['null', '42', '{"type":"reset"}', '{"type":"nope"}', '{"type":"upsert"}', '{"type":"upsert","employee":null}', '{"type":"leave"}', '{"type":"leave","sessionId":1}'])
+    FakeES.all[0].onmessage!({ data });
+  expect(seen).toEqual(['reset']);
+  store.on(() => { throw new Error('boom'); });
+  expect(() => FakeES.all[0].onmessage!({ data: JSON.stringify({ type: 'leave', sessionId: 'a' }) })).toThrow('boom');
+});
+
 test('出錯後關閉，2 秒後重新取完整狀態並重連', async () => {
   const store = new OfficeStore();
   connect(store);

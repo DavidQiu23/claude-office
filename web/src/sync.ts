@@ -36,11 +36,18 @@ export function connect(store: OfficeStore, base = ''): void {
       store.reset(employees);
       const es = new EventSource(`${base}/stream`);
       es.onmessage = (m) => {
+        let c: Change;
         try {
-          store.apply(JSON.parse(m.data) as Change);
+          c = JSON.parse(m.data) as Change;
         } catch {
-          // 壞資料忽略
+          return; // 壞資料忽略
         }
+        // apply 在 try 外：listener 的錯誤不該被當成壞資料吞掉
+        if (
+          (c?.type === 'upsert' && typeof c.employee === 'object' && c.employee !== null) ||
+          (c?.type === 'leave' && typeof c.sessionId === 'string')
+        )
+          store.apply(c);
       };
       es.onerror = () => {
         es.close();
