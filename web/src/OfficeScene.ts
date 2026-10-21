@@ -10,7 +10,7 @@ import {
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const FADE_MS = 400;
-const PLATE_W = 100;
+const PLATE_W = 104;
 const MAX_ASSIST = 3;
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
@@ -18,11 +18,11 @@ const WALK_MS = 140; // 走路換幀間隔
 // 一格裡各物件相對格子左上角的位置
 const PERSON = { x: 40, y: 46 }; // 員工座位（人物中心）
 const DESK = { x: 40, y: 84 }; // 桌子中心
-const PLATE = { y1: 106, y2: 117 };
+const PLATE_Y = 108; // 名牌只顯示最近的 prompt（資料夾名稱已在房間招牌上）
 const strHash = (s: string): number => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
 const BOT = { x: 90, y: 30, gap: 30 };
 
-interface DeskObj { img: Phaser.GameObjects.Image; line1: Phaser.GameObjects.Text; line2: Phaser.GameObjects.Text }
+interface DeskObj { img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Text }
 interface AsstView {
   box: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
@@ -278,12 +278,10 @@ export class OfficeScene extends Phaser.Scene {
       const txt = () => ({ fontFamily: FONT, resolution: R, fontSize: '9px', color: '#f4efe6', padding: { x: 3, y: 0 } });
       const d2: DeskObj = {
         img: this.add.image(c.x + DESK.x, c.y + DESK.y, deskKey('empty')).setScale(SCALE).setDepth(c.y + DESK.y),
-        line1: this.add.text(c.x, c.y + PLATE.y1, '', txt()).setDepth(c.y + DESK.y),
-        line2: this.add.text(c.x, c.y + PLATE.y2, '', { ...txt(), color: '#cfc8e8' }).setDepth(c.y + DESK.y),
+        plate: this.add.text(c.x, c.y + PLATE_Y, '', txt()).setDepth(c.y + DESK.y),
       };
       keep(d2.img);
-      keep(d2.line1);
-      keep(d2.line2);
+      keep(d2.plate);
       this.desks.set(`${r.key}#${i}`, d2);
     }
   }
@@ -528,13 +526,12 @@ export class OfficeScene extends Phaser.Scene {
     const d = this.desks.get(`${roomKey(t)}#${t.seat}`);
     if (!d) return;
     d.img.setTexture(deskKey(deskState(e)));
-    const [a, b] = e ? nameplate(e) : ['', ''];
-    for (const [obj, str] of [[d.line1, a], [d.line2, b]] as const) {
-      obj.setBackgroundColor(str ? 'rgba(43,34,51,0.72)' : '');
-      obj.setText(str);
-      // 依實際寬度裁切並補「…」，避免被硬切在字中間
-      if (obj.width > PLATE_W) obj.setText(fitText(str, (x) => (obj.setText(x), obj.width <= PLATE_W)));
-    }
+    const str = e ? nameplate(e)[1] : '';
+    const obj = d.plate;
+    obj.setBackgroundColor(str ? 'rgba(43,34,51,0.72)' : '');
+    obj.setText(str);
+    // 依實際寬度裁切並補「…」，避免被硬切在字中間
+    if (obj.width > PLATE_W) obj.setText(fitText(str, (x) => (obj.setText(x), obj.width <= PLATE_W)));
   }
 
   // ---- 助理 ----
