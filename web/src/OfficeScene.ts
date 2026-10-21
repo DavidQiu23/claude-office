@@ -18,7 +18,7 @@ const WALK_MS = 140; // 走路換幀間隔
 // 一格裡各物件相對格子左上角的位置
 const PERSON = { x: 40, y: 46 }; // 員工座位（人物中心）
 const DESK = { x: 40, y: 84 }; // 桌子中心
-const PLATE_Y = 108; // 名牌只顯示最近的 prompt（資料夾名稱已在房間招牌上）
+const PLATE_Y = 108; // 名牌顯示標題或第一個 prompt（資料夾名稱已在房間招牌上）
 const strHash = (s: string): number => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
 const BOT = { x: 90, y: 30, gap: 30 };
 
@@ -63,6 +63,7 @@ class InfoCard {
       'position:fixed;display:none;z-index:10;max-width:280px;padding:10px 12px;background:#2b2840;color:#eee;' +
       'border:2px solid #8a7fc4;border-radius:4px;font:13px/1.5 system-ui,sans-serif;word-break:break-all;box-shadow:3px 3px 0 #0007';
     this.prompt.style.marginBottom = '4px';
+    this.prompt.style.whiteSpace = 'pre-line';
     this.btn.textContent = '請他下班';
     this.btn.style.cssText = 'margin-top:8px;padding:4px 10px;cursor:pointer';
     this.err.style.cssText = 'color:#ff8a80;margin-top:4px';
@@ -94,7 +95,7 @@ class InfoCard {
   }
 
   fill(e: Employee): void {
-    this.prompt.textContent = `最近的 prompt：${e.lastPrompt || '（無）'}`;
+    this.prompt.textContent = `${e.title ? `標題：${e.title}\n` : ''}第一個 prompt：${e.firstPrompt || '（無）'}\n最近的 prompt：${e.lastPrompt || '（無）'}`;
     this.activity.textContent = `目前：${e.activity ?? '—'}`;
     this.time.textContent = `到班時間：${formatTime(e.arrivedAt)}`;
     this.helpers.textContent = e.assistants.length

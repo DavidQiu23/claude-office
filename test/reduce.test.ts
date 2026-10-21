@@ -31,6 +31,16 @@ test('UserPromptSubmit 變工作中並記下 prompt', () => {
   expect(state.employees.s1.lastPrompt).toBe('修登入 bug');
   expect(state.employees.s1.activity).toBeNull();
 });
+test('firstPrompt 只記第一個 prompt；transcript_path 被記下', () => {
+  const { state } = run([
+    ev('SessionStart', { transcript_path: '/t/s1.jsonl' }),
+    ev('UserPromptSubmit', { prompt: '第一個' }),
+    ev('UserPromptSubmit', { prompt: '第二個' }),
+  ]);
+  expect(state.employees.s1.firstPrompt).toBe('第一個');
+  expect(state.employees.s1.lastPrompt).toBe('第二個');
+  expect(state.employees.s1.transcriptPath).toBe('/t/s1.jsonl');
+});
 test('PreToolUse 更新 activity', () => {
   const { state } = run([ev('PreToolUse', { tool_name: 'Edit', tool_input: { file_path: 'src/app.ts' } })]);
   expect(state.employees.s1.status).toBe('working');

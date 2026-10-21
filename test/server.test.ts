@@ -200,3 +200,14 @@ test('外來 Origin 的 POST 被擋，沒建立員工；同源與無 Origin 照�
   expect(await raw('POST', '/events', h, evBody.replace('"x"', '"y"'))).toBe(204);
   expect(await employees()).toHaveLength(2);
 });
+test('Stop 之後從 transcript 讀到標題並更新員工', async () => {
+  const tp = join(dir, 'tr.jsonl');
+  writeFileSync(tp, JSON.stringify({ type: 'ai-title', aiTitle: '修登入' }) + '\n');
+  await post('/events', { hook_event_name: 'SessionStart', session_id: 's1', cwd: 'D:\\p\\api', transcript_path: tp, sentAt: clock });
+  await post('/events', { hook_event_name: 'Stop', session_id: 's1', sentAt: clock + 1 });
+  for (let i = 0; i < 100; i++) {
+    if ((await employees())[0].title) break;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  expect((await employees())[0].title).toBe('修登入');
+});

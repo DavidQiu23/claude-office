@@ -1,14 +1,26 @@
 // 模擬 4 個 session 對本機伺服器送事件。用法：npx tsx scripts/simulate.ts [--loop]
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { loadConfig } from '../src/config.js';
 
 const GAP_MS = 1500;
 const url = `http://127.0.0.1:${loadConfig().port}/events`;
 const loop = process.argv.includes('--loop');
 
-const sid = (n: string) => `sim-${n}`;
+const SIDS: Record<string, string> = { a: '3f9a-sim-a', b: 'b27c-sim-b', c: '91de-sim-c', d: 'c4a0-sim-d' };
+const sid = (n: string) => SIDS[n];
 const CWD: Record<string, string> = { a: 'C:/work/api', b: 'C:/work/blog', c: 'C:/work/shop', d: 'C:/work/shop' };
+// 假 transcript：只放 ai-title，Stop 之後伺服器會讀到並顯示在名牌上
+const TITLES: Record<string, string> = { a: '登入流程重構', b: '部落格標題修正', c: '結帳頁面實作', d: '商品資料表整理' };
+const tdir = mkdtempSync(join(tmpdir(), 'office-sim-'));
+const transcript = (n: string) => {
+  const p = join(tdir, `${sid(n)}.jsonl`);
+  writeFileSync(p, JSON.stringify({ type: 'ai-title', aiTitle: TITLES[n], sessionId: sid(n) }) + '\n');
+  return p;
+};
 const ev = (n: string, hook_event_name: string, extra: Record<string, unknown> = {}) => ({
-  hook_event_name, session_id: sid(n), cwd: CWD[n], ...extra,
+  hook_event_name, session_id: sid(n), cwd: CWD[n], transcript_path: transcript(n), ...extra,
 });
 const prompt = (n: string, p: string) => ev(n, 'UserPromptSubmit', { prompt: p });
 const tool = (n: string, tool_name: string, tool_input: Record<string, unknown>) => ev(n, 'PreToolUse', { tool_name, tool_input });
@@ -31,6 +43,7 @@ const script = [
   done('c', 'sim-t1'),
   tool('a', 'Bash', { command: 'npm run lint' }),
   done('c', 'sim-t2'),
+  prompt('a', '好，繼續'),
   ev('a', 'Stop'),
   tool('d', 'Grep', { pattern: 'products' }),
   ev('b', 'Stop'),

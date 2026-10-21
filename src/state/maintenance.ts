@@ -22,3 +22,13 @@ export const sweep = (state: OfficeState, now: number) =>
 
 export const dismiss = (state: OfficeState, sessionId: string) =>
   remove(state, Object.hasOwn(state.employees, sessionId) ? [sessionId] : []);
+
+export const setTitle = (state: OfficeState, sessionId: string, title: string): { state: OfficeState; changes: Change[] } => {
+  const emp = Object.hasOwn(state.employees, sessionId) ? state.employees[sessionId] : undefined;
+  if (!emp || emp.title === title) return { state, changes: [] };
+  const employee = { ...emp, title };
+  return {
+    state: { ...state, employees: { ...state.employees, [sessionId]: employee } },
+    changes: [{ type: 'upsert', employee }],
+  };
+};

@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
-import { dismiss, sweep } from '../state/maintenance.js';
+import { dismiss, setTitle, sweep } from '../state/maintenance.js';
 import { reduce } from '../state/reduce.js';
+import { readAiTitle } from './title.js';
 import { emptyState, type Change, type HookEvent } from '../state/types.js';
 
 export const portInUseMessage = (port: number): string =>
@@ -90,12 +91,19 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
       const ev = body as Record<string, any>;
       if (typeof ev.session_id !== 'string' || !ev.session_id) return void res.writeHead(400).end();
       // 型別不符的欄位視為不存在，避免 reduce 內部丟錯
-      for (const k of ['cwd', 'prompt', 'tool_name', 'tool_use_id', 'notification_type', 'message', 'agent_id', 'agent_type'])
+      for (const k of ['cwd', 'transcript_path', 'prompt', 'tool_name', 'tool_use_id', 'notification_type', 'message', 'agent_id', 'agent_type'])
         if (typeof ev[k] !== 'string') delete ev[k];
       if (typeof ev.hook_event_name !== 'string') ev.hook_event_name = '';
       if (typeof ev.tool_input !== 'object' || ev.tool_input === null || Array.isArray(ev.tool_input)) delete ev.tool_input;
       if (!Number.isFinite(ev.sentAt)) ev.sentAt = now();
-      apply(reduce(state, ev as HookEvent));
+      const r = reduce(state, ev as HookEvent);
+      apply(r);
+      // 標題在第一輪回應後才會寫進 transcript；回合結束時背景讀取，不拖慢 hook 回應
+      const emp = ev.hook_event_name === 'Stop' && !ev.agent_id ? r.state.employees[ev.session_id] : undefined;
+      if (emp?.transcriptPath)
+        void readAiTitle(emp.transcriptPath).then((t) => {
+          if (t) apply(setTitle(state, emp.sessionId, t));
+        });
       return void res.writeHead(204).end();
     }
     if (method === 'GET' && path === '/state') {

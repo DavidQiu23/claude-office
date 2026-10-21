@@ -5,7 +5,7 @@ import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
 
 const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Employee> = {}): Employee => ({
-  sessionId: id, folder: 'proj', cwd: '/x/proj', lastPrompt: 'hi', status, activity: null,
+  sessionId: id, folder: 'proj', cwd: '/x/proj', lastPrompt: 'hi', firstPrompt: '', title: '', transcriptPath: '', status, activity: null,
   seat: 0, arrivedAt: 0, lastEventAt: 0, assistants: [], ...over,
 });
 
@@ -16,14 +16,20 @@ test('appearance 對同一個 sessionId 永遠相同', () => {
   expect(a.shirt).toBeLessThan(PALETTE.length);
 });
 
-test('nameplate 截斷 prompt', () => {
-  const p = nameplate(emp('a', 'idle', { lastPrompt: 'x'.repeat(100) }));
-  expect(p).toBe(truncate('x'.repeat(100), 30));
-  expect(p.length).toBeLessThan(100);
+test('nameplate 截斷內容', () => {
+  const p = nameplate(emp('abcd1234', 'idle', { title: 'x'.repeat(100) }));
+  expect(p).toBe(truncate('x'.repeat(100), 24));
+});
+
+test('nameplate 優先順序：標題 > 第一個 prompt > 最近的 prompt', () => {
+  const o = { title: 'T', firstPrompt: 'F', lastPrompt: 'L' };
+  expect(nameplate(emp('abcd', 'idle', o))).toBe('T');
+  expect(nameplate(emp('abcd', 'idle', { ...o, title: '' }))).toBe('F');
+  expect(nameplate(emp('abcd', 'idle', { ...o, title: '', firstPrompt: '' }))).toBe('L');
 });
 
 test('nameplate 換行壓成單行', () => {
-  expect(nameplate(emp('a', 'idle', { lastPrompt: 'a\n\n  b\r\nc ' }))).toBe('a b c');
+  expect(nameplate(emp('abcd', 'idle', { title: 'a\n\n  b\r\nc ' }))).toBe('a b c');
 });
 
 test('summary 文字與 alert', () => {

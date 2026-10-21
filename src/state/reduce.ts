@@ -27,6 +27,9 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       folder: e.cwd ? folderName(e.cwd) : '(未知)',
       cwd: e.cwd ?? '',
       lastPrompt: '',
+      firstPrompt: '',
+      title: '',
+      transcriptPath: '',
       status: 'idle',
       activity: null,
       seat,
@@ -35,6 +38,8 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       assistants: [],
     };
   }
+
+  if (e.transcript_path && !e.agent_id) emp.transcriptPath = e.transcript_path;
 
   // 已完成的助理在下一個事件時移除；複製一份，避免改到傳入的 state
   let assistants: Assistant[] = emp.assistants.filter((a) => a.status !== 'done');
@@ -47,6 +52,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       case 'UserPromptSubmit':
         emp.status = 'working';
         emp.lastPrompt = e.prompt ?? '';
+        if (!emp.firstPrompt) emp.firstPrompt = emp.lastPrompt;
         if (top) {
           emp.activity = null;
           finish();

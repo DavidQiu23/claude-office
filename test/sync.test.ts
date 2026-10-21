@@ -3,7 +3,7 @@ import { connect, OfficeStore } from '../web/src/sync.js';
 import type { Employee } from '../src/state/types.js';
 
 const emp = (id: string): Employee => ({
-  sessionId: id, folder: 'p', cwd: '/p', lastPrompt: '', status: 'idle', activity: null,
+  sessionId: id, folder: 'p', cwd: '/p', lastPrompt: '', firstPrompt: '', title: '', transcriptPath: '', status: 'idle', activity: null,
   seat: 0, arrivedAt: 0, lastEventAt: 0, assistants: [],
 });
 

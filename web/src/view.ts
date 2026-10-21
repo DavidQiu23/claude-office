@@ -20,8 +20,13 @@ export const appearance = (sessionId: string): { hair: number; shirt: number } =
   return { hair: h % PALETTE.length, shirt: Math.floor(h / PALETTE.length) % PALETTE.length };
 };
 
-// 名牌只顯示最近的 prompt；換行/連續空白壓成一格，避免名牌變多行而蓋到下一排
-export const nameplate = (e: Employee): string => truncate(e.lastPrompt.replace(/\s+/g, ' ').trim(), 30);
+// 名牌：session 標題（沒有就用第一個 prompt），這些在 session 期間不會變，比最近的 prompt 好認。
+// 換行/連續空白壓成一格，避免名牌變多行而蓋到下一排
+const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
+export const nameplate = (e: Employee): string => {
+  const base = oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt);
+  return truncate(base, 24);
+};
 
 export function summary(employees: Employee[]): { text: string; alert: boolean } {
   const n = (s: Employee['status']) => employees.filter((e) => e.status === s).length;

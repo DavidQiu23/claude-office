@@ -2,6 +2,7 @@ export interface HookEvent {
   hook_event_name: string;
   session_id: string;
   cwd?: string;
+  transcript_path?: string;
   prompt?: string;
   tool_name?: string;
   tool_input?: Record<string, unknown>;
@@ -27,6 +28,9 @@ export interface Employee {
   folder: string;
   cwd: string;
   lastPrompt: string;
+  firstPrompt: string;         // session 的第一個 prompt，通常最能代表主題
+  title: string;               // transcript 裡的 ai-title；還沒產生時為空字串
+  transcriptPath: string;
   status: EmployeeStatus;
   activity: string | null;
   seat: number;                // 從 0 開始
