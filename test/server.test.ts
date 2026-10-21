@@ -163,7 +163,11 @@ test('超過 1MB 後伺服器切斷連線，用戶端無法繼續塞資料', asy
   while (written < TOTAL && !closed) {
     written += chunk.length;
     if (!req.write(chunk))
-      await new Promise<void>((r) => (req.once('drain', r), req.once('close', r)));
+      await new Promise<void>((r) => {
+        const done = () => (req.off('drain', done), req.off('close', done), r());
+        req.on('drain', done);
+        req.on('close', done);
+      });
   }
   req.destroy();
   expect(closed).toBe(true);

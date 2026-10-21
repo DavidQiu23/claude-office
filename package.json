@@ -7,8 +7,8 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "start": "node dist/server/main.js",
-    "install-hooks": "node dist/installer/cli.js install",
-    "uninstall-hooks": "node dist/installer/cli.js uninstall",
+    "install-hooks": "node dist/installer/main.js install",
+    "uninstall-hooks": "node dist/installer/main.js uninstall",
     "simulate": "tsx scripts/simulate.ts"
   },
   "devDependencies": {
