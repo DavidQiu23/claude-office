@@ -86,6 +86,19 @@ export const fitText = (text: string, fits: (s: string) => boolean): string => {
   return '…';
 };
 
+/** 文字太寬時，保留開頭與結尾、中間換成「…」使 fits 為真（結尾多留一字，同開頭的名字仍可分辨）；原本就放得下則原樣回傳。 */
+export const fitMiddle = (text: string, fits: (s: string) => boolean): string => {
+  if (fits(text)) return text;
+  const chars = [...text];
+  for (let n = chars.length - 1; n > 0; n--) {
+    const head = Math.floor(n / 2);
+    const tail = n - head;
+    const t = chars.slice(0, head).join('') + '…' + chars.slice(chars.length - tail).join('');
+    if (fits(t)) return t;
+  }
+  return '…';
+};
+
 // ---- 版面：一個專案（cwd）一座桌島 ----
 
 export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, bottom: 10, gap: 44, marginX: 40, marginTop: 72, vgap: 72, marginBottom: 40, maxRowW: 1100, maxCols: 3 };

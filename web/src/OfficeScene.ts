@@ -1,31 +1,63 @@
 import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
 import type { Assistant, Employee } from '../../src/state/types.js';
-import { bakeTextures, deskKey, ensureChar, SCALE, type DeskState, type Pose } from './art.js';
+import { addSprite, bakeTextures, deskKey, ensureChar, setSprite, type DeskState, type Pose } from './art.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, doorPos, fitText, formatTime, layout, layoutSig, nameplate, PALETTE, ROOM, roomKey, seatCell,
-  DoneClock, BASE_H, BASE_W, type Layout, type Room,
+  appearance, entryPath, fitMiddle, fitText, formatTime, layout, layoutSig, nameplate, PALETTE, roomKey, seatCell, waitingCount,
+  DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout,
 } from './view.js';
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const FADE_MS = 400;
-const PLATE_W = 104;
-const MAX_ASSIST = 3;
+const PLATE_W = 84;
+const MAX_ASSIST = 2; // 一格最多畫 2 個助理，其餘以「+N」表示
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
 
-// 一格裡各物件相對格子左上角的位置
-const PERSON = { x: 40, y: 54 }; // 員工座位（人物中心）
-const DESK = { x: 40, y: 84 }; // 桌子中心
-const PLATE_Y = 108; // 名牌顯示標題或第一個 prompt（資料夾名稱已在房間招牌上）
-const strHash = (s: string): number => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
-const BOT = { x: 92, y: 30, gap: 30 };
-const EXCL_Y = -50; // 驚嘆號在頭頂上方，每 0.4 秒上下跳
+// 地板與島
+const FLOOR = '#2d3558';
+const TILE = 56; // 地板磁磚線間距
+const ISLAND_R = 22;
+const FAILED_SIG = '\u0000failed'; // 不會等於任何版面簽名：強制下次重畫
+const SIGN = { dx: 16, dy: -14, h: 28, r: 8, color: 0xf4ecd6, text: '#2a2238', badge: 0xff4d4d, badgeH: 20, minName: 48 };
+
+// 一格（seatCell 左上角）裡各物件的相對位置
+const PERSON = { x: 48, y: 48 }; // 員工座位（人物中心）
+const DESK = { x: 12, y: 66, h: 36 }; // 桌子素材 (0,0) 位置與高度
+const PLATE = { x: 6, y: 108 }; // 名牌顯示標題或第一個 prompt（專案名稱在招牌上）
+// 助理站在桌子前面：第 1 個在右（x 60..84）、第 2 個在左（x 12..36），y 68..92，都在自己的格子內。
+// 標籤（約 46×14）在機器人正下方，中心 y 100（約 93..107），左右兩個標籤約 1..47 與 49..95 不重疊，
+// 也在名牌（y 108 起）上方；超過 2 個時「+N」在兩個機器人中間（中心 48,85，約 78..92），不碰標籤。
+const BOT = { size: 24, y: 68, xs: [60, 12], labelY: 100, more: { x: 48, y: 85 } };
+const CHAR = { x: -20, y: -28 }; // 角色素材 (0,0) 相對人物中心
+// 驚嘆號素材 (0,0) 相對人物中心，每 0.4 秒上下跳。素材高 27；舉手時頭髮頂端約 -28 + RAISE_Y + 2 = -32
+// （丸子頭 -38.5、舉起的手 -30），驚嘆號底部放在 -36，比一般頭髮高 4
+const EXCL = { x: -10, y: -36 - 27 };
 const EXCL_BOUNCE = 4;
-const CAT_MS = 1200; // 貓呼吸換幀間隔
+const RAISE_Y = -6; // 舉手時身體上移
+
+/** 兩個 #rrggbb 依比例 t 混合（t = 0 為 a），回傳 Phaser 顏色數字 */
+const mixColor = (a: string, b: string, t: number): number => {
+  const ch = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16) || 0;
+  let out = 0;
+  for (let i = 0; i < 3; i++) out = (out << 8) | Math.round(ch(a, i) * (1 - t) + ch(b, i) * t);
+  return out;
+};
+const hexNum = (h: string): number => parseInt(h.slice(1), 16) || 0;
 
 interface DeskObj { img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Text }
+interface SignObj {
+  isl: Island;
+  board: Phaser.GameObjects.Graphics;
+  name: Phaser.GameObjects.Text;
+  badge: Phaser.GameObjects.Container;
+  badgeBg: Phaser.GameObjects.Graphics;
+  text: Phaser.GameObjects.Text;
+  tween?: Phaser.Tweens.Tween;
+  count: number; // 上次畫的等待人數（-1 = 還沒畫過）
+}
+interface Leaver { emp: Employee; sprite: Phaser.GameObjects.Image }
 interface AsstView {
   box: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
@@ -47,6 +79,8 @@ interface Slot {
   anim?: Phaser.Time.TimerEvent; // 打字換幀
   assist: Map<string, AsstView>;
 }
+
+type Pt = { x: number; y: number };
 
 // 資訊卡（HTML 浮層）。內容一律用 textContent，避免 prompt 內容被當成 HTML。
 class InfoCard {
@@ -121,13 +155,13 @@ const deskState = (e?: Employee): DeskState =>
   !e ? 'empty' : e.status === 'waiting' ? 'waiting' : e.status === 'working' ? 'working' : 'idle';
 
 export class OfficeScene extends Phaser.Scene {
-  private lay: Layout = { rooms: [], width: BASE_W, height: BASE_H };
+  private lay: Layout = { islands: [], width: BASE_W, height: BASE_H };
   private sig = '';
   private roomObjs: Phaser.GameObjects.GameObject[] = [];
-  private roomTimers: Phaser.Time.TimerEvent[] = []; // 房間裝飾的動畫計時（貓），重畫房間時要移除
   private desks = new Map<string, DeskObj>();
+  private signs = new Map<string, SignObj>();
   private slots = new Map<string, Slot>();
-  private leaving = new Map<Phaser.GameObjects.Container, Employee>(); // 走向門口中的人，離開前房間要保留
+  private leaving = new Map<Phaser.GameObjects.Container, Leaver>(); // 走向出口中的人，離開前島要保留
   private clock = new DoneClock(); // 跨 reset 保留，已淡出的助理不會因重連又出現
   private card!: InfoCard;
   private emptyText!: Phaser.GameObjects.Text;
@@ -149,165 +183,227 @@ export class OfficeScene extends Phaser.Scene {
     this.card = new InfoCard();
     this.rebuild();
     this.store.on((c) => {
-      if (c.type === 'reset') this.rebuild();
-      else if (c.type === 'leave') this.leave(c.sessionId);
+      // 兩步各自 try：重排出錯時仍要把員工放上去
+      if (c.type === 'reset') this.guard(() => this.rebuild());
+      else if (c.type === 'leave') this.guard(() => this.leave(c.sessionId));
       else {
-        this.relayout();
-        this.upsert(c.employee, true);
+        this.guard(() => this.relayout());
+        this.guard(() => this.upsert(c.employee, true));
       }
     });
   }
 
-  // ---- 版面：一個資料夾一間辦公室 ----
+  /** 執行 fn，例外只記錄不往外丟（避免中斷 Phaser 的每幀迴圈或留下畫一半的場景） */
+  private guard(fn: () => void): void {
+    try {
+      fn();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // ---- 版面：一片地板，一個專案一座島 ----
 
   private layoutEmployees(): Employee[] {
     const list = [...this.store.employees.values()];
-    for (const e of this.leaving.values()) if (!this.store.employees.has(e.sessionId)) list.push(e);
+    for (const { emp } of this.leaving.values()) if (!this.store.employees.has(emp.sessionId)) list.push(emp);
     return list;
   }
 
-  private roomOf(e: Employee): Room | undefined {
+  private islandOf(e: Employee): Island | undefined {
     const k = roomKey(e);
-    return this.lay.rooms.find((r) => r.key === k);
+    return this.lay.islands.find((r) => r.key === k);
   }
 
-  private cellOf(e: Employee): { x: number; y: number } {
-    const r = this.roomOf(e);
-    return r ? seatCell(r, e.seat) : { x: 0, y: 0 };
+  private cellOf(e: Employee): Pt {
+    const r = this.islandOf(e);
+    return r ? seatCell(r, Math.max(0, e.seat)) : { x: 0, y: 0 };
   }
 
-  private homeOf(e: Employee): { x: number; y: number } {
+  private homeOf(e: Employee): Pt {
     const c = this.cellOf(e);
     return { x: c.x + PERSON.x, y: c.y + PERSON.y };
   }
 
-  private doorOf(e: Employee): { x: number; y: number } {
-    const r = this.roomOf(e);
-    return r ? doorPos(r) : { x: 24, y: 80 };
+  /** 上班路線：最左緣 → 島上方走道 → 座位（找不到島時直接到座位） */
+  private entryOf(e: Employee): Pt[] {
+    const r = this.islandOf(e);
+    return r ? entryPath(r, Math.max(0, e.seat)) : [this.homeOf(e)];
   }
 
-  /** 房間的位置、大小或桌數有變才重畫；在座位上的人跟著搬到新位置 */
+  /** 走路中重新規劃路線：先回到島上方走道，再沿走道到座位正上方，最後往下 */
+  private rerouteTo(e: Employee, from: Pt): Pt[] {
+    const p = this.entryOf(e);
+    const corridor = p[1];
+    const seat = p[2];
+    if (p.length < 3 || !corridor || !seat) return [this.homeOf(e)];
+    if (Math.abs(from.x - seat.x) < 1) return [seat]; // 已在座位正上方/下方：直接走過去，不繞回走道
+    return [{ x: from.x, y: corridor.y }, ...p.slice(1)];
+  }
+
+  /** 下班路線：從目前位置上到走道，再往左走出辦公室 */
+  private exitOf(e: Employee, from: Pt): Pt[] {
+    const p = this.entryOf(e);
+    const corridor = p[1];
+    if (p.length < 3 || !corridor) return [{ x: 0, y: from.y }];
+    const seat = p[2];
+    // 在座位上：照上班路線反過來走；不在座位（走到一半）：直接上走道再出去
+    if (seat && Math.hypot(seat.x - from.x, seat.y - from.y) < 1) return [...p].reverse();
+    return [{ x: from.x, y: corridor.y }, { x: 0, y: corridor.y }];
+  }
+
+  /** 島的位置、大小或桌數有變才重畫；在座位上的人跟著搬到新位置 */
   private relayout(force = false): void {
     const next = layout(this.layoutEmployees());
     const sig = layoutSig(next);
     if (!force && sig === this.sig) return;
-    this.sig = sig;
+    // 簽名等全部畫成功才記下；中途出錯時下一次 relayout 會重畫，不會停在畫一半的狀態
+    this.sig = FAILED_SIG;
     this.lay = next;
+    for (const s of this.signs.values()) this.tweens.killTweensOf(s.badge);
+    this.signs.clear();
     for (const o of this.roomObjs) o.destroy();
     this.roomObjs = [];
-    for (const t of this.roomTimers) t.remove(false);
-    this.roomTimers = [];
     this.desks.clear(); // 桌子物件已隨 roomObjs 銷毀
-    for (const r of next.rooms) this.drawRoom(r);
-    this.emptyText.setPosition(next.width / 2, next.height / 2).setVisible(next.rooms.length === 0);
-    this.scale.resize(next.width * this.z, next.height * this.z);
-    this.game.events.emit('office-size', next.width, next.height);
-    for (const s of this.slots.values()) {
-      const home = this.homeOf(s.emp);
-      if (s.walking) this.startWalk(s, home);
-      else {
-        s.person.setPosition(home.x, home.y);
-        this.sortDepth(s.person);
+    let ok = true;
+    try {
+      this.drawFloor(next);
+    } catch (e) {
+      ok = false;
+      console.error(e);
+    }
+    for (const r of next.islands) {
+      try {
+        this.drawIsland(r);
+      } catch (e) {
+        ok = false;
+        console.error(e); // 一座島畫失敗不影響其他島
       }
-      this.drawDesk(s.emp);
-      this.syncAssistants(s, s.emp);
+    }
+    if (ok) this.sig = sig;
+    this.guard(() => {
+      this.emptyText.setPosition(next.width / 2, next.height / 2).setVisible(next.islands.length === 0);
+      this.scale.resize(next.width * this.z, next.height * this.z);
+      this.game.events.emit('office-size', next.width, next.height);
+    });
+    for (const s of this.slots.values()) {
+      this.guard(() => {
+        if (s.walking) this.startWalk(s, this.rerouteTo(s.emp, s.person));
+        else {
+          const home = this.homeOf(s.emp);
+          s.person.setPosition(home.x, home.y);
+          this.sortDepth(s.person);
+        }
+        this.drawDesk(s.emp);
+        this.syncAssistants(s, s.emp);
+      });
+    }
+    // 島搬動了，走出中的人重新規劃路線
+    for (const [person, l] of [...this.leaving]) this.guard(() => this.walkOut(person, l));
+    this.guard(() => this.updateSigns());
+  }
+
+  private keep<T extends Phaser.GameObjects.GameObject>(o: T): T {
+    this.roomObjs.push(o);
+    return o;
+  }
+
+  private drawFloor(l: Layout): void {
+    this.keep(this.add.rectangle(0, 0, l.width, l.height, hexNum(FLOOR)).setOrigin(0).setDepth(-100));
+    const g = this.keep(this.add.graphics().setDepth(-100));
+    g.lineStyle(1, 0xffffff, 0.035);
+    for (let x = TILE; x < l.width; x += TILE) g.lineBetween(x, 0, x, l.height);
+    for (let y = TILE; y < l.height; y += TILE) g.lineBetween(0, y, l.width, y);
+  }
+
+  private drawIsland(isl: Island): void {
+    const R = this.z;
+    const base = this.keep(this.add.graphics().setDepth(-90));
+    base.fillStyle(mixColor(FLOOR, isl.color, 0.3), 1).fillRoundedRect(isl.x, isl.y, isl.w, isl.h, ISLAND_R);
+
+    // 招牌：米色板 + 專案色塊 + 專案名；等你回覆的人數由 updateSigns 畫徽章並調整板寬
+    const depth = isl.y + 20;
+    const sx = isl.x + SIGN.dx;
+    const sy = isl.y + SIGN.dy;
+    const board = this.keep(this.add.graphics().setDepth(depth));
+    const name = this.keep(
+      this.add
+        .text(sx + 22, sy + SIGN.h / 2, isl.title, { fontFamily: FONT, resolution: R, fontSize: '14px', fontStyle: 'bold', color: SIGN.text })
+        .setOrigin(0, 0.5)
+        .setDepth(depth),
+    );
+    const badgeBg = this.add.graphics();
+    const text = this.add
+      .text(0, 0, '', { fontFamily: FONT, resolution: R, fontSize: '11px', fontStyle: 'bold', color: '#ffffff' })
+      .setOrigin(0.5);
+    const badge = this.keep(this.add.container(sx, sy + SIGN.h / 2, [badgeBg, text]).setDepth(depth).setVisible(false));
+    this.signs.set(isl.key, { isl, board, name, badge, badgeBg, text, count: -1 });
+
+    for (let i = 0; i < isl.desks; i++) {
+      const c = seatCell(isl, i);
+      const d: DeskObj = {
+        img: this.keep(addSprite(this, deskKey('empty'), c.x + DESK.x, c.y + DESK.y).setDepth(c.y + DESK.y + DESK.h)),
+        plate: this.keep(
+          this.add
+            .text(c.x + PLATE.x, c.y + PLATE.y, '', { fontFamily: FONT, resolution: R, fontSize: '9px', color: '#f4efe6', padding: { x: 3, y: 1 } })
+            .setDepth(c.y + DESK.y + DESK.h),
+        ),
+      };
+      this.desks.set(`${isl.key}#${i}`, d);
     }
   }
 
-  private drawRoom(r: Room): void {
-    const keep = <T extends Phaser.GameObjects.GameObject>(o: T): T => {
-      this.roomObjs.push(o);
-      return o;
-    };
-    const R = this.z;
-    const h = strHash(r.key);
-    const head = ROOM.header;
-    const wain = 8 * SCALE; // 護牆板高度
-    keep(this.add.tileSprite(r.x, r.y, r.w, head - wain, 'wall').setOrigin(0).setTileScale(SCALE).setDepth(-100));
-    keep(this.add.tileSprite(r.x, r.y + head - wain, r.w, wain, 'wainscot').setOrigin(0).setTileScale(SCALE).setDepth(-100));
-    keep(this.add.tileSprite(r.x, r.y + head, r.w, r.h - head, 'floor').setOrigin(0).setTileScale(SCALE).setDepth(-100));
-    const g = keep(this.add.graphics().setDepth(-99));
-    g.lineStyle(3, 0x1d1a2e, 1).strokeRect(r.x, r.y, r.w, r.h);
+  /** 招牌：依各專案等你回覆的人數更新徽章（數量 > 0 才顯示並放大縮小），板寬隨之重畫 */
+  private updateSigns(): void {
+    for (const s of this.signs.values()) {
+      if (!s.board.active || !s.badge.active) continue;
+      const n = waitingCount(this.store.employees.values(), s.isl.key);
+      if (n === s.count) continue;
+      s.count = n;
+      const show = n > 0;
+      const { isl } = s;
+      const sx = isl.x + SIGN.dx;
+      const sy = isl.y + SIGN.dy;
 
-    // 招牌：資料夾名稱
-    const maxW = r.w - 140;
-    const title = keep(
-      this.add
-        .text(0, 0, r.title, { fontFamily: FONT, resolution: R, fontSize: '14px', fontStyle: 'bold', color: '#2a2238' })
-        .setDepth(-97),
-    );
-    if (title.width > maxW) title.setText(fitText(r.title, (t) => (title.setText(t), title.width <= maxW)));
-    const sw = Math.ceil(title.width) + 20;
-    g.fillStyle(0x1d1a2e, 1).fillRect(r.x + 10, r.y + 8, sw, 28);
-    g.fillStyle(0xf2e6c9, 1).fillRect(r.x + 12, r.y + 10, sw - 4, 24);
-    title.setOrigin(0.5).setPosition(r.x + 10 + sw / 2, r.y + 22);
-    const signEnd = 10 + sw;
+      let bw = 0;
+      if (show) {
+        s.text.setText(`等你 ${n}`);
+        bw = Math.ceil(s.text.width) + 14;
+        s.badgeBg.clear().fillStyle(SIGN.badge, 1).fillRoundedRect(-bw / 2, -SIGN.badgeH / 2, bw, SIGN.badgeH, SIGN.badgeH / 2);
+      }
 
-    // 右側角落擺一件家具（依資料夾決定），窗戶在它左邊，牆上再掛一件小裝飾
-    const corner = ['plant', 'cooler', 'bookcase'][h % 3];
-    const cx = r.x + r.w - 26;
-    if (corner === 'plant') keep(this.add.image(cx, r.y + head + 22, 'plant').setScale(SCALE).setDepth(-50));
-    else if (corner === 'cooler') keep(this.add.image(cx, r.y + head - 6, 'cooler').setScale(SCALE).setDepth(-50));
-    else keep(this.add.image(cx, r.y + head - 4, 'bookcase').setScale(SCALE).setDepth(-50));
-    const wx = r.w - 90; // 窗戶中心（相對房間左邊）
-    if (signEnd < wx - 24 * SCALE) {
-      const win = keep(this.add.image(r.x + wx, r.y + 22, 'window').setScale(SCALE).setDepth(-98));
-      // 窗外的月光灑在地板上
-      g.fillStyle(0x9fc3ff, 0.08);
-      g.fillPoints(
-        [
-          new Phaser.Geom.Point(win.x - 16, r.y + head),
-          new Phaser.Geom.Point(win.x + 16, r.y + head),
-          new Phaser.Geom.Point(win.x + 58, r.y + r.h - 12),
-          new Phaser.Geom.Point(win.x + 6, r.y + r.h - 12),
-        ],
-        true,
-      );
-    }
-    const dx = wx - 62;
-    const decors: [string, number][] = [['clock', 5], ['poster-0', 6], ['poster-1', 6], ['poster-2', 6], ['sconce', 10], ['whiteboard', 14]];
-    const [decor, half] = decors[(h >>> 3) % decors.length];
-    if (signEnd < dx - half * SCALE - 8) {
-      const y = decor === 'sconce' ? 28 : decor === 'whiteboard' ? 22 : 24;
-      keep(this.add.image(r.x + dx, r.y + y, decor).setScale(SCALE).setDepth(decor === 'sconce' ? -97 : -98));
-    }
+      // 招牌可以伸進右側走道：整塊招牌右緣最多到島右緣 + 走道寬 - 8（不碰下一座島的招牌）。
+      // 1 欄的島：無徽章時專案名最寬 112，有徽章時約 112 - 2 - 徽章寬
+      const boardMax = isl.w + ISLAND.gap - 8 - SIGN.dx;
+      const maxName = Math.max(SIGN.minName, show ? boardMax - 34 - bw : boardMax - 32);
+      s.name.setText(isl.title);
+      // 放不下時從中間截斷，保留開頭與結尾（同開頭的專案仍可分辨）
+      if (s.name.width > maxName) s.name.setText(fitMiddle(isl.title, (t) => (s.name.setText(t), s.name.width <= maxName)));
+      const nameW = Math.ceil(s.name.width);
 
-    // 門、出口招牌與門墊
-    const d = doorPos(r);
-    keep(this.add.image(d.x, d.y, 'door').setScale(SCALE).setDepth(-50));
-    keep(this.add.image(d.x, d.y - 28 - 8, 'exit').setScale(SCALE).setDepth(-49));
-    g.fillStyle(0x7a3040, 1).fillRect(d.x - 18, d.y + 32, 36, 10);
-    g.fillStyle(0xa04a5c, 1).fillRect(d.x - 18, d.y + 32, 36, 2);
+      const boardW = show ? 22 + nameW + 8 + bw + 4 : 22 + nameW + 10;
+      s.board.clear();
+      s.board.fillStyle(SIGN.color, 1).fillRoundedRect(sx, sy, boardW, SIGN.h, SIGN.r);
+      s.board.fillStyle(hexNum(isl.color), 1).fillRoundedRect(sx + 10, sy + (SIGN.h - 16) / 2, 6, 16, 2);
 
-    // 門下方的角落擺一件小東西（依資料夾決定）；貓有兩幀呼吸
-    const corner2 = ['coffee', 'printer', 'bin', 'cat'][(h >>> 5) % 4];
-    const fx = r.x + 22;
-    const fy = r.y + r.h - 14;
-    if (corner2 === 'cat') {
-      const cat = keep(this.add.image(fx, fy, 'cat-0').setOrigin(0.5, 1).setScale(SCALE).setDepth(fy));
-      let f = 0;
-      this.roomTimers.push(this.time.addEvent({ delay: CAT_MS, loop: true, callback: () => cat.setTexture('cat-' + (f = 1 - f)) }));
-    } else {
-      keep(this.add.image(fx, fy, corner2).setOrigin(0.5, 1).setScale(SCALE).setDepth(fy));
-    }
-
-    for (let i = 0; i < r.desks; i++) {
-      const c = seatCell(r, i);
-      keep(this.add.image(c.x + DESK.x, c.y + DESK.y + 8, `rug-${h % 3}`).setScale(SCALE).setDepth(-90)); // 腳下地毯
-      const txt = () => ({ fontFamily: FONT, resolution: R, fontSize: '9px', color: '#f4efe6', padding: { x: 3, y: 0 } });
-      const d2: DeskObj = {
-        img: this.add.image(c.x + DESK.x, c.y + DESK.y, deskKey('empty')).setScale(SCALE).setDepth(c.y + DESK.y),
-        plate: this.add.text(c.x, c.y + PLATE_Y, '', txt()).setDepth(c.y + DESK.y),
-      };
-      keep(d2.img);
-      keep(d2.plate);
-      this.desks.set(`${r.key}#${i}`, d2);
+      s.badge.setVisible(show);
+      if (show) {
+        s.badge.setPosition(sx + 22 + nameW + 8 + bw / 2, sy + SIGN.h / 2);
+        if (!s.tween || !s.tween.isPlaying()) {
+          s.badge.setScale(0.94);
+          s.tween = this.tweens.add({ targets: s.badge, scale: 1.06, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        }
+      } else {
+        this.tweens.killTweensOf(s.badge);
+        s.tween = undefined;
+        s.badge.setScale(1);
+      }
     }
   }
 
   // ---- 場景管理 ----
 
-  /** reset：全部清掉重建（員工直接站在座位，不走路） */
+  /** reset：全部清掉重建（員工直接坐在座位，不走路） */
   private rebuild(): void {
     for (const id of [...this.slots.keys()]) this.destroySlot(id);
     for (const p of this.leaving.keys()) {
@@ -318,6 +414,7 @@ export class OfficeScene extends Phaser.Scene {
     this.card.hide();
     this.relayout(true);
     for (const e of this.store.employees.values()) this.upsert(e, false);
+    this.updateSigns();
   }
 
   private destroySlot(id: string): void {
@@ -337,12 +434,7 @@ export class OfficeScene extends Phaser.Scene {
     person.setDepth(person.y + 28);
   }
 
-  private walkTo(
-    person: Phaser.GameObjects.Container,
-    to: { x: number; y: number },
-    setFrame: (f: 0 | 1) => void,
-    done?: () => void,
-  ): void {
+  private walkTo(person: Phaser.GameObjects.Container, to: Pt, setFrame: (f: 0 | 1) => void, done?: () => void): void {
     this.tweens.killTweensOf(person);
     const dist = Math.hypot(person.x - to.x, person.y - to.y);
     this.tweens.add({
@@ -361,45 +453,68 @@ export class OfficeScene extends Phaser.Scene {
     });
   }
 
+  /** 依序走過每個點（與目前位置重疊的點略過） */
+  private walkPath(person: Phaser.GameObjects.Container, pts: Pt[], setFrame: (f: 0 | 1) => void, done?: () => void): void {
+    let i = 0;
+    while (i < pts.length && Math.hypot(pts[i]!.x - person.x, pts[i]!.y - person.y) < 1) i++;
+    const to = pts[i];
+    if (!to) {
+      this.tweens.killTweensOf(person);
+      person.setPosition(pts[pts.length - 1]?.x ?? person.x, pts[pts.length - 1]?.y ?? person.y);
+      this.sortDepth(person);
+      done?.();
+      return;
+    }
+    const rest = pts.slice(i + 1);
+    this.walkTo(person, to, setFrame, () => {
+      if (!person.active) return;
+      this.walkPath(person, rest, setFrame, done);
+    });
+  }
+
   // ---- 員工 ----
 
   private upsert(e: Employee, walkIn: boolean): void {
     let s = this.slots.get(e.sessionId);
-    const home = this.homeOf(e);
     if (!s) {
       s = this.createSlot(e);
       this.slots.set(e.sessionId, s);
       if (walkIn) {
-        const door = this.doorOf(e);
-        s.person.setPosition(door.x, door.y);
+        const path = this.entryOf(e);
+        const start = path[0] ?? this.homeOf(e);
+        s.person.setPosition(start.x, start.y);
+        this.sortDepth(s.person);
         s.emp = e;
-        this.startWalk(s, home);
+        this.startWalk(s, path);
       } else {
+        const home = this.homeOf(e);
         s.person.setPosition(home.x, home.y);
         this.sortDepth(s.person);
       }
     } else if (s.emp.seat !== e.seat) {
       this.clearDeskIfFree(s.emp, e.sessionId);
       s.emp = e;
-      this.startWalk(s, home);
+      this.startWalk(s, [this.homeOf(e)]); // 換座位：直接走到新座位
     }
     s.emp = e;
     this.drawDesk(e);
     this.drawEmployee(s, e);
     this.syncAssistants(s, e);
     if (this.card.id === e.sessionId) this.card.fill(e);
+    this.updateSigns();
   }
 
-  private startWalk(s: Slot, to: { x: number; y: number }): void {
+  private startWalk(s: Slot, path: Pt[]): void {
     const id = s.emp.sessionId;
     s.walking = true;
     s.anim?.remove(false);
     s.anim = undefined;
+    this.tweens.killTweensOf(s.figure);
     s.figure.y = 0;
-    this.walkTo(
+    this.walkPath(
       s.person,
-      to,
-      (f) => s.sprite.setTexture(this.charTexture(s.emp, f === 0 ? 'walk0' : 'walk1')),
+      path,
+      (f) => setSprite(s.sprite, this.charTexture(s.emp, f === 0 ? 'walk0' : 'walk1')),
       () => {
         const cur = this.slots.get(id);
         if (cur !== s) return;
@@ -427,13 +542,26 @@ export class OfficeScene extends Phaser.Scene {
     person.disableInteractive();
     s.bubble.setVisible(false);
     s.mark.setVisible(false);
-    const emp = s.emp;
-    this.leaving.set(person, emp); // 走出門之前，這間辦公室先保留
-    this.walkTo(person, this.doorOf(emp), (f) => s.sprite.setTexture(this.charTexture(emp, f === 0 ? 'walk0' : 'walk1')), () => {
-      this.leaving.delete(person);
-      person.destroy();
-      this.relayout(); // 最後一個人離開後，辦公室才消失
-    });
+    const l: Leaver = { emp: s.emp, sprite: s.sprite };
+    this.leaving.set(person, l); // 走出辦公室之前，這座島先保留
+    this.walkOut(person, l);
+    this.updateSigns();
+  }
+
+  /** 從目前位置走出辦公室；走到出口後移除並重排（最後一個人離開後，島才消失） */
+  private walkOut(person: Phaser.GameObjects.Container, l: Leaver): void {
+    this.walkPath(
+      person,
+      this.exitOf(l.emp, person),
+      (f) => setSprite(l.sprite, this.charTexture(l.emp, f === 0 ? 'walk0' : 'walk1')),
+      () => {
+        if (this.leaving.get(person) !== l) return;
+        this.leaving.delete(person);
+        person.destroy();
+        // 可能在 relayout 途中同步走完（人已在出口），延到下一輪再重排，避免巢狀重畫
+        this.time.delayedCall(0, () => this.guard(() => this.relayout()));
+      },
+    );
   }
 
   private clearDeskIfFree(e: Employee, exceptId: string): void {
@@ -443,18 +571,17 @@ export class OfficeScene extends Phaser.Scene {
 
   private charTexture(e: Employee, pose: Pose): string {
     const look = appearance(e.sessionId);
-    return ensureChar(this, pose, look, PALETTE[look.shirt]);
+    return ensureChar(this, pose, look, PALETTE[look.shirt] ?? PALETTE[0]!);
   }
 
   private createSlot(e: Employee): Slot {
-    const sprite = this.add.image(0, 0, this.charTexture(e, 'sit0')).setScale(SCALE);
+    const sprite = addSprite(this, this.charTexture(e, 'sit0'), CHAR.x, CHAR.y);
     const figure = this.add.container(0, 0, [sprite]);
     const bubbleBg = this.add.graphics();
     const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#2b2233' }).setOrigin(0.5);
     const bubble = this.add.container(0, -40, [bubbleBg, bubbleText]).setVisible(false);
-    const mark = this.add.image(0, EXCL_Y, 'exclamation').setScale(SCALE).setVisible(false);
-    const shadow = this.add.ellipse(0, 27, 30, 8, 0x000000, 0.28);
-    const person = this.add.container(0, 0, [shadow, figure, bubble, mark]);
+    const mark = addSprite(this, 'exclamation', EXCL.x, EXCL.y).setVisible(false);
+    const person = this.add.container(0, 0, [figure, bubble, mark]); // 陰影已畫在角色素材裡
     person.setInteractive(new Phaser.Geom.Rectangle(-20, -28, 40, 56), Phaser.Geom.Rectangle.Contains);
     const id = e.sessionId;
     person.on('pointerover', () => {
@@ -494,17 +621,17 @@ export class OfficeScene extends Phaser.Scene {
     s.anim = undefined;
     if (e.status === 'working') {
       let f = 0;
-      s.sprite.setTexture(this.charTexture(e, 'sit0'));
+      setSprite(s.sprite, this.charTexture(e, 'sit0'));
       s.anim = this.time.addEvent({
         delay: TYPE_MS,
         loop: true,
         callback: () => {
           f = 1 - f;
-          s.sprite.setTexture(this.charTexture(s.emp, f ? 'sit1' : 'sit0'));
+          setSprite(s.sprite, this.charTexture(s.emp, f ? 'sit1' : 'sit0'));
         },
       });
     } else {
-      s.sprite.setTexture(this.charTexture(e, e.status === 'waiting' ? 'up' : 'idle'));
+      setSprite(s.sprite, this.charTexture(e, e.status === 'waiting' ? 'up' : 'idle'));
     }
   }
 
@@ -515,17 +642,17 @@ export class OfficeScene extends Phaser.Scene {
     s.shown = e.status;
     this.tweens.killTweensOf([s.figure, s.mark]);
     s.figure.y = 0;
-    s.mark.setVisible(e.status === 'waiting').setY(EXCL_Y);
+    s.mark.setVisible(e.status === 'waiting').setY(EXCL.y);
     this.applyPose(s, e);
     if (e.status === 'idle') this.tweens.add({ targets: s.figure, y: 1, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     if (e.status === 'waiting') {
-      s.figure.y = -6;
-      this.tweens.add({ targets: s.mark, y: EXCL_Y - EXCL_BOUNCE, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      s.figure.y = RAISE_Y;
+      this.tweens.add({ targets: s.mark, y: EXCL.y - EXCL_BOUNCE, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
   }
 
   private drawAssistant(v: AsstView, a: Assistant): void {
-    v.box.setTexture(a.status === 'done' ? 'bot-done' : 'bot-working');
+    setSprite(v.box, a.status === 'done' ? 'bot-done' : 'bot-working');
     v.label.setText(a.status === 'done' ? '✓ 完成' : fitText(a.description, (t) => [...t].length <= 4));
   }
 
@@ -534,11 +661,11 @@ export class OfficeScene extends Phaser.Scene {
     const t = e ?? at;
     if (!t) return;
     const d = this.desks.get(`${roomKey(t)}#${t.seat}`);
-    if (!d) return;
-    d.img.setTexture(deskKey(deskState(e)));
+    if (!d || !d.img.active || !d.plate.active) return;
+    setSprite(d.img, deskKey(deskState(e)));
     const str = e ? nameplate(e) : '';
     const plate = d.plate;
-    plate.setBackgroundColor(str ? 'rgba(43,34,51,0.72)' : '');
+    plate.setBackgroundColor(str ? 'rgba(20,23,42,0.7)' : '');
     plate.setText(str);
     // 依實際寬度裁切並補「…」，避免被硬切在字中間
     if (plate.width > PLATE_W) plate.setText(fitText(str, (x) => (plate.setText(x), plate.width <= PLATE_W)));
@@ -574,20 +701,25 @@ export class OfficeScene extends Phaser.Scene {
       }
     }
     this.clock.prune(`${e.sessionId}/`, new Set(e.assistants.map((a) => `${e.sessionId}/${a.id}`)));
-    // 助理小機器人站在員工右側，標籤在腳下；超過 3 個只顯示前 2 個加「+N」
+    // 助理小機器人站在桌子前面（第 1 個在右下角、第 2 個在左下角），標籤在腳下；超過 2 個只顯示前 2 個，中間加「+N」
     const base = this.cellOf(e);
     const all = [...s.assist.values()];
-    const shown = all.length > MAX_ASSIST ? MAX_ASSIST - 1 : all.length;
+    const shown = Math.min(all.length, MAX_ASSIST);
+    const depth = base.y + DESK.y + DESK.h + 1; // 永遠在桌子前面
     all.forEach((v, i) => {
-      const y = base.y + BOT.y + i * BOT.gap;
-      v.box.setPosition(base.x + BOT.x, y).setVisible(i < shown).setDepth(y);
-      v.label.setPosition(base.x + BOT.x, y + 20).setVisible(i < shown);
+      const x = base.x + (BOT.xs[i] ?? BOT.xs[0]!);
+      const y = base.y + BOT.y;
+      v.box.setPosition(x, y).setVisible(i < shown).setDepth(depth);
+      v.label.setPosition(x + BOT.size / 2, base.y + BOT.labelY).setVisible(i < shown);
     });
-    s.more.setPosition(base.x + BOT.x, base.y + BOT.y + shown * BOT.gap).setText(`+${all.length - shown}`).setVisible(all.length > shown);
+    s.more
+      .setPosition(base.x + BOT.more.x, base.y + BOT.more.y)
+      .setText(`+${all.length - shown}`)
+      .setVisible(all.length > shown);
   }
 
   private createAsst(): AsstView {
-    const box = this.add.image(0, 0, 'bot-working').setScale(SCALE * 1.5);
+    const box = addSprite(this, 'bot-working', 0, 0);
     const label = this.add
       .text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
       .setOrigin(0.5)

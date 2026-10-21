@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, entryPath, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
+import { appearance, entryPath, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -185,4 +185,19 @@ test('fitText：放得下原樣；放不下以「…」結尾；已有「…」�
   expect(fitText('abcdefgh…', fits(5))).toBe('abcd…');
   expect(fitText('abcde…', fits(6))).toBe('abcde…');
   expect(fitText('abc', fits(0))).toBe('…');
+});
+
+test('fitMiddle：放得下原樣；放不下保留開頭與結尾、中間換成「…」', () => {
+  const fits = (n: number) => (s: string) => [...s].length <= n;
+  expect(fitMiddle('shop', fits(10))).toBe('shop');
+  const a = fitMiddle('claudeOffice-islands', fits(10));
+  expect(a).toContain('…');
+  expect(fits(10)(a)).toBe(true);
+  expect(a.startsWith('cl')).toBe(true);
+  expect(a.endsWith('ands')).toBe(true);
+  expect([...a].length).toBe(10);
+  // 同樣開頭的兩個名字截斷後仍可分辨
+  expect(fitMiddle('claudeOffice', fits(10))).not.toBe(a);
+  expect(fitMiddle('專案名稱非常非常長的資料夾', fits(6))).toMatch(/^專.*….*夾$/);
+  expect(fitMiddle('abc', fits(0))).toBe('…');
 });

@@ -14,7 +14,7 @@ const render = () => {
 store.on(render);
 render();
 
-// 內部渲染倍率固定 3（整數，文字與像素才清楚）；實際顯示大小再依視窗與辦公室數量用 zoom 調整
+// 內部渲染倍率固定 3（整數，文字與向量圖形才清楚）；實際顯示大小再依視窗與辦公室數量用 zoom 調整
 const Z = PIXEL_RATIO;
 const MAX_ZOOM = 2.5;
 let sceneW = BASE_W;
@@ -28,7 +28,8 @@ const game = new Phaser.Game({
   width: BASE_W * Z,
   height: BASE_H * Z,
   backgroundColor: '#1a1726',
-  pixelArt: true,
+  pixelArt: false,
+  antialias: true,
   // 畫布以整數倍率渲染，再用 zoom 微調成實際顯示大小（滑鼠座標由 Phaser 依 zoom 換算）
   scale: { mode: Phaser.Scale.NONE, zoom: fitZoom() / Z },
   scene: new OfficeScene(store),
