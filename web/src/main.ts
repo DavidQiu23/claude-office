@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PIXEL_RATIO } from './art.js';
 import { OfficeScene } from './OfficeScene.js';
 import { connect, OfficeStore } from './sync.js';
 import { BASE_H, BASE_W, summary } from './view.js';
@@ -14,7 +15,7 @@ store.on(render);
 render();
 
 // 內部渲染倍率固定 3（整數，文字與像素才清楚）；實際顯示大小再依視窗與辦公室數量用 zoom 調整
-const Z = 3;
+const Z = PIXEL_RATIO;
 const MAX_ZOOM = 2.5;
 let sceneW = BASE_W;
 let sceneH = BASE_H;
