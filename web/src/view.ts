@@ -14,10 +14,22 @@ const hash = (s: string): number => {
   return (h ^ (h >>> 15)) >>> 0;
 };
 
-// hair/shirt 為 PALETTE 索引
-export const appearance = (sessionId: string): { hair: number; shirt: number } => {
+/** 角色外觀（皆由 sessionId 雜湊決定）：hair/shirt 為 PALETTE 索引，style 為髮型 0–5，outfit 為衣服款式 0–2 */
+export interface Look { hair: number; shirt: number; style: number; outfit: number; glasses: boolean }
+
+export const HAIR_STYLES = 6;
+export const OUTFIT_COUNT = 3;
+
+export const appearance = (sessionId: string): Look => {
   const h = hash(sessionId);
-  return { hair: h % PALETTE.length, shirt: Math.floor(h / PALETTE.length) % PALETTE.length };
+  const n = PALETTE.length;
+  return {
+    hair: h % n,
+    shirt: Math.floor(h / n) % n,
+    style: Math.floor(h / (n * n)) % HAIR_STYLES,
+    outfit: Math.floor(h / (n * n * HAIR_STYLES)) % OUTFIT_COUNT,
+    glasses: (h >>> 24) % 4 === 0,
+  };
 };
 
 // 名牌：session 標題（沒有就用第一個 prompt），這些在 session 期間不會變，比最近的 prompt 好認。

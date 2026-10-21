@@ -16,11 +16,14 @@ const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
 
 // 一格裡各物件相對格子左上角的位置
-const PERSON = { x: 40, y: 46 }; // 員工座位（人物中心）
+const PERSON = { x: 40, y: 54 }; // 員工座位（人物中心）
 const DESK = { x: 40, y: 84 }; // 桌子中心
 const PLATE_Y = 108; // 名牌顯示標題或第一個 prompt（資料夾名稱已在房間招牌上）
 const strHash = (s: string): number => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
-const BOT = { x: 90, y: 30, gap: 30 };
+const BOT = { x: 92, y: 30, gap: 30 };
+const EXCL_Y = -50; // 驚嘆號在頭頂上方，每 0.4 秒上下跳
+const EXCL_BOUNCE = 4;
+const CAT_MS = 1200; // 貓呼吸換幀間隔
 
 interface DeskObj { img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Text }
 interface AsstView {
@@ -37,8 +40,7 @@ interface Slot {
   bubble: Phaser.GameObjects.Container;
   bubbleBg: Phaser.GameObjects.Graphics;
   bubbleText: Phaser.GameObjects.Text;
-  mark: Phaser.GameObjects.Text;
-  cup: Phaser.GameObjects.Image;
+  mark: Phaser.GameObjects.Image;
   more: Phaser.GameObjects.Text; // 助理超過 3 個時顯示 +N
   shown: Employee['status'] | null; // 目前套用的動作對應的狀態
   walking: boolean;
@@ -122,6 +124,7 @@ export class OfficeScene extends Phaser.Scene {
   private lay: Layout = { rooms: [], width: BASE_W, height: BASE_H };
   private sig = '';
   private roomObjs: Phaser.GameObjects.GameObject[] = [];
+  private roomTimers: Phaser.Time.TimerEvent[] = []; // 房間裝飾的動畫計時（貓），重畫房間時要移除
   private desks = new Map<string, DeskObj>();
   private slots = new Map<string, Slot>();
   private leaving = new Map<Phaser.GameObjects.Container, Employee>(); // 走向門口中的人，離開前房間要保留
@@ -192,6 +195,8 @@ export class OfficeScene extends Phaser.Scene {
     this.lay = next;
     for (const o of this.roomObjs) o.destroy();
     this.roomObjs = [];
+    for (const t of this.roomTimers) t.remove(false);
+    this.roomTimers = [];
     this.desks.clear(); // 桌子物件已隨 roomObjs 銷毀
     for (const r of next.rooms) this.drawRoom(r);
     this.emptyText.setPosition(next.width / 2, next.height / 2).setVisible(next.rooms.length === 0);
@@ -217,25 +222,23 @@ export class OfficeScene extends Phaser.Scene {
     const R = this.z;
     const h = strHash(r.key);
     const head = ROOM.header;
-    keep(this.add.tileSprite(r.x, r.y, r.w, head, 'wall').setOrigin(0).setTileScale(SCALE).setDepth(-100));
+    const wain = 8 * SCALE; // 護牆板高度
+    keep(this.add.tileSprite(r.x, r.y, r.w, head - wain, 'wall').setOrigin(0).setTileScale(SCALE).setDepth(-100));
+    keep(this.add.tileSprite(r.x, r.y + head - wain, r.w, wain, 'wainscot').setOrigin(0).setTileScale(SCALE).setDepth(-100));
     keep(this.add.tileSprite(r.x, r.y + head, r.w, r.h - head, 'floor').setOrigin(0).setTileScale(SCALE).setDepth(-100));
     const g = keep(this.add.graphics().setDepth(-99));
-    // 護牆板與踢腳板
-    g.fillStyle(0x6b7aa6, 1).fillRect(r.x, r.y + head - 20, r.w, 20);
-    g.fillStyle(0x8d9cc6, 1).fillRect(r.x, r.y + head - 20, r.w, 2);
-    g.fillStyle(0x4a3d73, 1).fillRect(r.x, r.y + head - 5, r.w, 5);
-    g.lineStyle(3, 0x2b2233, 1).strokeRect(r.x, r.y, r.w, r.h);
+    g.lineStyle(3, 0x1d1a2e, 1).strokeRect(r.x, r.y, r.w, r.h);
 
     // 招牌：資料夾名稱
     const maxW = r.w - 140;
     const title = keep(
       this.add
-        .text(0, 0, r.title, { fontFamily: FONT, resolution: R, fontSize: '14px', fontStyle: 'bold', color: '#3b2f4a' })
+        .text(0, 0, r.title, { fontFamily: FONT, resolution: R, fontSize: '14px', fontStyle: 'bold', color: '#2a2238' })
         .setDepth(-97),
     );
     if (title.width > maxW) title.setText(fitText(r.title, (t) => (title.setText(t), title.width <= maxW)));
     const sw = Math.ceil(title.width) + 20;
-    g.fillStyle(0x2b2233, 1).fillRect(r.x + 10, r.y + 8, sw, 28);
+    g.fillStyle(0x1d1a2e, 1).fillRect(r.x + 10, r.y + 8, sw, 28);
     g.fillStyle(0xf2e6c9, 1).fillRect(r.x + 12, r.y + 10, sw - 4, 24);
     title.setOrigin(0.5).setPosition(r.x + 10 + sw / 2, r.y + 22);
     const signEnd = 10 + sw;
@@ -247,14 +250,14 @@ export class OfficeScene extends Phaser.Scene {
     else if (corner === 'cooler') keep(this.add.image(cx, r.y + head - 6, 'cooler').setScale(SCALE).setDepth(-50));
     else keep(this.add.image(cx, r.y + head - 4, 'bookcase').setScale(SCALE).setDepth(-50));
     const wx = r.w - 90; // 窗戶中心（相對房間左邊）
-    if (signEnd < wx - 24) {
-      const win = keep(this.add.image(r.x + wx, r.y + 24, 'window').setScale(1.5).setDepth(-98));
-      // 窗外灑進來的光
-      g.fillStyle(0xfff4c2, 0.13);
+    if (signEnd < wx - 24 * SCALE) {
+      const win = keep(this.add.image(r.x + wx, r.y + 22, 'window').setScale(SCALE).setDepth(-98));
+      // 窗外的月光灑在地板上
+      g.fillStyle(0x9fc3ff, 0.08);
       g.fillPoints(
         [
-          new Phaser.Geom.Point(win.x - 16, r.y + 38),
-          new Phaser.Geom.Point(win.x + 16, r.y + 38),
+          new Phaser.Geom.Point(win.x - 16, r.y + head),
+          new Phaser.Geom.Point(win.x + 16, r.y + head),
           new Phaser.Geom.Point(win.x + 58, r.y + r.h - 12),
           new Phaser.Geom.Point(win.x + 6, r.y + r.h - 12),
         ],
@@ -262,16 +265,31 @@ export class OfficeScene extends Phaser.Scene {
       );
     }
     const dx = wx - 62;
-    if (signEnd < dx - 20) {
-      const decor = ['clock', 'poster-0', 'poster-1', 'poster-2'][(h >> 3) % 4];
-      keep(this.add.image(r.x + dx, r.y + 24, decor).setScale(SCALE).setDepth(-98));
+    const decors: [string, number][] = [['clock', 5], ['poster-0', 6], ['poster-1', 6], ['poster-2', 6], ['sconce', 10], ['whiteboard', 14]];
+    const [decor, half] = decors[(h >>> 3) % decors.length];
+    if (signEnd < dx - half * SCALE - 8) {
+      const y = decor === 'sconce' ? 28 : decor === 'whiteboard' ? 22 : 24;
+      keep(this.add.image(r.x + dx, r.y + y, decor).setScale(SCALE).setDepth(decor === 'sconce' ? -97 : -98));
     }
 
-    // 門與門墊
+    // 門、出口招牌與門墊
     const d = doorPos(r);
     keep(this.add.image(d.x, d.y, 'door').setScale(SCALE).setDepth(-50));
-    g.fillStyle(0x8a3b3b, 1).fillRect(d.x - 18, d.y + 32, 36, 10);
-    g.fillStyle(0xb85a5a, 1).fillRect(d.x - 18, d.y + 32, 36, 2);
+    keep(this.add.image(d.x, d.y - 28 - 8, 'exit').setScale(SCALE).setDepth(-49));
+    g.fillStyle(0x7a3040, 1).fillRect(d.x - 18, d.y + 32, 36, 10);
+    g.fillStyle(0xa04a5c, 1).fillRect(d.x - 18, d.y + 32, 36, 2);
+
+    // 門下方的角落擺一件小東西（依資料夾決定）；貓有兩幀呼吸
+    const corner2 = ['coffee', 'printer', 'bin', 'cat'][(h >>> 5) % 4];
+    const fx = r.x + 22;
+    const fy = r.y + r.h - 14;
+    if (corner2 === 'cat') {
+      const cat = keep(this.add.image(fx, fy, 'cat-0').setOrigin(0.5, 1).setScale(SCALE).setDepth(fy));
+      let f = 0;
+      this.roomTimers.push(this.time.addEvent({ delay: CAT_MS, loop: true, callback: () => cat.setTexture('cat-' + (f = 1 - f)) }));
+    } else {
+      keep(this.add.image(fx, fy, corner2).setOrigin(0.5, 1).setScale(SCALE).setDepth(fy));
+    }
 
     for (let i = 0; i < r.desks; i++) {
       const c = seatCell(r, i);
@@ -402,7 +420,6 @@ export class OfficeScene extends Phaser.Scene {
     this.clock.prune(`${id}/`, new Set());
     s.anim?.remove(false);
     s.more.destroy();
-    s.cup.setVisible(false);
     this.clearDeskIfFree(s.emp, id);
     if (this.card.id === id) this.card.hide();
     this.tweens.killTweensOf([s.figure, s.mark]);
@@ -426,7 +443,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private charTexture(e: Employee, pose: Pose): string {
     const look = appearance(e.sessionId);
-    return ensureChar(this, pose, look.hair, PALETTE[look.shirt]);
+    return ensureChar(this, pose, look, PALETTE[look.shirt]);
   }
 
   private createSlot(e: Employee): Slot {
@@ -435,16 +452,9 @@ export class OfficeScene extends Phaser.Scene {
     const bubbleBg = this.add.graphics();
     const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#2b2233' }).setOrigin(0.5);
     const bubble = this.add.container(0, -40, [bubbleBg, bubbleText]).setVisible(false);
-    const mark = this.add
-      .text(0, -52, '!', {
-        fontFamily: FONT, resolution: this.z, fontSize: '16px', fontStyle: 'bold', color: '#ffffff',
-        backgroundColor: '#e53935', padding: { x: 7, y: 1 },
-      })
-      .setOrigin(0.5)
-      .setVisible(false);
-    const cup = this.add.image(26, 4, 'cup').setScale(SCALE).setVisible(false);
+    const mark = this.add.image(0, EXCL_Y, 'exclamation').setScale(SCALE).setVisible(false);
     const shadow = this.add.ellipse(0, 27, 30, 8, 0x000000, 0.28);
-    const person = this.add.container(0, 0, [shadow, figure, cup, bubble, mark]);
+    const person = this.add.container(0, 0, [shadow, figure, bubble, mark]);
     person.setInteractive(new Phaser.Geom.Rectangle(-20, -28, 40, 56), Phaser.Geom.Rectangle.Contains);
     const id = e.sessionId;
     person.on('pointerover', () => {
@@ -460,7 +470,7 @@ export class OfficeScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(5000)
       .setVisible(false);
-    return { more, emp: e, person, figure, sprite, bubble, bubbleBg, bubbleText, mark, cup, shown: null, walking: false, assist: new Map() };
+    return { more, emp: e, person, figure, sprite, bubble, bubbleBg, bubbleText, mark, shown: null, walking: false, assist: new Map() };
   }
 
   // ---- 繪製 ----
@@ -505,19 +515,18 @@ export class OfficeScene extends Phaser.Scene {
     s.shown = e.status;
     this.tweens.killTweensOf([s.figure, s.mark]);
     s.figure.y = 0;
-    s.mark.setVisible(e.status === 'waiting').setY(-52);
-    s.cup.setVisible(e.status === 'idle');
+    s.mark.setVisible(e.status === 'waiting').setY(EXCL_Y);
     this.applyPose(s, e);
     if (e.status === 'idle') this.tweens.add({ targets: s.figure, y: 1, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     if (e.status === 'waiting') {
       s.figure.y = -6;
-      this.tweens.add({ targets: s.mark, y: -60, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.tweens.add({ targets: s.mark, y: EXCL_Y - EXCL_BOUNCE, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
   }
 
   private drawAssistant(v: AsstView, a: Assistant): void {
     v.box.setTexture(a.status === 'done' ? 'bot-done' : 'bot-working');
-    v.label.setText(a.status === 'done' ? '👍 完成' : fitText(a.description, (t) => [...t].length <= 4));
+    v.label.setText(a.status === 'done' ? '✓ 完成' : fitText(a.description, (t) => [...t].length <= 4));
   }
 
   /** e 有值：畫出該員工的桌子；e 為 undefined：把 at 那一桌清成空桌 */
