@@ -45,12 +45,12 @@ npm run uninstall-hooks
 
 | 角色 | 狀態 | 外觀 | 觸發 |
 | --- | --- | --- | --- |
-| 員工 | 工作中 | 坐在桌前上下抖動，頭上氣泡顯示目前動作 | 送出 prompt、工具執行 |
-| 員工 | 等你處理 | 站起來，頭上紅色驚嘆號跳動，桌子變紅 | 權限提示的 Notification |
-| 員工 | 閒置 | 坐著不動，旁邊有咖啡杯 | 回合結束（Stop） |
+| 員工 | 工作中 | 坐在桌前打字（雙手交替），筆電指示燈綠色，頭上氣泡顯示目前動作 | 送出 prompt、工具執行 |
+| 員工 | 等你處理 | 站起來舉手，頭上紅色驚嘆號跳動，桌子和筆電燈變紅 | 權限提示的 Notification |
+| 員工 | 閒置 | 坐著喝咖啡，筆電燈黃色 | 回合結束（Stop） |
 | 員工 | 下班 | 走向門口後消失 | SessionEnd、按「請他下班」、閒置 12 小時 |
-| 助理（目前一律是色塊，沒有像素素材） | 工作中 | 灰色方塊加簡短描述 | subagent 啟動 |
-| 助理 | 完成 | 綠色方塊加「👍 完成」，3 秒後淡出 | subagent 結束 |
+| 助理 | 工作中 | 灰色小機器人加簡短描述 | subagent 啟動 |
+| 助理 | 完成 | 綠色小機器人加「👍 完成」，3 秒後淡出 | subagent 結束 |
 
 ## 已知限制
 
@@ -60,6 +60,6 @@ npm run uninstall-hooks
 - `run_in_background` 的 Agent 行為尚未測試。
 - 細節見 `docs/findings.md`。
 
-## 素材授權
+## 美術
 
-見 [web/public/assets/LICENSE.md](web/public/assets/LICENSE.md)。預定使用 2dPig 的 Pixel Office（CC0）：到 https://2dpig.itch.io/pixel-office 下載，把員工圖存為 `web/public/assets/worker.png`、桌子圖存為 `web/public/assets/desk.png`（各為單張圖，人物建議約 24x32、桌子約 72x22），再執行 `npm run build`。圖片會被縮放到固定大小（人物 20x32、桌子 72x22），任何尺寸都可用。人物會以衣服顏色著色，若素材本身已有配色而顯得混濁，把 `web/src/OfficeScene.ts` 的 `USE_TINT` 改成 `false`。助理維持色塊。**目前尚未放入素材**，沒有這兩個檔案時會顯示色塊。
+所有畫面（人物、桌子、地板、牆、門、盆栽、小機器人）都由 `web/src/art.ts` 用程式畫成像素貼圖，沒有使用任何外部素材，因此沒有授權問題。想改外觀（髮色、桌子、配色）直接改該檔案，再執行 `npm run build`。

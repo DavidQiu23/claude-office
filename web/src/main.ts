@@ -18,7 +18,8 @@ new Phaser.Game({
   parent: 'game',
   width: SCENE_W,
   height: sceneHeight(MIN_DESKS),
-  backgroundColor: '#2b2b3b',
+  backgroundColor: '#46506b',
+  pixelArt: true,
   scene: new OfficeScene(store),
 });
 

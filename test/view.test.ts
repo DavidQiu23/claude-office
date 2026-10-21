@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, deskCount, DoneClock, DONE_MS, fitText, formatTime, nameplate, PALETTE, sceneHeight, seatPosition, summary } from '../web/src/view.js';
+import { appearance, DESK_H, deskCount, DoneClock, DONE_MS, fitText, formatTime, nameplate, PALETTE, sceneHeight, seatPosition, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -11,11 +11,11 @@ const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Empl
 
 test('seatPosition：0 到 3 在同一排、4 換到下一排、8 再往下', () => {
   const p = [0, 1, 3, 4, 8].map(seatPosition);
-  expect(p[0]).toEqual({ x: 64, y: 128 });
-  expect(p[1]).toEqual({ x: 160, y: 128 });
-  expect(p[2]).toEqual({ x: 352, y: 128 });
-  expect(p[3]).toEqual({ x: 64, y: 224 });
-  expect(p[4]).toEqual({ x: 64, y: 320 });
+  expect(p[0]).toEqual({ x: 56, y: 160 });
+  expect(p[1]).toEqual({ x: 164, y: 160 });
+  expect(p[2]).toEqual({ x: 380, y: 160 });
+  expect(p[3]).toEqual({ x: 56, y: 280 });
+  expect(p[4]).toEqual({ x: 56, y: 400 });
 });
 
 test('appearance 對同一個 sessionId 永遠相同', () => {
@@ -55,7 +55,7 @@ test('deskCount：至少 8 張，座位超過以整排加桌；sceneHeight 隨�
   expect(deskCount([])).toBe(8);
   expect(deskCount([emp('a', 'idle', { seat: 7 })])).toBe(8);
   expect(deskCount([emp('a', 'idle', { seat: 8 })])).toBe(12);
-  expect(sceneHeight(12)).toBe(sceneHeight(8) + 96);
+  expect(sceneHeight(12)).toBe(sceneHeight(8) + DESK_H);
 });
 
 test('formatTime：HH:mm 補零', () => {

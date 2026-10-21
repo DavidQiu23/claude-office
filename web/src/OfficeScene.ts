@@ -1,22 +1,31 @@
 import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
 import type { Assistant, Employee } from '../../src/state/types.js';
+import { bakeTextures, deskKey, ensureChar, SCALE, type DeskState, type Pose } from './art.js';
 import type { OfficeStore } from './sync.js';
 import {
   appearance, deskCount, DoneClock, fitText, formatTime, nameplate, ORIGIN_Y, PALETTE,
   SCENE_W, sceneHeight, seatPosition,
 } from './view.js';
 
-const DOOR = { x: 26, y: ORIGIN_Y + 44 };
+const WALL_H = 120;
+const DOOR = { x: 28, y: ORIGIN_Y + 46 };
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const FADE_MS = 400;
-const PLATE_W = 90;
+const PLATE_W = 100;
 const MAX_ASSIST = 3;
-const USE_TINT = true; // 角色圖本身已有配色而顯得混濁時改成 false
+const TYPE_MS = 200; // 打字動畫換幀間隔
+const WALK_MS = 140; // 走路換幀間隔
 
-interface DeskObj { rect: Phaser.GameObjects.Rectangle; img?: Phaser.GameObjects.Image; line1: Phaser.GameObjects.Text; line2: Phaser.GameObjects.Text }
+// 一格裡各物件相對格子左上角 (p) 的位置
+const PERSON = { x: 40, y: 46 }; // 員工座位（人物中心）
+const DESK = { x: 40, y: 80 }; // 桌子中心
+const PLATE = { y1: 96, y2: 106 };
+const BOT = { x: 90, y: 30, gap: 30 };
+
+interface DeskObj { img: Phaser.GameObjects.Image; line1: Phaser.GameObjects.Text; line2: Phaser.GameObjects.Text }
 interface AsstView {
-  box: Phaser.GameObjects.Rectangle;
+  box: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
   done: boolean;
   fadeTimer?: Phaser.Time.TimerEvent;
@@ -24,16 +33,17 @@ interface AsstView {
 interface Slot {
   emp: Employee;
   person: Phaser.GameObjects.Container;
-  figure: Phaser.GameObjects.Container; // 身體 + 頭髮；打字抖動與站起只動它
-  body: Phaser.GameObjects.Rectangle;
-  hair: Phaser.GameObjects.Rectangle;
+  figure: Phaser.GameObjects.Container; // 角色圖；站起來只動它
+  sprite: Phaser.GameObjects.Image;
   bubble: Phaser.GameObjects.Container;
-  bubbleBg: Phaser.GameObjects.Rectangle;
+  bubbleBg: Phaser.GameObjects.Graphics;
   bubbleText: Phaser.GameObjects.Text;
   mark: Phaser.GameObjects.Text;
-  cup: Phaser.GameObjects.Text;
+  cup: Phaser.GameObjects.Image;
   more: Phaser.GameObjects.Text; // 助理超過 3 個時顯示 +N
   shown: Employee['status'] | null; // 目前套用的動作對應的狀態
+  walking: boolean;
+  anim?: Phaser.Time.TimerEvent; // 打字換幀
   assist: Map<string, AsstView>;
 }
 
@@ -51,8 +61,8 @@ class InfoCard {
 
   constructor() {
     this.el.style.cssText =
-      'position:fixed;display:none;z-index:10;max-width:280px;padding:10px 12px;background:#2b2b3b;color:#eee;' +
-      'border:1px solid #666;border-radius:6px;font:13px/1.5 system-ui,sans-serif;word-break:break-all;box-shadow:0 2px 8px #0008';
+      'position:fixed;display:none;z-index:10;max-width:280px;padding:10px 12px;background:#2b2840;color:#eee;' +
+      'border:2px solid #8a7fc4;border-radius:4px;font:13px/1.5 system-ui,sans-serif;word-break:break-all;box-shadow:3px 3px 0 #0007';
     this.prompt.style.marginBottom = '4px';
     this.btn.textContent = '請他下班';
     this.btn.style.cssText = 'margin-top:8px;padding:4px 10px;cursor:pointer';
@@ -105,28 +115,24 @@ class InfoCard {
   }
 }
 
+const deskState = (e?: Employee): DeskState =>
+  !e ? 'empty' : e.status === 'waiting' ? 'waiting' : e.status === 'working' ? 'working' : 'idle';
+
 export class OfficeScene extends Phaser.Scene {
   private desks: DeskObj[] = [];
   private slots = new Map<string, Slot>();
   private leaving = new Set<Phaser.GameObjects.Container>();
   private clock = new DoneClock(); // 跨 reset 保留，已淡出的助理不會因重連又出現
   private card!: InfoCard;
+  private floor!: Phaser.GameObjects.TileSprite;
 
   constructor(private store: OfficeStore) {
     super('office');
   }
 
-  // 素材放在 web/public/assets/（見該資料夾 LICENSE.md）。缺檔或載入失敗時不報錯，沿用色塊。
-  preload(): void {
-    this.load.on('loaderror', () => {});
-    this.load.image('worker', 'assets/worker.png');
-    this.load.image('desk', 'assets/desk.png');
-  }
-
   create(): void {
-    this.add.text(64, 24, 'Claude 辦公室', { fontFamily: FONT, fontSize: '18px', color: '#cdd6f4' });
-    this.add.rectangle(DOOR.x, DOOR.y, 32, 56, 0x6d4c41).setStrokeStyle(2, 0x3e2723);
-    this.add.text(DOOR.x, DOOR.y + 40, '門', { fontFamily: FONT, fontSize: '12px', color: '#aaa' }).setOrigin(0.5);
+    bakeTextures(this);
+    this.drawBackdrop();
     this.card = new InfoCard();
     this.rebuild();
     this.store.on((c) => {
@@ -137,6 +143,29 @@ export class OfficeScene extends Phaser.Scene {
         this.upsert(c.employee, true);
       }
     });
+  }
+
+  // ---- 背景：牆、窗、招牌、地板、門、盆栽 ----
+
+  private drawBackdrop(): void {
+    this.add.tileSprite(0, 0, SCENE_W, WALL_H, 'wall').setOrigin(0).setTileScale(SCALE).setDepth(-100);
+    this.floor = this.add
+      .tileSprite(0, WALL_H, SCENE_W, sceneHeight(8) - WALL_H, 'floor')
+      .setOrigin(0)
+      .setTileScale(SCALE)
+      .setDepth(-100);
+    const g = this.add.graphics().setDepth(-99);
+    g.fillStyle(0x4a3d73, 1).fillRect(0, WALL_H - 8, SCENE_W, 8); // 踢腳板
+    g.fillStyle(0x2b2233, 1).fillRect(0, WALL_H, SCENE_W, 2);
+    for (const x of [250, 345, 440]) this.add.image(x, 56, 'window').setScale(SCALE).setDepth(-98);
+    // 招牌
+    g.fillStyle(0x2b2233, 1).fillRect(46, 20, 138, 36);
+    g.fillStyle(0xf2e6c9, 1).fillRect(49, 23, 132, 30);
+    this.add.text(115, 38, 'Claude 辦公室', { fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#3b2f4a' })
+      .setOrigin(0.5).setDepth(-97);
+    this.add.image(DOOR.x, DOOR.y, 'door').setScale(SCALE).setDepth(-50);
+    g.fillStyle(0x8a3b3b, 1).fillRect(DOOR.x - 18, DOOR.y + 32, 36, 10); // 門墊
+    this.add.image(SCENE_W - 26, WALL_H + 20, 'plant').setScale(SCALE).setDepth(-50);
   }
 
   // ---- 場景管理 ----
@@ -159,26 +188,23 @@ export class OfficeScene extends Phaser.Scene {
   private setDesks(n: number): void {
     while (this.desks.length > n) {
       const d = this.desks.pop()!;
-      d.rect.destroy();
-      d.img?.destroy();
+      d.img.destroy();
       d.line1.destroy();
       d.line2.destroy();
     }
     while (this.desks.length < n) {
       const i = this.desks.length;
       const p = seatPosition(i);
-      const txt = () => ({ fontFamily: FONT, fontSize: '9px', color: '#ddd' });
-      const rect = this.add.rectangle(p.x + 40, p.y + 66, 72, 22, 0x8d6e63).setStrokeStyle(1, 0x5d4037);
+      const txt = () => ({ fontFamily: FONT, fontSize: '9px', color: '#e6e1f5' });
       this.desks.push({
-        rect,
-        // 在文字之前建立，且深度低於人物（10）與助理（5），不會蓋住它們
-        img: this.textures.exists('desk') ? this.add.image(rect.x, rect.y, 'desk').setDisplaySize(72, 22).setDepth(-1) : undefined,
-        line1: this.add.text(p.x - 2, p.y + 78, '', txt()),
-        line2: this.add.text(p.x - 2, p.y + 87, '', { ...txt(), color: '#9aa' }),
+        img: this.add.image(p.x + DESK.x, p.y + DESK.y, deskKey('empty')).setScale(SCALE).setDepth(p.y + DESK.y),
+        line1: this.add.text(p.x, p.y + PLATE.y1, '', txt()).setDepth(p.y + DESK.y),
+        line2: this.add.text(p.x, p.y + PLATE.y2, '', { ...txt(), color: '#a9a3c9' }).setDepth(p.y + DESK.y),
       });
       this.drawDesk(i);
     }
     this.scale.resize(SCENE_W, sceneHeight(n));
+    this.floor.setSize(SCENE_W, sceneHeight(n) - WALL_H);
   }
 
   private destroySlot(id: string): void {
@@ -187,6 +213,7 @@ export class OfficeScene extends Phaser.Scene {
     this.slots.delete(id);
     for (const v of s.assist.values()) this.destroyAsst(v);
     this.clock.prune(`${id}/`, new Set());
+    s.anim?.remove(false);
     s.more.destroy();
     this.tweens.killTweensOf([s.person, s.figure, s.mark]);
     s.person.destroy();
@@ -194,13 +221,36 @@ export class OfficeScene extends Phaser.Scene {
 
   private homeOf(seat: number): { x: number; y: number } {
     const p = seatPosition(seat);
-    return { x: p.x + 30, y: p.y + 44 };
+    return { x: p.x + PERSON.x, y: p.y + PERSON.y };
   }
 
-  private walkTo(person: Phaser.GameObjects.Container, to: { x: number; y: number }, done?: () => void): void {
+  /** 人物深度依腳的 y 排序：坐在桌後時桌子在前面，路過時前後關係自然 */
+  private sortDepth(person: Phaser.GameObjects.Container): void {
+    person.setDepth(person.y + 24);
+  }
+
+  private walkTo(
+    person: Phaser.GameObjects.Container,
+    to: { x: number; y: number },
+    setFrame: (f: 0 | 1) => void,
+    done?: () => void,
+  ): void {
     this.tweens.killTweensOf(person);
     const dist = Math.hypot(person.x - to.x, person.y - to.y);
-    this.tweens.add({ targets: person, x: to.x, y: to.y, duration: Math.max(200, dist * 4), onComplete: done });
+    this.tweens.add({
+      targets: person,
+      x: to.x,
+      y: to.y,
+      duration: Math.max(200, dist * 4),
+      onUpdate: () => {
+        setFrame((Math.floor(performance.now() / WALK_MS) % 2) as 0 | 1);
+        this.sortDepth(person);
+      },
+      onComplete: () => {
+        this.sortDepth(person);
+        done?.();
+      },
+    });
   }
 
   // ---- 員工 ----
@@ -213,19 +263,40 @@ export class OfficeScene extends Phaser.Scene {
       this.slots.set(e.sessionId, s);
       if (walkIn) {
         s.person.setPosition(DOOR.x, DOOR.y);
-        this.walkTo(s.person, home);
+        this.startWalk(s, home);
       } else {
         s.person.setPosition(home.x, home.y);
+        this.sortDepth(s.person);
       }
     } else if (s.emp.seat !== e.seat) {
       this.clearDeskIfFree(s.emp.seat, e.sessionId);
-      this.walkTo(s.person, home);
+      this.startWalk(s, home);
     }
     s.emp = e;
     if (e.seat < this.desks.length) this.drawDesk(e.seat, e);
     this.drawEmployee(s, e);
     this.syncAssistants(s, e);
     if (this.card.id === e.sessionId) this.card.fill(e);
+  }
+
+  private startWalk(s: Slot, to: { x: number; y: number }): void {
+    const id = s.emp.sessionId;
+    s.walking = true;
+    s.anim?.remove(false);
+    s.anim = undefined;
+    s.figure.y = 0;
+    this.walkTo(
+      s.person,
+      to,
+      (f) => s.sprite.setTexture(this.charTexture(s.emp, f === 0 ? 'walk0' : 'walk1')),
+      () => {
+        const cur = this.slots.get(id);
+        if (cur !== s) return;
+        s.walking = false;
+        s.shown = null; // 強制重新套用目前狀態的姿勢
+        this.drawEmployee(s, s.emp);
+      },
+    );
   }
 
   private leave(id: string): void {
@@ -236,16 +307,18 @@ export class OfficeScene extends Phaser.Scene {
     for (const v of s.assist.values()) this.destroyAsst(v);
     s.assist.clear();
     this.clock.prune(`${id}/`, new Set());
+    s.anim?.remove(false);
     s.more.destroy();
     s.cup.setVisible(false);
     this.clearDeskIfFree(s.emp.seat, id);
     if (this.card.id === id) this.card.hide();
     this.tweens.killTweensOf([s.figure, s.mark]);
+    s.figure.y = 0;
     person.disableInteractive();
     s.bubble.setVisible(false);
     s.mark.setVisible(false);
     this.leaving.add(person);
-    this.walkTo(person, DOOR, () => {
+    this.walkTo(person, DOOR, (f) => s.sprite.setTexture(this.charTexture(s.emp, f === 0 ? 'walk0' : 'walk1')), () => {
       this.leaving.delete(person);
       person.destroy();
     });
@@ -257,86 +330,103 @@ export class OfficeScene extends Phaser.Scene {
     this.drawDesk(seat);
   }
 
+  private charTexture(e: Employee, pose: Pose): string {
+    const look = appearance(e.sessionId);
+    return ensureChar(this, pose, look.hair, PALETTE[look.shirt]);
+  }
+
   private createSlot(e: Employee): Slot {
-    const bodyRect = this.add.rectangle(0, 0, 20, 24, 0xffffff);
-    const hair = this.add.rectangle(0, -16, 20, 8, 0xffffff);
-    const figure = this.add.container(0, 0, [bodyRect, hair]);
-    const bubbleBg = this.add.rectangle(0, 0, 10, 10, 0xffffff).setStrokeStyle(1, 0x333333);
-    const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '10px', color: '#222' }).setOrigin(0.5);
-    const bubble = this.add.container(0, -36, [bubbleBg, bubbleText]).setVisible(false);
+    const sprite = this.add.image(0, 0, this.charTexture(e, 'sit0')).setScale(SCALE);
+    const figure = this.add.container(0, 0, [sprite]);
+    const bubbleBg = this.add.graphics();
+    const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '10px', color: '#2b2233' }).setOrigin(0.5);
+    const bubble = this.add.container(0, -40, [bubbleBg, bubbleText]).setVisible(false);
     const mark = this.add
-      .text(0, -34, '!', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#e53935' })
+      .text(0, -40, '!', {
+        fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#ffffff',
+        backgroundColor: '#e53935', padding: { x: 7, y: 1 },
+      })
       .setOrigin(0.5)
       .setVisible(false);
-    const cup = this.add.text(18, 2, '☕', { fontFamily: FONT, fontSize: '14px' }).setOrigin(0.5).setVisible(false);
-    const person = this.add.container(0, 0, [figure, cup, bubble, mark]).setDepth(10);
-    person.setInteractive(new Phaser.Geom.Rectangle(-16, -28, 32, 56), Phaser.Geom.Rectangle.Contains);
+    const cup = this.add.image(22, 6, 'cup').setScale(SCALE).setVisible(false);
+    const person = this.add.container(0, 0, [figure, cup, bubble, mark]);
+    person.setInteractive(new Phaser.Geom.Rectangle(-16, -24, 32, 48), Phaser.Geom.Rectangle.Contains);
     const id = e.sessionId;
     person.on('pointerover', () => {
       const cur = this.slots.get(id);
       if (!cur) return;
       const r = this.game.canvas.getBoundingClientRect();
-      this.card.show(cur.emp, r.left + person.x + 14, r.top + person.y - 40);
+      this.card.show(cur.emp, r.left + person.x + 22, r.top + person.y - 40);
     });
     person.on('pointerout', () => this.card.scheduleHide());
     const more = this.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '9px', color: '#fff', backgroundColor: '#222', padding: { x: 2, y: 1 } })
-      .setOrigin(0, 0.5)
-      .setDepth(20)
+      .text(0, 0, '', { fontFamily: FONT, fontSize: '9px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
+      .setOrigin(0.5)
+      .setDepth(5000)
       .setVisible(false);
-    return { more, emp: e, person, figure, body: bodyRect, hair, bubble, bubbleBg, bubbleText, mark, cup, shown: null, assist: new Map() };
+    return { more, emp: e, person, figure, sprite, bubble, bubbleBg, bubbleText, mark, cup, shown: null, walking: false, assist: new Map() };
   }
 
-  // ---- 繪製（素材只動 preload / drawEmployee / drawDesk；drawAssistant 刻意維持色塊，目前沒有助理素材）----
+  // ---- 繪製 ----
+
+  private drawBubble(s: Slot, text: string): void {
+    s.bubble.setVisible(text !== '');
+    if (!text) return;
+    s.bubbleText.setText(text);
+    const w = Math.ceil(s.bubbleText.width) + 14;
+    const h = Math.ceil(s.bubbleText.height) + 8;
+    const g = s.bubbleBg.clear();
+    g.fillStyle(0x2b2233, 1).fillRoundedRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2, 5);
+    g.fillStyle(0xffffff, 1).fillRoundedRect(-w / 2, -h / 2, w, h, 4);
+    g.fillStyle(0x2b2233, 1).fillTriangle(-5, h / 2, 5, h / 2, 0, h / 2 + 7);
+    g.fillStyle(0xffffff, 1).fillTriangle(-3, h / 2 - 1, 3, h / 2 - 1, 0, h / 2 + 4);
+    s.bubble.setY(-24 - 6 - h / 2 + (s.emp.status === 'waiting' ? -6 : 0));
+  }
+
+  private applyPose(s: Slot, e: Employee): void {
+    s.anim?.remove(false);
+    s.anim = undefined;
+    if (e.status === 'working') {
+      let f = 0;
+      s.sprite.setTexture(this.charTexture(e, 'sit0'));
+      s.anim = this.time.addEvent({
+        delay: TYPE_MS,
+        loop: true,
+        callback: () => {
+          f = 1 - f;
+          s.sprite.setTexture(this.charTexture(s.emp, f ? 'sit1' : 'sit0'));
+        },
+      });
+    } else {
+      s.sprite.setTexture(this.charTexture(e, e.status === 'waiting' ? 'up' : 'idle'));
+    }
+  }
 
   private drawEmployee(s: Slot, e: Employee): void {
-    const look = appearance(e.sessionId);
-    s.body.setFillStyle(PALETTE[look.shirt]);
-    s.hair.setFillStyle(PALETTE[look.hair]);
-    if (this.textures.exists('worker')) {
-      let img = s.figure.getByName('sprite') as Phaser.GameObjects.Image | null;
-      if (!img) {
-        img = this.add.image(0, 0, 'worker').setName('sprite').setDisplaySize(20, 32);
-        s.figure.add(img);
-      }
-      if (USE_TINT) img.setTint(PALETTE[look.shirt]); // 單一影格以衣服顏色區分員工；坐、走由 tween 表現
-      s.body.setVisible(false);
-      s.hair.setVisible(false);
-    }
-
-    const text = e.status === 'working' ? truncate(e.activity ?? '…', 10) : '';
-    s.bubble.setVisible(text !== '');
-    if (text) {
-      s.bubbleText.setText(text);
-      s.bubbleBg.setSize(s.bubbleText.width + 10, s.bubbleText.height + 6);
-    }
-
+    this.drawBubble(s, e.status === 'working' ? truncate(e.activity ?? '…', 10) : '');
+    if (s.walking) return; // 走路中維持走路姿勢，到座位後再套用狀態動作
     if (s.shown === e.status) return; // 只有狀態改變才重設動作，重複 upsert 不會疊加 tween
     s.shown = e.status;
     this.tweens.killTweensOf([s.figure, s.mark]);
     s.figure.y = 0;
-    s.mark.setVisible(e.status === 'waiting').setY(-34);
+    s.mark.setVisible(e.status === 'waiting').setY(-48);
     s.cup.setVisible(e.status === 'idle');
-    if (e.status === 'working') {
-      this.tweens.add({ targets: s.figure, y: 2, duration: 160, yoyo: true, repeat: -1 });
-    } else if (e.status === 'waiting') {
-      s.figure.y = -10;
-      this.tweens.add({ targets: s.mark, y: -42, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.applyPose(s, e);
+    this.drawBubble(s, e.status === 'working' ? truncate(e.activity ?? '…', 10) : '');
+    if (e.status === 'waiting') {
+      s.figure.y = -6;
+      this.tweens.add({ targets: s.mark, y: -56, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
   }
 
   private drawAssistant(v: AsstView, a: Assistant): void {
-    v.box.setFillStyle(a.status === 'done' ? 0x2ecc71 : 0x95a5a6);
+    v.box.setTexture(a.status === 'done' ? 'bot-done' : 'bot-working');
     v.label.setText(a.status === 'done' ? '👍 完成' : fitText(a.description, (t) => [...t].length <= 4));
   }
 
   private drawDesk(seat: number, e?: Employee): void {
     const d = this.desks[seat];
-    d.rect.setFillStyle(e?.status === 'waiting' ? 0xc0392b : 0x8d6e63);
-    if (d.img) {
-      d.img.setTint(e?.status === 'waiting' ? 0xff8a80 : 0xffffff); // 等你處理時桌面泛紅
-      d.rect.setVisible(false);
-    }
+    d.img.setTexture(deskKey(deskState(e)));
     const [a, b] = e ? nameplate(e) : ['', ''];
     for (const [obj, str] of [[d.line1, a], [d.line2, b]] as const) {
       obj.setText(str);
@@ -375,24 +465,24 @@ export class OfficeScene extends Phaser.Scene {
       }
     }
     this.clock.prune(`${e.sessionId}/`, new Set(e.assistants.map((a) => `${e.sessionId}/${a.id}`)));
-    // 助理放在員工右側、桌子上方，方塊與標籤都在 96px 格子內；超過 3 個只顯示前 2 個加「+N」
+    // 助理小機器人站在員工右側，標籤在腳下；超過 3 個只顯示前 2 個加「+N」
     const base = seatPosition(e.seat);
     const all = [...s.assist.values()];
     const shown = all.length > MAX_ASSIST ? MAX_ASSIST - 1 : all.length;
     all.forEach((v, i) => {
-      const y = base.y + 8 + i * 14;
-      v.box.setPosition(base.x + 50, y).setVisible(i < shown);
-      v.label.setPosition(base.x + 58, y).setVisible(i < shown);
+      const y = base.y + BOT.y + i * BOT.gap;
+      v.box.setPosition(base.x + BOT.x, y).setVisible(i < shown).setDepth(y);
+      v.label.setPosition(base.x + BOT.x, y + 20).setVisible(i < shown);
     });
-    s.more.setPosition(base.x + 46, base.y + 8 + shown * 14).setText(`+${all.length - shown}`).setVisible(all.length > shown);
+    s.more.setPosition(base.x + BOT.x, base.y + BOT.y + shown * BOT.gap).setText(`+${all.length - shown}`).setVisible(all.length > shown);
   }
 
   private createAsst(): AsstView {
-    const box = this.add.rectangle(0, 0, 10, 10, 0x95a5a6).setDepth(5);
+    const box = this.add.image(0, 0, 'bot-working').setScale(SCALE * 1.5);
     const label = this.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '9px', color: '#fff', backgroundColor: '#222', padding: { x: 2, y: 1 } })
-      .setOrigin(0, 0.5)
-      .setDepth(20);
+      .text(0, 0, '', { fontFamily: FONT, fontSize: '10px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
+      .setOrigin(0.5)
+      .setDepth(5000);
     return { box, label, done: false };
   }
 

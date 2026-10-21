@@ -1,9 +1,9 @@
 import type { Employee } from '../../src/state/types.js';
 import { truncate } from '../../src/state/describe.js';
 
-export const DESK_W = 96;
-export const DESK_H = 96;
-const ORIGIN = { x: 64, y: 128 };
+export const DESK_W = 108;
+export const DESK_H = 120;
+const ORIGIN = { x: 56, y: 160 };
 const PER_ROW = 4;
 
 // 簡單讀法：每排 4 桌，「每 2 排一組」僅是視覺分組，不額外加間距
@@ -12,12 +12,15 @@ export const seatPosition = (seat: number): { x: number; y: number } => ({
   y: ORIGIN.y + Math.floor(seat / PER_ROW) * DESK_H,
 });
 
-export const PALETTE = [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x1abc9c, 0x3498db, 0x9b59b6, 0xe84393];
+export const PALETTE = [0xd9534f, 0xe98f3f, 0xe6c34a, 0x4fb477, 0x38a8a0, 0x4a90d9, 0x8e6fc9, 0xd9669a];
 
 const hash = (s: string): number => {
   let h = 0;
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return h;
+  // 混合位元，讓只差一個字元的 id（如 sim-a / sim-b）也能拿到不同的衣服與髮色
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h = Math.imul(h ^ (h >>> 12), 0x297a2d39);
+  return (h ^ (h >>> 15)) >>> 0;
 };
 
 // hair/shirt 為 PALETTE 索引
