@@ -125,12 +125,15 @@ export class OfficeScene extends Phaser.Scene {
   private clock = new DoneClock(); // 跨 reset 保留，已淡出的助理不會因重連又出現
   private card!: InfoCard;
   private floor!: Phaser.GameObjects.TileSprite;
+  private z = 1; // 內部渲染倍率（整數）：畫布放大、文字以同倍率繪製才不會糊
 
   constructor(private store: OfficeStore) {
     super('office');
   }
 
   create(): void {
+    this.z = this.registry.get('zoom') ?? 1;
+    this.cameras.main.setOrigin(0, 0).setZoom(this.z);
     bakeTextures(this);
     this.drawBackdrop();
     this.card = new InfoCard();
@@ -161,7 +164,7 @@ export class OfficeScene extends Phaser.Scene {
     // 招牌
     g.fillStyle(0x2b2233, 1).fillRect(46, 20, 138, 36);
     g.fillStyle(0xf2e6c9, 1).fillRect(49, 23, 132, 30);
-    this.add.text(115, 38, 'Claude 辦公室', { fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#3b2f4a' })
+    this.add.text(115, 38, 'Claude 辦公室', { fontFamily: FONT, resolution: this.z, fontSize: '16px', fontStyle: 'bold', color: '#3b2f4a' })
       .setOrigin(0.5).setDepth(-97);
     this.add.image(DOOR.x, DOOR.y, 'door').setScale(SCALE).setDepth(-50);
     g.fillStyle(0x8a3b3b, 1).fillRect(DOOR.x - 18, DOOR.y + 32, 36, 10); // 門墊
@@ -195,7 +198,7 @@ export class OfficeScene extends Phaser.Scene {
     while (this.desks.length < n) {
       const i = this.desks.length;
       const p = seatPosition(i);
-      const txt = () => ({ fontFamily: FONT, fontSize: '9px', color: '#e6e1f5' });
+      const txt = () => ({ fontFamily: FONT, resolution: this.z, fontSize: '9px', color: '#e6e1f5' });
       this.desks.push({
         img: this.add.image(p.x + DESK.x, p.y + DESK.y, deskKey('empty')).setScale(SCALE).setDepth(p.y + DESK.y),
         line1: this.add.text(p.x, p.y + PLATE.y1, '', txt()).setDepth(p.y + DESK.y),
@@ -203,7 +206,7 @@ export class OfficeScene extends Phaser.Scene {
       });
       this.drawDesk(i);
     }
-    this.scale.resize(SCENE_W, sceneHeight(n));
+    this.scale.resize(SCENE_W * this.z, sceneHeight(n) * this.z);
     this.floor.setSize(SCENE_W, sceneHeight(n) - WALL_H);
   }
 
@@ -339,11 +342,11 @@ export class OfficeScene extends Phaser.Scene {
     const sprite = this.add.image(0, 0, this.charTexture(e, 'sit0')).setScale(SCALE);
     const figure = this.add.container(0, 0, [sprite]);
     const bubbleBg = this.add.graphics();
-    const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '10px', color: '#2b2233' }).setOrigin(0.5);
+    const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#2b2233' }).setOrigin(0.5);
     const bubble = this.add.container(0, -40, [bubbleBg, bubbleText]).setVisible(false);
     const mark = this.add
       .text(0, -40, '!', {
-        fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#ffffff',
+        fontFamily: FONT, resolution: this.z, fontSize: '16px', fontStyle: 'bold', color: '#ffffff',
         backgroundColor: '#e53935', padding: { x: 7, y: 1 },
       })
       .setOrigin(0.5)
@@ -356,11 +359,12 @@ export class OfficeScene extends Phaser.Scene {
       const cur = this.slots.get(id);
       if (!cur) return;
       const r = this.game.canvas.getBoundingClientRect();
-      this.card.show(cur.emp, r.left + person.x + 22, r.top + person.y - 40);
+      const k = r.width / SCENE_W; // 畫面被放大後，場景座標要換成螢幕座標
+      this.card.show(cur.emp, r.left + (person.x + 22) * k, r.top + (person.y - 40) * k);
     });
     person.on('pointerout', () => this.card.scheduleHide());
     const more = this.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '9px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
+      .text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '9px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
       .setOrigin(0.5)
       .setDepth(5000)
       .setVisible(false);
@@ -480,7 +484,7 @@ export class OfficeScene extends Phaser.Scene {
   private createAsst(): AsstView {
     const box = this.add.image(0, 0, 'bot-working').setScale(SCALE * 1.5);
     const label = this.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '10px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
+      .text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
       .setOrigin(0.5)
       .setDepth(5000);
     return { box, label, done: false };
