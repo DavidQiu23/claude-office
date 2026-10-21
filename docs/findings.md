@@ -1,0 +1,35 @@
+# 驗證結果（spec 4.5）
+
+- 日期：2026-10-21，Windows 11，Claude Code 2.1.306，模型 claude-sonnet-5-5
+- 方法：`npm run build` 後，用暫存 settings 檔（不碰 `%USERPROFILE%\.claude\settings.json`）掛上 8 個事件的錄製 hook，以 `claude -p "<prompt>" --settings <檔>` 跑真實的 headless session。fixture 已將使用者名稱取代為 `user`。
+- 限制：本次全部在 headless（`-p`）模式下錄製，沒有開互動式 session。
+
+## 1. subagent 的工具名稱與描述欄位：已驗證
+
+- 工具名稱是 **`Agent`**（不是 `Task`）。證據：`1792564590711-PreToolUse.json`，`tool_name: "Agent"`。
+- 描述欄位是 **`tool_input.description`**（例如 `"count files"`），另有 `tool_input.prompt`、`subagent_type`、`run_in_background`。
+- 結論：spec 的「`Task` 或 `Agent` 都支援」維持不變；`Task` 在本版未出現，保留相容即可。
+
+補充發現（會影響 Task 3）：
+- subagent 內部自己呼叫工具時，`PreToolUse`/`PostToolUse` 會多帶 `agent_id`、`agent_type`（例如 `1792564594673-PreToolUse.json`、`1792564600601-PreToolUse.json`、`1792564600897-PostToolUse.json`）；主 session 的事件沒有這兩個欄位。reducer 要決定這些事件是否也算員工的 `activity`，且不能把它們當成新的 `Agent` 派出事件。
+- `SubagentStop`（`1792564602672-SubagentStop.json`）帶 `agent_id`、`agent_transcript_path`，**沒有** `tool_use_id`。
+- 派出 `Agent` 的 `PostToolUse`（`1792564602882-PostToolUse.json`）的 `tool_response.agentId` 等於 `SubagentStop.agent_id`，但 `PostToolUse.tool_use_id` 與 `PreToolUse.tool_use_id` 相同，配對用 `tool_use_id` 即可。
+
+## 2. `PreToolUse`/`PostToolUse` 是否有 `tool_use_id`：已驗證，有
+
+- 格式 `toolu_...`。`Read`：`1792564586708-PreToolUse.json` 與 `1792564586980-PostToolUse.json` 相同；`Bash`：`1792564587288-PreToolUse.json` 與 `1792564588419-PostToolUse.json` 相同；`Agent`：`1792564590711-PreToolUse.json` 與 `1792564602882-PostToolUse.json` 相同（`toolu_01ABPttjVnaEMoEAWr1J7qcc`）。
+- 結論：助理以 `tool_use_id` 配對可行，不需要退回 `SubagentStop` 先進先出。
+- 另外：工具被權限拒絕時，只有 `PreToolUse`，沒有 `PostToolUse`（`1792564622290-PreToolUse.json` 之後直接是 `1792564625681-Stop.json`）。也就是說 `PreToolUse` 在權限判斷之前就會觸發，「PreToolUse 後變工作中」可能是等待批准中的假工作中，要靠 `Notification` 才會切到等你處理。
+
+## 3. 權限通知如何辨識：未驗證（UNVERIFIED）
+
+- 嘗試：`--permission-mode default` 要求執行 `mkdir`（`-p` 文字模式與 `--input-format stream-json` 各一次，fixture session `1a9200f4`、`72cf490c`）。headless 模式下需要批准的工具直接被拒絕，**完全沒有 `Notification` 事件**。
+- 互動式 TUI 需要真實終端機，無法在這個自動化流程中操作，所以沒有取得真實的 `Notification` fixture。
+- 沒有證據可以寫欄位值；spec 4.1 的「確認是權限請求才變等你處理」維持原樣，Task 3 實作前仍需補一次人工互動錄製。
+- 待確認清單：`notification_type`（或 `message` 內容）如何區分權限請求與閒置提醒。
+
+## 4. 直接關閉終端機是否收到 `SessionEnd`：部分驗證
+
+- 正常結束：`-p` 跑完會收到 `SessionEnd`（`reason: "other"`，例如 `1792564604985-SessionEnd.json`）。
+- 強制終止行程（`Stop-Process -Force`，session `32b55914`，工具執行中被殺）：只有 `SessionStart`、`UserPromptSubmit`、`PreToolUse`，**沒有 `Stop` 也沒有 `SessionEnd`**。另一次在 `Stop` 之後、背景工作等待中以 `taskkill /T /F` 終止（session `a4a62f77`），同樣沒有 `SessionEnd`。
+- 未驗證：真正「關閉終端機視窗」（console 收到 CTRL_CLOSE_EVENT）。headless 行程沒有可關閉的視窗，嘗試 `CloseMainWindow()` 回傳 False（`MainWindowHandle` 為 0）。強制終止的結果可視為最壞情況：關窗很可能也收不到 `SessionEnd`，所以 5.4 的「請他下班」與 12 小時逾時機制是必要的，維持現有設計。
