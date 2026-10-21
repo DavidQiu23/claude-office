@@ -68,6 +68,11 @@ test('同資料夾兩個 session 有不同座位', () => {
   expect(state.employees.s1.folder).toBe('api');
   expect(state.employees.s2.folder).toBe('api');
 });
+test('不同資料夾各自從座位 0 開始', () => {
+  const { state } = run([ev('SessionStart'), ev('SessionStart', { session_id: 's2', cwd: 'D:\p\web' })]);
+  expect(state.employees.s1.seat).toBe(0);
+  expect(state.employees.s2.seat).toBe(0);
+});
 test('座位釋出後被重用', () => {
   const { state } = run([
     ev('SessionStart'),

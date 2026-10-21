@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, DESK_H, deskCount, DoneClock, DONE_MS, fitText, formatTime, nameplate, PALETTE, sceneHeight, seatPosition, summary } from '../web/src/view.js';
+import { appearance, DESK_H, doorPos, layout, seatCell, DoneClock, DONE_MS, fitText, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -7,15 +7,6 @@ import type { Employee } from '../src/state/types.js';
 const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Employee> = {}): Employee => ({
   sessionId: id, folder: 'proj', cwd: '/x/proj', lastPrompt: 'hi', status, activity: null,
   seat: 0, arrivedAt: 0, lastEventAt: 0, assistants: [], ...over,
-});
-
-test('seatPosition：0 到 3 在同一排、4 換到下一排、8 再往下', () => {
-  const p = [0, 1, 3, 4, 8].map(seatPosition);
-  expect(p[0]).toEqual({ x: 56, y: 160 });
-  expect(p[1]).toEqual({ x: 164, y: 160 });
-  expect(p[2]).toEqual({ x: 380, y: 160 });
-  expect(p[3]).toEqual({ x: 56, y: 280 });
-  expect(p[4]).toEqual({ x: 56, y: 400 });
 });
 
 test('appearance 對同一個 sessionId 永遠相同', () => {
@@ -51,11 +42,30 @@ test('OfficeStore 套用 upsert 與 leave 並通知監聽者', () => {
   expect(seen).toEqual(['upsert', 'leave', 'reset']);
 });
 
-test('deskCount：至少 8 張，座位超過以整排加桌；sceneHeight 隨排數增加', () => {
-  expect(deskCount([])).toBe(8);
-  expect(deskCount([emp('a', 'idle', { seat: 7 })])).toBe(8);
-  expect(deskCount([emp('a', 'idle', { seat: 8 })])).toBe(12);
-  expect(sceneHeight(12)).toBe(sceneHeight(8) + DESK_H);
+test('layout：一個資料夾一間辦公室，桌數隨人數、至少 2 桌', () => {
+  const l = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api' }), emp('b', 'idle', { cwd: 'D:/p/web', folder: 'web' })]);
+  expect(l.rooms.map((r) => r.title)).toEqual(['api', 'web']);
+  expect(l.rooms[0].desks).toBe(2);
+  expect(l.rooms[1].x).toBeGreaterThan(l.rooms[0].x);
+  const big = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 3 })]);
+  expect(big.rooms[0].cols).toBe(3);
+  expect(big.rooms[0].desks).toBe(6);
+  expect(big.rooms[0].h).toBeGreaterThan(l.rooms[0].h);
+});
+test('layout：同名資料夾用上一層區分（含反斜線路徑）、太寬時換行、空辦公室仍有大小', () => {
+  const dup = layout([emp('a', 'idle', { cwd: 'D:\\x\\api' }), emp('b', 'idle', { cwd: 'D:\\y\\api' })]);
+  expect(dup.rooms.map((r) => r.title).sort()).toEqual(['x/api', 'y/api']);
+  const many = layout(['a', 'b', 'c', 'd'].map((n) => emp(n, 'idle', { cwd: 'D:/p/' + n, seat: 2 })));
+  expect(new Set(many.rooms.map((r) => r.y)).size).toBeGreaterThan(1);
+  expect(layout([]).rooms).toEqual([]);
+  expect(layout([]).width).toBeGreaterThan(0);
+});
+test('seatCell 與 doorPos 落在房間內', () => {
+  const [r] = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 4 })]).rooms;
+  const c = seatCell(r, 4);
+  expect(c.x).toBeGreaterThanOrEqual(r.x);
+  expect(c.y + DESK_H).toBeLessThanOrEqual(r.y + r.h);
+  expect(doorPos(r).x).toBeLessThan(seatCell(r, 0).x);
 });
 
 test('formatTime：HH:mm 補零', () => {

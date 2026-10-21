@@ -17,7 +17,9 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   if (existing) {
     emp = { ...existing };
   } else {
-    const taken = new Set(Object.values(state.employees).map((x) => x.seat));
+    // 座位以資料夾（cwd）為單位：每個資料夾自己一間辦公室，各自從 0 開始排
+    const cwd = e.cwd ?? '';
+    const taken = new Set(Object.values(state.employees).filter((x) => x.cwd === cwd).map((x) => x.seat));
     let seat = 0;
     while (taken.has(seat)) seat++;
     emp = {

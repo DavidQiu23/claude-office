@@ -41,6 +41,10 @@ npm run uninstall-hooks
 
 只會從 `~/.claude/settings.json` 移除 claude-office 的項目；第一次安裝時會建立原始檔備份 `settings.json.claude-office.bak`。
 
+## 辦公室怎麼排
+
+一個資料夾（以完整路徑 cwd 判斷）一間小辦公室，招牌是資料夾名稱，同名但路徑不同的資料夾會顯示上一層來區分。同一個資料夾開幾個 session 就有幾位員工，桌子最少 2 張、人多再加。最後一位員工離開，該辦公室才消失。畫面大小會依視窗與辦公室數量自動調整。
+
 ## 狀態說明
 
 | 角色 | 狀態 | 外觀 | 觸發 |
