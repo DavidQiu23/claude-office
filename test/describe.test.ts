@@ -1,0 +1,44 @@
+import { expect, test } from 'vitest';
+import { describeTool, folderName, isPermissionNotification, isSubagentTool, truncate } from '../src/state/describe.js';
+import type { HookEvent } from '../src/state/types.js';
+
+test('truncate 以字元計算', () => {
+  expect(truncate('短句', 30)).toBe('短句');
+  expect(truncate('一'.repeat(31), 30)).toBe('一'.repeat(30) + '…');
+  expect(truncate('😀'.repeat(31), 30)).toBe('😀'.repeat(30) + '…');
+});
+test('describeTool', () => {
+  expect(describeTool('Read', { file_path: 'C:\\repo\\src\\app.ts' })).toBe('讀取 app.ts');
+  expect(describeTool('Edit', { file_path: '/repo/a.ts' })).toBe('編輯 a.ts');
+  expect(describeTool('MultiEdit', { file_path: 'b.ts' })).toBe('編輯 b.ts');
+  expect(describeTool('Write', { file_path: 'c.ts' })).toBe('編輯 c.ts');
+  expect(describeTool('Bash', { command: 'npm test' })).toBe('執行 npm test');
+  expect(describeTool('Bash', { command: 'x'.repeat(40) })).toBe('執行 ' + 'x'.repeat(30) + '…');
+  expect(describeTool('Grep', {})).toBe('搜尋程式碼');
+  expect(describeTool('Glob', {})).toBe('搜尋程式碼');
+  expect(describeTool('WebSearch', {})).toBe('搜尋網路');
+  expect(describeTool('WebFetch', {})).toBe('搜尋網路');
+  expect(describeTool('Task', {})).toBe('派出助理');
+  expect(describeTool('Agent', {})).toBe('派出助理');
+  expect(describeTool('mcp__foo__bar', {})).toBe('使用 mcp__foo__bar');
+  expect(describeTool('Read', undefined)).toBe('讀取 檔案');
+});
+test('isSubagentTool', () => {
+  expect(isSubagentTool('Task')).toBe(true);
+  expect(isSubagentTool('Agent')).toBe(true);
+  expect(isSubagentTool('Read')).toBe(false);
+  expect(isSubagentTool(undefined)).toBe(false);
+});
+test('folderName 支援兩種斜線', () => {
+  expect(folderName('D:\\project\\my-shop-api')).toBe('my-shop-api');
+  expect(folderName('/home/a/my-shop-api/')).toBe('my-shop-api');
+});
+// synthetic — no real Notification fixture; verify against a real one
+const note = (o: Partial<HookEvent>): HookEvent =>
+  ({ hook_event_name: 'Notification', session_id: 's', sentAt: 0, ...o });
+test('isPermissionNotification（合成事件）', () => {
+  expect(isPermissionNotification(note({ notification_type: 'permission_prompt' }))).toBe(true);
+  expect(isPermissionNotification(note({ message: 'Claude needs your permission to use Bash' }))).toBe(true);
+  expect(isPermissionNotification(note({ message: 'Claude is waiting for your input', notification_type: 'idle_prompt' }))).toBe(false);
+  expect(isPermissionNotification(note({}))).toBe(false);
+});
