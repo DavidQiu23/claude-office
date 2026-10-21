@@ -38,16 +38,21 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   let assistants: Assistant[] = emp.assistants.filter((a) => a.status !== 'done');
   const fresh = e.sentAt >= emp.lastEventAt;
 
+  const top = !e.agent_id; // 來自 subagent 內部的事件不動 activity、不清助理
+  const finish = () => (assistants = assistants.map((a) => (a.status === 'working' ? { ...a, status: 'done' as const } : a)));
   if (fresh) {
     switch (e.hook_event_name) {
       case 'UserPromptSubmit':
         emp.status = 'working';
         emp.lastPrompt = e.prompt ?? '';
-        emp.activity = null;
+        if (top) {
+          emp.activity = null;
+          finish();
+        }
         break;
       case 'PreToolUse':
         emp.status = 'working';
-        emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
+        if (top) emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
         break;
       case 'PostToolUse':
         emp.status = 'working';
@@ -57,7 +62,10 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
         break;
       case 'Stop':
         emp.status = 'idle';
-        emp.activity = null;
+        if (top) {
+          emp.activity = null;
+          finish();
+        }
         break;
     }
   }

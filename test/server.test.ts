@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { createApp, portInUseMessage } from '../src/server/app.js';
@@ -173,4 +174,29 @@ test('超過 1MB 後伺服器切斷連線，用戶端無法繼續塞資料', asy
   expect(closed).toBe(true);
   expect(written).toBeLessThan(TOTAL);
   expect((await fetch(base + '/state')).status).toBe(200);
+});
+
+const raw = (method: string, path: string, headers: Record<string, string>, body = '') =>
+  new Promise<number>((done, fail) => {
+    const req = http.request(base + path, { method, headers: { ...headers, 'Content-Length': Buffer.byteLength(body) } }, (res) => {
+      res.resume();
+      done(res.statusCode ?? 0);
+    });
+    req.on('error', fail);
+    req.end(body);
+  });
+const port = () => (app.server.address() as AddressInfo).port;
+const evBody = JSON.stringify({ hook_event_name: 'SessionStart', session_id: 'x', sentAt: 1 });
+
+test('Host 不是 127.0.0.1 / localhost 回 403', async () => {
+  expect(await raw('GET', '/state', { Host: `evil.example:${port()}` })).toBe(403);
+  expect(await raw('GET', '/state', { Host: `localhost:${port()}` })).toBe(200);
+});
+test('外來 Origin 的 POST 被擋，沒建立員工；同源與無 Origin 照常', async () => {
+  const h = { Host: `127.0.0.1:${port()}` };
+  expect(await raw('POST', '/events', { ...h, Origin: 'http://evil.example', 'Content-Type': 'text/plain' }, evBody)).toBe(403);
+  expect(await employees()).toHaveLength(0);
+  expect(await raw('POST', '/events', { ...h, Origin: `http://127.0.0.1:${port()}` }, evBody)).toBe(204);
+  expect(await raw('POST', '/events', h, evBody.replace('"x"', '"y"'))).toBe(204);
+  expect(await employees()).toHaveLength(2);
 });

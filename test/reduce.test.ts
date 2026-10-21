@@ -144,3 +144,30 @@ test.each(['toString', '__proto__', 'constructor'])('原型鏈名稱 %s 的 sess
   expect(r.changes).toHaveLength(1);
   expect(Object.hasOwn(r.state.employees, id)).toBe(true);
 });
+
+const withAssistant = () =>
+  run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a1', tool_input: { description: 'x' } })]).state;
+test('Stop 把仍在工作的助理標為完成', () => {
+  const s0 = withAssistant();
+  expect(run([ev('Stop')], s0).state.employees.s1.assistants[0].status).toBe('done');
+});
+test('UserPromptSubmit 把仍在工作的助理標為完成', () => {
+  const s0 = withAssistant();
+  expect(run([ev('UserPromptSubmit')], s0).state.employees.s1.assistants[0].status).toBe('done');
+});
+test('帶 agent_id 的 Stop / UserPromptSubmit 不結束助理', () => {
+  const s0 = withAssistant();
+  const r = run([ev('Stop', { agent_id: 'sub' }), ev('UserPromptSubmit', { agent_id: 'sub' })], s0);
+  expect(r.state.employees.s1.assistants[0].status).toBe('working');
+});
+test('帶 agent_id 的事件不覆寫 activity，但仍可把等你處理救回工作中', () => {
+  let r = run([ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a2', tool_input: { description: 'd' } })]);
+  const act = r.state.employees.s1.activity;
+  r = run(
+    [ev('Notification', { notification_type: 'permission_prompt' }), ev('PostToolUse', { tool_name: 'Read', tool_use_id: 'in', agent_id: 'sub' }),
+     ev('PreToolUse', { tool_name: 'Read', tool_input: { file_path: 'a.ts' }, agent_id: 'sub' })],
+    r.state,
+  );
+  expect(r.state.employees.s1.activity).toBe(act);
+  expect(r.state.employees.s1.status).toBe('working');
+});

@@ -12,8 +12,9 @@ const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const FADE_MS = 400;
 const PLATE_W = 90;
 const MAX_ASSIST = 3;
+const USE_TINT = true; // 角色圖本身已有配色而顯得混濁時改成 false
 
-interface DeskObj { rect: Phaser.GameObjects.Rectangle; line1: Phaser.GameObjects.Text; line2: Phaser.GameObjects.Text }
+interface DeskObj { rect: Phaser.GameObjects.Rectangle; img?: Phaser.GameObjects.Image; line1: Phaser.GameObjects.Text; line2: Phaser.GameObjects.Text }
 interface AsstView {
   box: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.Text;
@@ -115,6 +116,13 @@ export class OfficeScene extends Phaser.Scene {
     super('office');
   }
 
+  // 素材放在 web/public/assets/（見該資料夾 LICENSE.md）。缺檔或載入失敗時不報錯，沿用色塊。
+  preload(): void {
+    this.load.on('loaderror', () => {});
+    this.load.image('worker', 'assets/worker.png');
+    this.load.image('desk', 'assets/desk.png');
+  }
+
   create(): void {
     this.add.text(64, 24, 'Claude 辦公室', { fontFamily: FONT, fontSize: '18px', color: '#cdd6f4' });
     this.add.rectangle(DOOR.x, DOOR.y, 32, 56, 0x6d4c41).setStrokeStyle(2, 0x3e2723);
@@ -152,6 +160,7 @@ export class OfficeScene extends Phaser.Scene {
     while (this.desks.length > n) {
       const d = this.desks.pop()!;
       d.rect.destroy();
+      d.img?.destroy();
       d.line1.destroy();
       d.line2.destroy();
     }
@@ -159,8 +168,11 @@ export class OfficeScene extends Phaser.Scene {
       const i = this.desks.length;
       const p = seatPosition(i);
       const txt = () => ({ fontFamily: FONT, fontSize: '9px', color: '#ddd' });
+      const rect = this.add.rectangle(p.x + 40, p.y + 66, 72, 22, 0x8d6e63).setStrokeStyle(1, 0x5d4037);
       this.desks.push({
-        rect: this.add.rectangle(p.x + 40, p.y + 66, 72, 22, 0x8d6e63).setStrokeStyle(1, 0x5d4037),
+        rect,
+        // 在文字之前建立，且深度低於人物（10）與助理（5），不會蓋住它們
+        img: this.textures.exists('desk') ? this.add.image(rect.x, rect.y, 'desk').setDisplaySize(72, 22).setDepth(-1) : undefined,
         line1: this.add.text(p.x - 2, p.y + 78, '', txt()),
         line2: this.add.text(p.x - 2, p.y + 87, '', { ...txt(), color: '#9aa' }),
       });
@@ -275,12 +287,22 @@ export class OfficeScene extends Phaser.Scene {
     return { more, emp: e, person, figure, body: bodyRect, hair, bubble, bubbleBg, bubbleText, mark, cup, shown: null, assist: new Map() };
   }
 
-  // ---- 繪製（Task 10 換素材只需改 drawEmployee / drawAssistant / drawDesk）----
+  // ---- 繪製（素材只動 preload / drawEmployee / drawDesk；drawAssistant 刻意維持色塊，目前沒有助理素材）----
 
   private drawEmployee(s: Slot, e: Employee): void {
     const look = appearance(e.sessionId);
     s.body.setFillStyle(PALETTE[look.shirt]);
     s.hair.setFillStyle(PALETTE[look.hair]);
+    if (this.textures.exists('worker')) {
+      let img = s.figure.getByName('sprite') as Phaser.GameObjects.Image | null;
+      if (!img) {
+        img = this.add.image(0, 0, 'worker').setName('sprite').setDisplaySize(20, 32);
+        s.figure.add(img);
+      }
+      if (USE_TINT) img.setTint(PALETTE[look.shirt]); // 單一影格以衣服顏色區分員工；坐、走由 tween 表現
+      s.body.setVisible(false);
+      s.hair.setVisible(false);
+    }
 
     const text = e.status === 'working' ? truncate(e.activity ?? '…', 10) : '';
     s.bubble.setVisible(text !== '');
@@ -311,6 +333,10 @@ export class OfficeScene extends Phaser.Scene {
   private drawDesk(seat: number, e?: Employee): void {
     const d = this.desks[seat];
     d.rect.setFillStyle(e?.status === 'waiting' ? 0xc0392b : 0x8d6e63);
+    if (d.img) {
+      d.img.setTint(e?.status === 'waiting' ? 0xff8a80 : 0xffffff); // 等你處理時桌面泛紅
+      d.rect.setVisible(false);
+    }
     const [a, b] = e ? nameplate(e) : ['', ''];
     for (const [obj, str] of [[d.line1, a], [d.line2, b]] as const) {
       obj.setText(str);

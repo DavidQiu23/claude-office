@@ -69,6 +69,13 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
     const path = (req.url ?? '/').split('?')[0];
     const method = req.method;
 
+    // 本機安全：擋 DNS rebinding（Host）與跨站 POST（Origin）；hook 的 fetch 不帶 Origin
+    const host = req.headers.host ?? '';
+    const hostname = host.replace(/:\d*$/, '');
+    if (hostname !== '127.0.0.1' && hostname !== 'localhost') return void res.writeHead(403).end();
+    const origin = req.headers.origin;
+    if (method === 'POST' && origin !== undefined && origin !== `http://${host}`) return void res.writeHead(403).end();
+
     if (method === 'POST' && path === '/events') {
       const raw = await readBody(req);
       if (raw === null) {
