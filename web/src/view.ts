@@ -2,7 +2,7 @@ import type { Employee } from '../../src/state/types.js';
 import { truncate } from '../../src/state/describe.js';
 
 export const DESK_W = 108;
-export const DESK_H = 120;
+export const DESK_H = 128;
 export const PALETTE = [0xd9534f, 0xe98f3f, 0xe6c34a, 0x4fb477, 0x38a8a0, 0x4a90d9, 0x8e6fc9, 0xd9669a];
 
 const hash = (s: string): number => {
@@ -72,9 +72,9 @@ export const fitText = (text: string, fits: (s: string) => boolean): string => {
 
 // ---- 版面：一個資料夾（cwd）一間小辦公室 ----
 
-export const ROOM = { gutter: 44, header: 40, pad: 10, gap: 14, maxRowW: 760, minCols: 2, maxCols: 3 };
+export const ROOM = { gutter: 44, header: 56, pad: 10, gap: 14, maxRowW: 760, minCols: 2, maxCols: 3 };
 export const BASE_W = 560; // 計算放大倍率時的參考尺寸（典型的 1~3 間辦公室）
-export const BASE_H = 330;
+export const BASE_H = 400;
 
 export interface Room {
   key: string; // cwd
