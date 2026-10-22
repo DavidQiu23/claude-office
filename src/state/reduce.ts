@@ -46,7 +46,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   const fresh = e.sentAt >= emp.lastEventAt;
 
   const top = !e.agent_id; // 來自 subagent 內部的事件不動 activity、不清助理
-  const finish = () => (assistants = assistants.map((a) => (a.status === 'working' ? { ...a, status: 'done' as const } : a)));
+  const finish = () => (assistants = assistants.map((a) => (a.status === 'working' && !a.background ? { ...a, status: 'done' as const } : a)));
   if (fresh) {
     switch (e.hook_event_name) {
       case 'UserPromptSubmit':
@@ -98,9 +98,15 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       description: String(e.tool_input?.description ?? ''),
       status: 'working',
       startedAt: e.sentAt,
+      ...(e.tool_input?.run_in_background === true ? { background: true } : {}),
     });
   } else if ((e.hook_event_name === 'PostToolUse' || e.hook_event_name === 'PostToolUseFailure') && e.tool_use_id) {
-    assistants = assistants.map((a) => (a.id === e.tool_use_id ? { ...a, status: 'done' } : a));
+    const launched = e.tool_response?.status === 'async_launched';
+    assistants = assistants.map((a) =>
+      a.id !== e.tool_use_id ? a : launched ? { ...a, background: true, agentId: String(e.tool_response?.agentId ?? '') } : { ...a, status: 'done' },
+    );
+  } else if (e.hook_event_name === 'SubagentStop' && e.agent_id && assistants.some((a) => a.agentId === e.agent_id)) {
+    assistants = assistants.map((a) => (a.agentId === e.agent_id ? { ...a, status: 'done' } : a));
   } else if (e.hook_event_name === 'SubagentStop' && !e.tool_use_id) {
     const i = assistants.findIndex((a) => a.status === 'working' && a.id.startsWith('seq-'));
     if (i >= 0) assistants[i] = { ...assistants[i], status: 'done' };

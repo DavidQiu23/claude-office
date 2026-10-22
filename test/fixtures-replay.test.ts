@@ -55,3 +55,40 @@ test('真實 fixtures：headless 權限被拒的 session 在 Stop 後閒置', ()
   expect(emp.activity).toBeNull();
   expect(emp.assistants).toEqual([]);
 });
+
+test('真實 fixtures：PermissionRequest 讓員工等你批准，Stop 後閒置', () => {
+  let state: OfficeState = emptyState();
+  let sawWaiting = false;
+  for (const e of load('52b23d01')) {
+    state = reduce(state, e).state;
+    const emp = state.employees[e.session_id];
+    if (e.hook_event_name === 'PermissionRequest') {
+      sawWaiting = true;
+      expect(emp.status).toBe('waiting');
+      expect(emp.activity).toContain('等你批准');
+    }
+  }
+  expect(sawWaiting).toBe(true);
+});
+
+test('真實 fixtures：背景 Agent 在 async_launched 與 Stop 後仍進行中，SubagentStop 才完成', () => {
+  let state: OfficeState = emptyState();
+  const checks: string[] = [];
+  for (const e of load('0ab96839')) {
+    state = reduce(state, e).state;
+    const emp = state.employees[e.session_id];
+    if (!emp) continue;
+    const a = emp.assistants[0];
+    if (e.hook_event_name === 'PostToolUse' && e.tool_name === 'Agent') {
+      expect(a).toEqual(expect.objectContaining({ status: 'working', agentId: 'a78cbbfe08a9c76f0' }));
+      checks.push('post');
+    } else if (e.hook_event_name === 'Stop' && !e.agent_id && a) {
+      expect(a.status).toBe('working');
+      checks.push('stop');
+    } else if (e.hook_event_name === 'SubagentStop') {
+      expect(a.status).toBe('done');
+      checks.push('subStop');
+    }
+  }
+  expect(checks).toEqual(['post', 'stop', 'subStop']);
+});

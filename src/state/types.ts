@@ -7,6 +7,7 @@ export interface HookEvent {
   tool_name?: string;
   tool_input?: Record<string, unknown>;
   tool_use_id?: string;
+  tool_response?: Record<string, unknown>; // 背景 Agent 的 PostToolUse：status 'async_launched'、agentId（docs/findings.md §6）
   notification_type?: string;
   message?: string;
   agent_id?: string;           // subagent 內部事件才有（docs/findings.md §1）
@@ -21,6 +22,8 @@ export interface Assistant {
   description: string;
   status: 'working' | 'done';
   startedAt: number;
+  agentId?: string;            // 背景助理：async_launched 後記下，SubagentStop 用它配對
+  background?: boolean;        // run_in_background：PostToolUse 與 Stop 都不代表完成
 }
 
 export interface Employee {

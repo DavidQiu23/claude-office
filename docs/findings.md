@@ -46,3 +46,16 @@
 | `PostToolUseFailure` | 同 `PostToolUse`：回到工作中，並讓同 `tool_use_id` 的助理完成 |
 | `StopFailure` | 同 `Stop`：閒置、清氣泡、助理完成 |
 | 不收 | `SubagentStart`（沒有 description，助理仍由 `PreToolUse` 的 `Agent` 建立）、`PermissionDenied`（只在 auto 模式，之後沒有狀態變化）、`idle_prompt`、`PostToolBatch` 等 |
+
+## 6. 補錄：PermissionRequest 與背景 Agent（2026-10-22，Claude Code 2.1.307，headless `-p`）
+
+fixture：`52b23d01`（權限）、`0ab96839`（背景 Agent）。使用者名稱已取代為 `user`。
+
+- **`PermissionRequest`：已驗證**。headless 模式也會觸發（`PreToolUse` → `PermissionRequest` → `Stop`），欄位有 `tool_name`、`tool_input`、`permission_suggestions`。第 3 節「headless 沒有 `Notification`」仍成立，但 `PermissionRequest` 補上了這個缺口。
+- **`AskUserQuestion`：未驗證**。headless 沒有這個工具（模型自己回報不在工具清單），只能在互動式 session 錄。
+- **`run_in_background` 的 Agent：已驗證，行為和前景不同**：
+  - `PostToolUse` 立刻觸發，`tool_response` 是 `{status: "async_launched", agentId, ...}`，不代表助理完成。
+  - 主 session 的 `Stop` 會在助理還在跑時就觸發；助理內部事件（帶 `agent_id`）在 `Stop` 之後才出現。
+  - `SubagentStop`（帶 `agent_id`）才是真正完成，之後還會有一個內容為 `<task-notification>` 的 `UserPromptSubmit`，再一個 `Stop`。
+  - 處理：reducer 對背景助理記下 `agentId`，`PostToolUse`／`Stop`／`UserPromptSubmit` 不結束它，由 `SubagentStop.agent_id` 配對完成。
+- Esc 中斷、直接關終端機：仍需互動式 session，headless 無法驗證。
