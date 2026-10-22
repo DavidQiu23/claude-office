@@ -24,6 +24,8 @@ test('保留使用者原有的 hooks 與其他設定', () => {
   expect(out.hooks.PreToolUse[0]).toEqual(user.hooks.PreToolUse[0]);
   for (const ev of HOOK_EVENTS) expect(countOurs(out, ev)).toBe(1);
   expect(out.hooks.PostToolUse[0].matcher).toBe('*');
+  for (const ev of ['PostToolUseFailure', 'PermissionRequest']) expect(out.hooks[ev][0].matcher).toBe('*');
+  for (const ev of ['Notification', 'Elicitation', 'ElicitationResult', 'StopFailure']) expect(out.hooks[ev][0].matcher).toBeUndefined();
   expect(out.hooks.Stop[1].matcher).toBeUndefined();
   expect(user.hooks.Stop).toHaveLength(1); // 輸入不被修改
 });

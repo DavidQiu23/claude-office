@@ -33,3 +33,16 @@
 - 正常結束：`-p` 跑完會收到 `SessionEnd`（`reason: "other"`，例如 `1792564604985-SessionEnd.json`）。
 - 強制終止行程（`Stop-Process -Force`，session `32b55914`，工具執行中被殺）：只有 `SessionStart`、`UserPromptSubmit`、`PreToolUse`，**沒有 `Stop` 也沒有 `SessionEnd`**。另一次在 `Stop` 之後、背景工作等待中以 `taskkill /T /F` 終止（session `a4a62f77`），同樣沒有 `SessionEnd`。
 - 未驗證：真正「關閉終端機視窗」（console 收到 CTRL_CLOSE_EVENT）。headless 行程沒有可關閉的視窗，嘗試 `CloseMainWindow()` 回傳 False（`MainWindowHandle` 為 0）。強制終止的結果可視為最壞情況：關窗很可能也收不到 `SessionEnd`，所以 5.4 的「請他下班」與 12 小時逾時機制是必要的，維持現有設計。
+
+## 5. 對照官方 hooks 文件後的事件對應（2026-10-22）
+
+依 code.claude.com/docs/en/hooks（共 33 個事件）重新對齊。**以下來自文件，尚未用真實互動式 session 錄製驗證**；第 2 節的實測（`PreToolUse` 在權限判斷之前就觸發）是需要 `PermissionRequest` 的原因。
+
+| 事件 | 對員工的影響 |
+| --- | --- |
+| `PermissionRequest` | 立刻「等你處理」，記下要批准的工具（`等你批准：…`）；原本 `Notification` 要等提示出現約 6 秒才送 |
+| `Notification` | 只有 `permission_prompt`、`elicitation_dialog`、`elicitation_url_dialog` 算等你處理；`idle_prompt`、`auth_success`、`agent_*` 等不算。沒有 `notification_type`（舊版）才退回用訊息文字判斷 |
+| `Elicitation` / `ElicitationResult` | MCP server 要你輸入時等你處理；回應之後回到工作中 |
+| `PostToolUseFailure` | 同 `PostToolUse`：回到工作中，並讓同 `tool_use_id` 的助理完成 |
+| `StopFailure` | 同 `Stop`：閒置、清氣泡、助理完成 |
+| 不收 | `SubagentStart`（沒有 description，助理仍由 `PreToolUse` 的 `Agent` 建立）、`PermissionDenied`（只在 auto 模式，之後沒有狀態變化）、`idle_prompt`、`PostToolBatch` 等 |

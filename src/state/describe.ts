@@ -38,7 +38,10 @@ export function describeTool(toolName: string, input: Record<string, unknown> | 
   }
 }
 
-// provisional: no real Notification fixture (UNVERIFIED in docs/findings.md); controller ruling.
-// Replace with the confirmed discriminator once a real permission Notification is captured.
-export const isPermissionNotification = (e: HookEvent): boolean =>
-  e.notification_type === 'permission_prompt' || /permission|needs your|權限/i.test(e.message ?? '');
+// 依官方 hooks 文件的 notification_type：這三種是在等使用者處理（權限請求、MCP 表單、MCP 要開網址）。
+// 其餘（idle_prompt、auth_success、agent_* 等）不算。舊版沒有 notification_type 時才退回用訊息文字判斷。
+const WAITING_NOTIFICATIONS = new Set(['permission_prompt', 'elicitation_dialog', 'elicitation_url_dialog']);
+export const isWaitingNotification = (e: HookEvent): boolean =>
+  e.notification_type !== undefined
+    ? WAITING_NOTIFICATIONS.has(e.notification_type)
+    : /permission|needs your|權限/i.test(e.message ?? '');

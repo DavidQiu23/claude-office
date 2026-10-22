@@ -1,4 +1,4 @@
-import { describeTool, folderName, isPermissionNotification, isSubagentTool } from './describe.js';
+import { describeTool, folderName, isWaitingNotification, isSubagentTool } from './describe.js';
 import type { Assistant, Change, Employee, HookEvent, OfficeState } from './types.js';
 
 export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; changes: Change[] } {
@@ -63,13 +63,24 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
         emp.status = e.tool_name === 'AskUserQuestion' ? 'waiting' : 'working';
         if (top) emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
         break;
+      case 'PermissionRequest':
+        // 要跳權限詢問了：PreToolUse 在權限判斷之前就會觸發，所以這裡才是真正開始等你（Notification 還要再等約 6 秒）
+        emp.status = 'waiting';
+        if (top) emp.activity = '等你批准：' + describeTool(e.tool_name ?? '', e.tool_input);
+        break;
       case 'PostToolUse':
+      case 'PostToolUseFailure':
+      case 'ElicitationResult':
         emp.status = 'working';
         break;
       case 'Notification':
-        if (isPermissionNotification(e)) emp.status = 'waiting';
+        if (isWaitingNotification(e)) emp.status = 'waiting';
+        break;
+      case 'Elicitation':
+        emp.status = 'waiting'; // MCP server 要你輸入
         break;
       case 'Stop':
+      case 'StopFailure':
         emp.status = 'idle';
         if (top) {
           emp.activity = null;
@@ -88,7 +99,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       status: 'working',
       startedAt: e.sentAt,
     });
-  } else if (e.hook_event_name === 'PostToolUse' && e.tool_use_id) {
+  } else if ((e.hook_event_name === 'PostToolUse' || e.hook_event_name === 'PostToolUseFailure') && e.tool_use_id) {
     assistants = assistants.map((a) => (a.id === e.tool_use_id ? { ...a, status: 'done' } : a));
   } else if (e.hook_event_name === 'SubagentStop' && !e.tool_use_id) {
     const i = assistants.findIndex((a) => a.status === 'working' && a.id.startsWith('seq-'));

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { describeTool, folderName, isPermissionNotification, isSubagentTool, truncate } from '../src/state/describe.js';
+import { describeTool, folderName, isWaitingNotification, isSubagentTool, truncate } from '../src/state/describe.js';
 import type { HookEvent } from '../src/state/types.js';
 
 test('truncate 以字元計算', () => {
@@ -33,12 +33,18 @@ test('folderName 支援兩種斜線', () => {
   expect(folderName('D:\\project\\my-shop-api')).toBe('my-shop-api');
   expect(folderName('/home/a/my-shop-api/')).toBe('my-shop-api');
 });
-// synthetic — no real Notification fixture; verify against a real one
+// 依官方文件（hooks 參考）的 notification_type；沒有真實 fixture，用合成事件
 const note = (o: Partial<HookEvent>): HookEvent =>
   ({ hook_event_name: 'Notification', session_id: 's', sentAt: 0, ...o });
-test('isPermissionNotification（合成事件）', () => {
-  expect(isPermissionNotification(note({ notification_type: 'permission_prompt' }))).toBe(true);
-  expect(isPermissionNotification(note({ message: 'Claude needs your permission to use Bash' }))).toBe(true);
-  expect(isPermissionNotification(note({ message: 'Claude is waiting for your input', notification_type: 'idle_prompt' }))).toBe(false);
-  expect(isPermissionNotification(note({}))).toBe(false);
+test('isWaitingNotification：權限與 MCP 表單／網址要你處理，其餘不算', () => {
+  for (const t of ['permission_prompt', 'elicitation_dialog', 'elicitation_url_dialog']) expect(isWaitingNotification(note({ notification_type: t }))).toBe(true);
+  for (const t of ['idle_prompt', 'auth_success', 'elicitation_complete', 'elicitation_response', 'agent_needs_input', 'agent_completed', 'plugin_notification'])
+    expect(isWaitingNotification(note({ notification_type: t, message: 'Claude needs your permission' }))).toBe(false);
+  // 舊版沒有 notification_type：才退回用訊息文字判斷
+  expect(isWaitingNotification(note({ message: 'Claude needs your permission to use Bash' }))).toBe(true);
+  expect(isWaitingNotification(note({ message: 'Claude is waiting for your input' }))).toBe(false);
+  expect(isWaitingNotification(note({}))).toBe(false);
+});
+test('describeTool：權限詢問與提問', () => {
+  expect(describeTool('AskUserQuestion', {})).toBe('提問中');
 });

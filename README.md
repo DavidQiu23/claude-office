@@ -14,7 +14,7 @@ npm run build
 npm run install-hooks
 ```
 
-`install-hooks` 會把 hook 寫入 `~/.claude/settings.json`。
+`install-hooks` 會把 hook 寫入 `~/.claude/settings.json`（13 個事件：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、PostToolUseFailure、PermissionRequest、Notification、Elicitation、ElicitationResult、Stop、StopFailure、SubagentStop、SessionEnd）。更新版本後請重新執行一次，才會掛上新增的事件。
 
 ## 使用
 
@@ -49,16 +49,16 @@ npm run uninstall-hooks
 
 | 角色 | 狀態 | 外觀 | 觸發 |
 | --- | --- | --- | --- |
-| 員工 | 工作中 | 坐在桌前打字（雙手交替），螢幕背面指示燈綠色，頭上氣泡顯示目前動作 | 送出 prompt、工具執行 |
-| 員工 | 等你處理 | 站起來舉手，頭上紅色驚嘆號跳動，桌面泛紅光、螢幕背面指示燈變紅，招牌出現「等你 N」 | 權限提示的 Notification，或 Claude 用 AskUserQuestion 問你問題（PreToolUse） |
-| 員工 | 閒置 | 坐著閉眼休息，桌上咖啡冒煙，螢幕背面指示燈黃色 | 回合結束（Stop） |
+| 員工 | 工作中 | 坐在桌前打字（雙手交替），螢幕背面指示燈綠色，頭上氣泡顯示目前動作 | 送出 prompt、工具執行，批准或回答之後（PostToolUse、PostToolUseFailure、ElicitationResult） |
+| 員工 | 等你處理 | 站起來舉手，頭上紅色驚嘆號跳動，桌面泛紅光、螢幕背面指示燈變紅，招牌出現「等你 N」 | 要跳權限詢問（PermissionRequest）、Claude 用 AskUserQuestion 問你（PreToolUse）、MCP 要你輸入（Elicitation），或權限／MCP 表單的 Notification |
+| 員工 | 閒置 | 坐著閉眼休息，桌上咖啡冒煙，螢幕背面指示燈黃色 | 回合結束（Stop、StopFailure） |
 | 員工 | 下班 | 走回畫面最左緣後消失 | SessionEnd、按「請他下班」、閒置 12 小時 |
 | 助理 | 工作中 | 另一位員工坐在主人的島上打字，名牌偏藍底「↳ 描述」 | subagent 啟動 |
 | 助理 | 完成 | 閒置姿勢，名牌「↳ ✓ 完成」，3 秒後走出辦公室 | subagent 結束 |
 
 ## 已知限制
 
-- 「等你處理」是暫定的判斷方式，**尚未用真實的互動式 Notification 驗證**（驗證流程為 headless，收不到該事件）。
+- 「等你處理」的判斷依官方 hooks 文件的事件與 `notification_type`（`permission_prompt`、`elicitation_dialog`、`elicitation_url_dialog`），**尚未用真實的互動式事件驗證**（驗證流程為 headless，收不到這些事件）。`PermissionRequest` 在跳詢問時立刻觸發；`Notification` 要等提示出現約 6 秒才送，所以兩者都收，前者讓員工馬上舉手。
 - 「AskUserQuestion 算等你處理」也是依工具名稱推論，**尚未用真實事件驗證**；如果你選擇答案後員工沒回到工作中，通常是 PostToolUse 沒收到。
 - 直接關閉終端機視窗可能收不到 SessionEnd，員工會留在辦公室。請用「請他下班」，或等 12 小時自動離開。
 - 按 Esc 中斷不會觸發 Stop，員工可能一直停在「工作中」（或拒絕互動式權限後停在「等你處理」），直到下一次 prompt／事件；**尚未用真實互動式 session 驗證**。

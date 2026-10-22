@@ -204,3 +204,50 @@ test('subagent 內部的 AskUserQuestion 也讓員工等你回覆，但不動氣
   expect(state.employees.s1.status).toBe('waiting');
   expect(state.employees.s1.activity).toBe('讀取 a.ts');
 });
+
+test('PermissionRequest：立刻等你回覆，記下要批准什麼；PostToolUse 回到工作中', () => {
+  const asked = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'mkdir x' } }), ev('PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'mkdir x' } })]);
+  expect(asked.state.employees.s1.status).toBe('waiting');
+  expect(asked.state.employees.s1.activity).toBe('等你批准：執行 mkdir x');
+  const ok = run([ev('PostToolUse', { tool_name: 'Bash', tool_use_id: 't1' })], asked.state);
+  expect(ok.state.employees.s1.status).toBe('working');
+});
+
+test('PermissionRequest 來自 subagent：員工也等你，但不動氣泡', () => {
+  const { state } = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Read', tool_input: { file_path: 'a.ts' } }), ev('PermissionRequest', { tool_name: 'Bash', agent_id: 'sub' })]);
+  expect(state.employees.s1.status).toBe('waiting');
+  expect(state.employees.s1.activity).toBe('讀取 a.ts');
+});
+
+test('PostToolUseFailure：回到工作中，並讓對應的助理完成', () => {
+  const sent = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'ag', tool_input: { description: 'x' } }), ev('PermissionRequest', { tool_name: 'Agent' })]);
+  expect(sent.state.employees.s1.status).toBe('waiting');
+  const failed = run([ev('PostToolUseFailure', { tool_name: 'Agent', tool_use_id: 'ag' })], sent.state);
+  expect(failed.state.employees.s1.status).toBe('working');
+  expect(failed.state.employees.s1.assistants[0].status).toBe('done');
+});
+
+test('Notification：只有權限與 MCP 表單／網址才等你回覆，閒置提醒不改狀態', () => {
+  const base = run([ev('UserPromptSubmit')]);
+  for (const t of ['permission_prompt', 'elicitation_dialog', 'elicitation_url_dialog'])
+    expect(run([ev('Notification', { notification_type: t })], base.state).state.employees.s1.status).toBe('waiting');
+  const idle = run([ev('Stop'), ev('Notification', { notification_type: 'idle_prompt', message: 'Claude is waiting for your input' })]);
+  expect(idle.state.employees.s1.status).toBe('idle');
+});
+
+test('Elicitation：MCP 要你輸入時等你回覆，ElicitationResult 之後回到工作中', () => {
+  const asked = run([ev('UserPromptSubmit'), ev('Elicitation')]);
+  expect(asked.state.employees.s1.status).toBe('waiting');
+  expect(run([ev('ElicitationResult')], asked.state).state.employees.s1.status).toBe('working');
+});
+
+test('StopFailure（API 錯誤結束回合）和 Stop 一樣：閒置、清氣泡、助理完成', () => {
+  const { state } = run([
+    ev('UserPromptSubmit'),
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'ag', tool_input: { description: 'x' } }),
+    ev('StopFailure'),
+  ]);
+  expect(state.employees.s1.status).toBe('idle');
+  expect(state.employees.s1.activity).toBeNull();
+  expect(state.employees.s1.assistants[0].status).toBe('done');
+});

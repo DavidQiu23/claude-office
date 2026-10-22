@@ -1,7 +1,8 @@
 export const HOOK_EVENTS = [
-  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
-  'Notification', 'Stop', 'SubagentStop', 'SessionEnd',
+  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'PermissionRequest',
+  'Notification', 'Elicitation', 'ElicitationResult', 'Stop', 'StopFailure', 'SubagentStop', 'SessionEnd',
 ] as const;
+const TOOL_MATCHED = new Set<string>(['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'PermissionRequest']); // matcher 比對工具名稱
 export const MARKER = '--tag=claude-office';
 
 type Obj = Record<string, any>;
@@ -22,7 +23,7 @@ export function addHooks(settings: Obj, command: string): Obj {
   const hooks: Obj = isObj(settings.hooks) ? { ...settings.hooks } : {};
   for (const ev of HOOK_EVENTS) {
     const entry: Obj = { hooks: [{ type: 'command', command }] };
-    if (ev === 'PreToolUse' || ev === 'PostToolUse') entry.matcher = '*';
+    if (TOOL_MATCHED.has(ev)) entry.matcher = '*';
     hooks[ev] = [...without(hooks[ev]), entry];
   }
   return { ...settings, hooks };
