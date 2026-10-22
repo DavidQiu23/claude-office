@@ -1,6 +1,6 @@
-import type { Employee } from '../../src/state/types.js';
+import type { Assistant, Employee } from '../../src/state/types.js';
 import { truncate } from '../../src/state/describe.js';
-import { CHAIRS, MEETING, type Void } from './flat.js';
+import type { Void } from './flat.js';
 
 export const PALETTE = [0xd9534f, 0xe98f3f, 0xe6c34a, 0x4fb477, 0x38a8a0, 0x4a90d9, 0x8e6fc9, 0xd9669a];
 
@@ -102,9 +102,8 @@ export const fitMiddle = (text: string, fits: (s: string) => boolean): string =>
 
 // ---- 版面：一個專案（cwd）一座桌島 ----
 
-// tableArea：座位列下方的討論桌區（桌子在其中往下 30）。marginTop 96：後牆家具腳底 y = 78，招牌從 y = 82 起
-export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, tableArea: 112, bottom: 10, gap: 44, marginX: 40, marginTop: 96, vgap: 72, marginBottom: 40, maxRowW: 1100, maxCols: 3 };
-export const TABLE_DY = 30; // 討論桌上緣離座位列下緣的距離
+// marginTop 96：後牆家具腳底 y = 78，招牌從 y = 82 起
+export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, bottom: 10, gap: 44, marginX: 40, marginTop: 96, vgap: 72, marginBottom: 40, maxRowW: 1100, maxCols: 3 };
 export const BASE_W = 560; // 計算放大倍率時的參考尺寸（典型的 1~3 間辦公室）
 export const BASE_H = 400;
 export const PROJECT_COLORS: string[] = ['#4a90d9', '#e98f3f', '#4fb477', '#8e6fc9', '#d9669a', '#38a8a0', '#e6c34a', '#d9534f'];
@@ -153,7 +152,7 @@ export function layout(employees: Employee[]): Layout {
       x: 0,
       y: 0,
       w: cols * ISLAND.cellW + ISLAND.pad * 2,
-      h: ISLAND.top + rows * ISLAND.cellH + ISLAND.tableArea + ISLAND.bottom,
+      h: ISLAND.top + rows * ISLAND.cellH + ISLAND.bottom,
       cols,
       rows,
       desks,
@@ -216,33 +215,43 @@ export const entryPath = (island: Island, seat: number): { x: number; y: number 
   return [{ x: DOOR_X, y: py }, { x: sx, y: py }, { x: sx, y: c.y + 48 }];
 };
 
-/** 這座島討論桌的左上角 */
-export const tableOrigin = (island: Island): { x: number; y: number } => ({
-  x: island.x + (island.w - MEETING.w) / 2,
-  y: island.y + ISLAND.top + island.rows * ISLAND.cellH + TABLE_DY,
-});
+// ---- 助理：每位進行中的助理是主人那座島上的一位「虛擬員工」 ----
 
-/** 第 chair 張椅子上的人物中心（人物腳底落在椅子上） */
-export const chairSpot = (island: Island, chair: number): { x: number; y: number } => {
-  const t = tableOrigin(island);
-  const c = CHAIRS[chair % CHAIRS.length]!;
-  return { x: t.x + c.x, y: t.y + c.y - 20 };
+/** 助理扮成的員工：sessionId 是 `${主人 id}/${助理 id}`，asst 帶出資訊卡要的資料 */
+export interface VEmployee extends Employee {
+  asst: { parentId: string; parentTitle: string; description: string; done: boolean };
+}
+export const isAsst = (e: Employee): e is VEmployee => 'asst' in e;
+
+export const asstKey = (parentId: string, id: string): string => `${parentId}/${id}`;
+
+/** 把主人的某個助理轉成虛擬員工：工作中 = working，完成 = idle（閒置姿勢）；名牌是「↳ 描述」或「↳ ✓ 完成」 */
+export const makeAssistant = (parent: Employee, a: Assistant, seat: number): VEmployee => {
+  const done = a.status === 'done';
+  const description = oneLine(a.description);
+  return {
+    sessionId: asstKey(parent.sessionId, a.id),
+    folder: parent.folder,
+    cwd: parent.cwd,
+    lastPrompt: '',
+    firstPrompt: '',
+    title: done ? '↳ ✓ 完成' : `↳ ${description || '助理'}`,
+    transcriptPath: '',
+    status: done ? 'idle' : 'working',
+    activity: done ? null : description || null,
+    seat,
+    arrivedAt: a.startedAt,
+    lastEventAt: parent.lastEventAt,
+    assistants: [],
+    asst: { parentId: parent.sessionId, parentTitle: oneLine(parent.title) || oneLine(parent.firstPrompt) || oneLine(parent.lastPrompt), description, done },
+  };
 };
 
-/** 座位 → 討論桌的路線：沿座位右邊的走道（兩桌之間）往下，再橫向走到椅子；回座位走反向 */
-export const tableRoute = (island: Island, seat: number, chair: number): { x: number; y: number }[] => {
-  const c = seatCell(island, seat);
-  const spot = chairSpot(island, chair);
-  const gx = c.x + ISLAND.cellW;
-  return [{ x: gx, y: c.y + 48 }, { x: gx, y: spot.y }, spot];
-};
-
-/** 助理機器人在桌邊的位置（機器人左上角）：站在椅子靠桌心的一側，第 2 個再往內往下錯開 */
-export const tableBotSpot = (island: Island, chair: number, i: number): { x: number; y: number } => {
-  const t = tableOrigin(island);
-  const c = CHAIRS[chair % CHAIRS.length]!;
-  const d = c.x < MEETING.w / 2 ? 1 : -1;
-  return { x: t.x + c.x + d * (28 + i * 16) - 12, y: t.y + c.y - 6 + i * 14 };
+/** 助理的座位：優先主人之後第一張空桌，沒有空桌就接在最後。taken = 同一座島已被占用的座位 */
+export const assistantSeat = (parentSeat: number, taken: ReadonlySet<number>): number => {
+  const max = Math.max(parentSeat, ...taken);
+  for (let i = parentSeat + 1; i <= max; i++) if (!taken.has(i)) return i;
+  return max + 1;
 };
 
 /** 版面是否需要重畫（島的位置、大小、桌數有變才重畫） */

@@ -1,7 +1,7 @@
 // 扁平向量美術：素材資料在 flat.ts（圖形清單），這裡用 Phaser Graphics 烘成貼圖（PIXEL_RATIO 倍解析度，顯示時縮回 1/PIXEL_RATIO）。
 import Phaser from 'phaser';
 import {
-  bot, character, desk, exclamation, extent, HAIR_COLORS, SHIRT_COLORS,
+  character, desk, exclamation, extent, HAIR_COLORS, SHIRT_COLORS,
   type DeskState, type FlatSprite, type Outfit, type Pose, type Shape,
 } from './flat.js';
 import type { Look } from './view.js';
@@ -68,8 +68,6 @@ export const deskKey = (st: DeskState): string => `desk-${st}`;
 
 export function bakeTextures(scene: Phaser.Scene): void {
   for (const st of ['empty', 'working', 'waiting', 'idle'] as DeskState[]) bakeSprite(scene, deskKey(st), desk(st));
-  bakeSprite(scene, 'bot-working', bot(false));
-  bakeSprite(scene, 'bot-done', bot(true));
   bakeSprite(scene, 'exclamation', exclamation());
 }
 

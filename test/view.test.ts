@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, chairSpot, DOOR_X, entryPath, tableBotSpot, tableOrigin, tableRoute, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
+import { appearance, assistantSeat, asstKey, DOOR_X, entryPath, isAsst, makeAssistant, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -58,13 +58,13 @@ test('layout：每個資料夾一座島，桌數 = 最大座位 + 1，欄數最�
   expect(l.islands[0].desks).toBe(1);
   expect(l.islands[0].cols).toBe(1);
   expect(l.islands[0].w).toBe(1 * 96 + 28);
-  expect(l.islands[0].h).toBe(26 + 124 + 112 + 10);
+  expect(l.islands[0].h).toBe(26 + 124 + 10);
   expect(l.islands[1].x).toBeGreaterThan(l.islands[0].x);
   const big = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 3 })]);
   expect(big.islands[0].desks).toBe(4);
   expect(big.islands[0].cols).toBe(3);
   expect(big.islands[0].rows).toBe(2);
-  expect(big.islands[0].h).toBe(26 + 2 * 124 + 112 + 10);
+  expect(big.islands[0].h).toBe(26 + 2 * 124 + 10);
 });
 
 test('layout：座位有空缺時仍給足桌數', () => {
@@ -213,28 +213,43 @@ test('layout：較矮的島下方是空地，高度相同的島沒有空地', ()
   expect(layoutSig(l)).not.toBe(layoutSig(layout([emp('a', 'idle', { cwd: 'D:/p/a', folder: 'a', seat: 3 }), emp('b', 'idle', { cwd: 'D:/p/b', folder: 'b', seat: 3 })])));
 });
 
-test('討論桌：桌子和椅子在島內，路線沿座位右邊的走道往下再橫向走到椅子', () => {
-  const [i] = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 4 })]).islands;
-  const t = tableOrigin(i);
-  expect(t.x).toBeGreaterThanOrEqual(i.x);
-  expect(t.x + 116).toBeLessThanOrEqual(i.x + i.w);
-  expect(t.y + 80).toBeLessThanOrEqual(i.y + i.h);
-  expect(t.y).toBe(i.y + 26 + i.rows * 124 + 30);
-  for (let ch = 0; ch < 4; ch++) {
-    const s = chairSpot(i, ch);
-    expect(s.x).toBeGreaterThan(t.x);
-    expect(s.x).toBeLessThan(t.x + 116);
-    const r = tableRoute(i, 4, ch);
-    expect(r.length).toBe(3);
-    expect(r[2]).toEqual(s);
-    expect(r[0].x).toBe(r[1].x); // 先垂直
-    expect(r[1].y).toBe(s.y); // 再水平
-    expect(r[0].y).toBe(seatCell(i, 4).y + 48);
-    for (const b of [0, 1]) {
-      const bs = tableBotSpot(i, ch, b);
-      expect(bs.x).toBeGreaterThanOrEqual(i.x);
-      expect(bs.x + 24).toBeLessThanOrEqual(i.x + i.w);
-      expect(bs.y + 24).toBeLessThanOrEqual(i.y + i.h);
-    }
-  }
+test('assistantSeat：優先主人之後第一張空桌，沒有就接在最後', () => {
+  expect(assistantSeat(0, new Set([0]))).toBe(1);
+  expect(assistantSeat(0, new Set([0, 1, 2]))).toBe(3);
+  expect(assistantSeat(0, new Set([0, 2]))).toBe(1);
+  expect(assistantSeat(1, new Set([0, 1, 3]))).toBe(2);
+  expect(assistantSeat(2, new Set([0, 1, 2]))).toBe(3); // 主人之前的空桌不回頭找
+  expect(assistantSeat(1, new Set([1, 5]))).toBe(2);
+});
+
+test('makeAssistant：工作中是 working，完成是 idle；名牌是「↳ 描述」', () => {
+  const parent = emp('p', 'working', { title: '主題', seat: 2 });
+  const w = makeAssistant(parent, { id: 'a1', description: '  寫  測試 ', status: 'working', startedAt: 5 }, 3);
+  expect(w.sessionId).toBe('p/a1');
+  expect(asstKey('p', 'a1')).toBe('p/a1');
+  expect(isAsst(w)).toBe(true);
+  expect(isAsst(parent)).toBe(false);
+  expect(w.status).toBe('working');
+  expect(w.seat).toBe(3);
+  expect(w.cwd).toBe(parent.cwd);
+  expect(w.folder).toBe(parent.folder);
+  expect(w.assistants).toEqual([]);
+  expect(nameplate(w)).toBe('↳ 寫 測試');
+  expect(w.asst).toEqual({ parentId: 'p', parentTitle: '主題', description: '寫 測試', done: false });
+  const d = makeAssistant(parent, { id: 'a1', description: '寫測試', status: 'done', startedAt: 5 }, 3);
+  expect(d.status).toBe('idle');
+  expect(nameplate(d)).toBe('↳ ✓ 完成');
+  expect(d.asst.done).toBe(true);
+  expect(nameplate(makeAssistant(parent, { id: 'a2', description: '', status: 'working', startedAt: 6 }, 4))).toBe('↳ 助理');
+});
+
+test('助理扮成的員工參與排版：每位助理多一張桌，招牌的等你人數不算助理', () => {
+  const parent = emp('p', 'waiting', { seat: 0 });
+  const a1 = makeAssistant(parent, { id: '1', description: 'x', status: 'working', startedAt: 1 }, 1);
+  const a2 = makeAssistant(parent, { id: '2', description: 'y', status: 'working', startedAt: 2 }, 2);
+  const l = layout([parent, a1, a2]);
+  expect(l.islands.length).toBe(1);
+  expect(l.islands[0].desks).toBe(3);
+  expect(waitingCount([parent, a1, a2], parent.cwd)).toBe(1);
+  expect(appearance(a1.sessionId)).not.toEqual(appearance(a2.sessionId));
 });

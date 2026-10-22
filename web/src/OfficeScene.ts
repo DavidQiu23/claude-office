@@ -1,22 +1,18 @@
 import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
-import type { Assistant, Employee } from '../../src/state/types.js';
+import type { Employee } from '../../src/state/types.js';
 import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, setSprite, type DeskState, type Pose } from './art.js';
-import { meeting, OFFICE, officeShell } from './flat.js';
+import { OFFICE, officeShell } from './flat.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, chairSpot, entryPath, fitMiddle, fitText, formatTime, layout, layoutSig, nameplate, PALETTE, roomKey, seatCell, tableBotSpot,
-  tableOrigin, tableRoute, waitingCount, DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout,
+  appearance, assistantSeat, asstKey, entryPath, fitMiddle, fitText, formatTime, isAsst, layout, layoutSig, makeAssistant, nameplate, PALETTE,
+  roomKey, seatCell, waitingCount, DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout, type VEmployee,
 } from './view.js';
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
-const FADE_MS = 400;
 const PLATE_W = 84;
-const MAX_ASSIST = 2; // 一格最多畫 2 個助理，其餘以「+N」表示
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
-const RETURN_MS = 1500; // 助理全部完成後，員工再等這麼久才走回座位
-const BOT_MOVE_MS = 600; // 助理跟著員工走去／走回討論桌的時間
 
 // 地板與島
 const FLOOR = OFFICE.floor;
@@ -30,10 +26,6 @@ const SIGN = { dx: 16, dy: -14, h: 28, r: 8, color: 0xf4ecd6, text: '#2a2238', b
 const PERSON = { x: 48, y: 48 }; // 員工座位（人物中心）
 const DESK = { x: 12, y: 66, h: 36 }; // 桌子素材 (0,0) 位置與高度
 const PLATE = { x: 6, y: 108 }; // 名牌顯示標題或第一個 prompt（專案名稱在招牌上）
-// 助理站在桌子前面：第 1 個在右（x 60..84）、第 2 個在左（x 12..36），y 68..92，都在自己的格子內。
-// 標籤（約 46×14）在機器人正下方，中心 y 100（約 93..107），左右兩個標籤約 1..47 與 49..95 不重疊，
-// 也在名牌（y 108 起）上方；超過 2 個時「+N」在兩個機器人中間（中心 48,85，約 78..92），不碰標籤。
-const BOT = { size: 24, y: 68, xs: [60, 12], labelY: 100, more: { x: 48, y: 85 } };
 const CHAR = { x: -20, y: -28 }; // 角色素材 (0,0) 相對人物中心
 // 驚嘆號素材 (0,0) 相對人物中心，每 0.4 秒上下跳。素材高 27；舉手時頭髮頂端約 -28 + RAISE_Y + 2 = -32
 // （丸子頭 -38.5、舉起的手 -30），驚嘆號底部放在 -36，比一般頭髮高 4
@@ -61,15 +53,7 @@ interface SignObj {
   tween?: Phaser.Tweens.Tween;
   count: number; // 上次畫的等待人數（-1 = 還沒畫過）
 }
-interface Leaver { emp: Employee; sprite: Phaser.GameObjects.Image; table?: Pt[] }
-interface AsstView {
-  tx?: number; // 目前（或移動的目標）左上角，undefined = 還沒放過
-  ty?: number;
-  box: Phaser.GameObjects.Image;
-  label: Phaser.GameObjects.Text;
-  done: boolean;
-  fadeTimer?: Phaser.Time.TimerEvent;
-}
+interface Leaver { emp: Employee; sprite: Phaser.GameObjects.Image }
 interface Slot {
   emp: Employee;
   person: Phaser.GameObjects.Container;
@@ -79,18 +63,10 @@ interface Slot {
   bubbleBg: Phaser.GameObjects.Graphics;
   bubbleText: Phaser.GameObjects.Text;
   mark: Phaser.GameObjects.Image;
-  more: Phaser.GameObjects.Text; // 助理超過 2 個時顯示 +N
-  tag: Phaser.GameObjects.Text; // 在討論桌邊時，名牌跟著人（座位上的名牌清空）
-  atTable: boolean; // 帶著助理在討論桌（或正走向討論桌）
-  chair: number; // 佔用的椅子（-1 = 沒有）；椅子登記在 tableSeats
-  dest: 'seat' | 'table'; // 走路中的目的地
-  returnTimer?: Phaser.Time.TimerEvent; // 助理全部完成後等一下再回座位
   shown: Employee['status'] | null; // 目前套用的動作對應的狀態
   walking: boolean;
   anim?: Phaser.Time.TimerEvent; // 打字換幀
-  assist: Map<string, AsstView>;
 }
-
 
 // 資訊卡（HTML 浮層）。內容一律用 textContent，避免 prompt 內容被當成 HTML。
 class InfoCard {
@@ -141,6 +117,16 @@ class InfoCard {
   }
 
   fill(e: Employee): void {
+    if (isAsst(e)) {
+      const { description, done, parentTitle } = e.asst;
+      this.prompt.textContent = `助理：${description || '（無描述）'}（${done ? '完成' : '工作中'}）\n主人：${parentTitle || '（無標題）'}`;
+      this.activity.textContent = '';
+      this.time.textContent = `開始時間：${formatTime(e.arrivedAt)}`;
+      this.helpers.textContent = '';
+      this.btn.style.display = 'none';
+      return;
+    }
+    this.btn.style.display = '';
     this.prompt.textContent = `${e.title ? `標題：${e.title}\n` : ''}第一個 prompt：${e.firstPrompt || '（無）'}\n最近的 prompt：${e.lastPrompt || '（無）'}`;
     this.activity.textContent = `目前：${e.activity ?? '—'}`;
     this.time.textContent = `到班時間：${formatTime(e.arrivedAt)}`;
@@ -161,12 +147,13 @@ class InfoCard {
   }
 }
 
-const deskState = (e?: Employee, away = false): DeskState =>
-  !e || away ? 'empty' : e.status === 'waiting' ? 'waiting' : e.status === 'working' ? 'working' : 'idle';
+const deskState = (e?: Employee): DeskState =>
+  !e ? 'empty' : e.status === 'waiting' ? 'waiting' : e.status === 'working' ? 'working' : 'idle';
 
 export class OfficeScene extends Phaser.Scene {
   private lay: Layout = { islands: [], width: BASE_W, height: BASE_H, voids: [] };
-  private tableSeats = new Map<string, (string | null)[]>(); // 每座島討論桌的 4 張椅子，值是坐著的員工 id
+  private virtuals = new Map<string, VEmployee>(); // 助理扮成的虛擬員工（key = 主人 id/助理 id）
+  private asstTimers = new Map<string, Phaser.Time.TimerEvent>(); // 助理完成後離開的計時
   private sig = '';
   private roomObjs: Phaser.GameObjects.GameObject[] = [];
   private desks = new Map<string, DeskObj>();
@@ -199,7 +186,7 @@ export class OfficeScene extends Phaser.Scene {
       else if (c.type === 'leave') this.guard(() => this.leave(c.sessionId));
       else {
         this.guard(() => this.relayout());
-        this.guard(() => this.upsert(c.employee, true));
+        this.guard(() => this.upsertReal(c.employee, true));
       }
     });
   }
@@ -217,7 +204,8 @@ export class OfficeScene extends Phaser.Scene {
 
   private layoutEmployees(): Employee[] {
     const list = [...this.store.employees.values()];
-    for (const { emp } of this.leaving.values()) if (!this.store.employees.has(emp.sessionId)) list.push(emp);
+    list.push(...this.virtuals.values());
+    for (const { emp } of this.leaving.values()) if (!this.store.employees.has(emp.sessionId) && !this.virtuals.has(emp.sessionId)) list.push(emp);
     return list;
   }
 
@@ -253,12 +241,9 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /** 下班路線：從目前位置上到走道，再往左走出辦公室 */
-  private exitOf(e: Employee, from: Pt, table?: Pt[]): Pt[] {
+  private exitOf(e: Employee, from: Pt): Pt[] {
     const p = this.entryOf(e);
     const corridor = p[1];
-    // 坐在討論桌邊：先照來時的路回座位，再走上班路線的反向
-    const chair = table?.[2];
-    if (table && chair && p.length >= 3 && Math.hypot(chair.x - from.x, chair.y - from.y) < 1) return [table[1]!, table[0]!, ...[...p].reverse()];
     if (p.length < 3 || !corridor) return [{ x: 0, y: from.y }];
     const seat = p[2];
     // 在座位上：照上班路線反過來走；不在座位（走到一半）：直接上走道再出去
@@ -302,16 +287,13 @@ export class OfficeScene extends Phaser.Scene {
     });
     for (const s of this.slots.values()) {
       this.guard(() => {
-        const spot = this.tableSpot(s);
-        if (s.walking) this.startWalk(s, s.dest === 'table' && spot ? [spot] : this.rerouteTo(s.emp, s.person), s.dest);
+        if (s.walking) this.startWalk(s, this.rerouteTo(s.emp, s.person));
         else {
-          const home = spot ?? this.homeOf(s.emp);
+          const home = this.homeOf(s.emp);
           s.person.setPosition(home.x, home.y);
           this.sortDepth(s.person);
         }
-        this.drawDesk(s.emp, undefined, s.atTable);
-        this.syncAssistants(s, s.emp);
-        this.updateTag(s);
+        this.drawDesk(s.emp);
       });
     }
     // 島搬動了，走出中的人重新規劃路線
@@ -333,10 +315,6 @@ export class OfficeScene extends Phaser.Scene {
     const R = this.z;
     const base = this.keep(this.add.graphics().setDepth(-90));
     base.fillStyle(mixColor(FLOOR, isl.color, 0.3), 1).fillRoundedRect(isl.x, isl.y, isl.w, isl.h, ISLAND_R);
-    // 討論桌：每座島一張，在座位列下方；有助理的員工帶著助理來這裡
-    const t = tableOrigin(isl);
-    drawShapes(this.keep(this.add.graphics().setDepth(-80)), meeting().shapes, 1, t.x, t.y);
-
     // 招牌：米色板 + 專案色塊 + 專案名；等你回覆的人數由 updateSigns 畫徽章並調整板寬
     const depth = isl.y + 20;
     const sx = isl.x + SIGN.dx;
@@ -427,10 +405,12 @@ export class OfficeScene extends Phaser.Scene {
       p.destroy();
     }
     this.leaving.clear();
-    this.tableSeats.clear();
+    for (const t of this.asstTimers.values()) t.remove(false);
+    this.asstTimers.clear();
+    this.virtuals.clear();
     this.card.hide();
     this.relayout(true);
-    for (const e of this.store.employees.values()) this.upsert(e, false);
+    for (const e of this.store.employees.values()) this.guard(() => this.upsertReal(e, false));
     this.updateSigns();
   }
 
@@ -438,12 +418,8 @@ export class OfficeScene extends Phaser.Scene {
     const s = this.slots.get(id);
     if (!s) return;
     this.slots.delete(id);
-    for (const v of s.assist.values()) this.destroyAsst(v);
     this.clock.prune(`${id}/`, new Set());
     s.anim?.remove(false);
-    s.returnTimer?.remove(false);
-    this.releaseChair(s);
-    s.more.destroy();
     this.tweens.killTweensOf([s.person, s.figure, s.mark]);
     s.person.destroy();
   }
@@ -493,6 +469,11 @@ export class OfficeScene extends Phaser.Scene {
 
   // ---- 員工 ----
 
+  private upsertReal(e: Employee, walkIn: boolean): void {
+    this.upsert(e, walkIn);
+    this.syncAssistants(e);
+  }
+
   private upsert(e: Employee, walkIn: boolean): void {
     let s = this.slots.get(e.sessionId);
     if (!s) {
@@ -513,23 +494,18 @@ export class OfficeScene extends Phaser.Scene {
     } else if (s.emp.seat !== e.seat) {
       this.clearDeskIfFree(s.emp, e.sessionId);
       s.emp = e;
-      if (!s.atTable) this.startWalk(s, [this.homeOf(e)]); // 換座位：直接走到新座位（在討論桌時回座位會走到新座位）
+      this.startWalk(s, [this.homeOf(e)]); // 換座位：直接走到新座位
     }
     s.emp = e;
-    this.drawDesk(e, undefined, s.atTable);
+    this.drawDesk(e);
     this.drawEmployee(s, e);
-    this.syncAssistants(s, e);
-    this.syncTeam(s);
-    this.updateTag(s);
     if (this.card.id === e.sessionId) this.card.fill(e);
     this.updateSigns();
   }
 
-  private startWalk(s: Slot, path: Pt[], dest: 'seat' | 'table' = 'seat'): void {
+  private startWalk(s: Slot, path: Pt[]): void {
     const id = s.emp.sessionId;
     s.walking = true;
-    s.dest = dest;
-    this.updateTag(s);
     s.anim?.remove(false);
     s.anim = undefined;
     this.tweens.killTweensOf(s.figure);
@@ -544,27 +520,18 @@ export class OfficeScene extends Phaser.Scene {
         s.walking = false;
         s.shown = null; // 強制重新套用目前狀態的姿勢
         this.drawEmployee(s, s.emp);
-        this.updateTag(s);
-        this.syncTeam(s); // 走路期間助理的狀況可能變了
       },
     );
   }
 
   private leave(id: string): void {
+    for (const key of [...this.virtuals.keys()]) if (key.startsWith(`${id}/`)) this.dropAssistant(key); // 主人下班，助理跟著走
     const s = this.slots.get(id);
     if (!s) return;
     const { person } = s;
     this.slots.delete(id);
-    for (const v of s.assist.values()) this.destroyAsst(v);
-    s.assist.clear();
     this.clock.prune(`${id}/`, new Set());
     s.anim?.remove(false);
-    s.returnTimer?.remove(false);
-    s.more.destroy();
-    const isl = this.islandOf(s.emp);
-    const table = s.atTable && isl && s.chair >= 0 ? tableRoute(isl, Math.max(0, s.emp.seat), s.chair) : undefined;
-    this.releaseChair(s);
-    s.tag.setVisible(false);
     this.clearDeskIfFree(s.emp, id);
     if (this.card.id === id) this.card.hide();
     this.tweens.killTweensOf([s.figure, s.mark]);
@@ -572,7 +539,7 @@ export class OfficeScene extends Phaser.Scene {
     person.disableInteractive();
     s.bubble.setVisible(false);
     s.mark.setVisible(false);
-    const l: Leaver = { emp: s.emp, sprite: s.sprite, table };
+    const l: Leaver = { emp: s.emp, sprite: s.sprite };
     this.leaving.set(person, l); // 走出辦公室之前，這座島先保留
     this.walkOut(person, l);
     this.updateSigns();
@@ -582,7 +549,7 @@ export class OfficeScene extends Phaser.Scene {
   private walkOut(person: Phaser.GameObjects.Container, l: Leaver): void {
     this.walkPath(
       person,
-      this.exitOf(l.emp, person, l.table),
+      this.exitOf(l.emp, person),
       (f) => setSprite(l.sprite, this.charTexture(l.emp, f === 0 ? 'walk0' : 'walk1')),
       () => {
         if (this.leaving.get(person) !== l) return;
@@ -611,11 +578,7 @@ export class OfficeScene extends Phaser.Scene {
     const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#2b2233' }).setOrigin(0.5);
     const bubble = this.add.container(0, -40, [bubbleBg, bubbleText]).setVisible(false);
     const mark = addSprite(this, 'exclamation', EXCL.x, EXCL.y).setVisible(false);
-    const tag = this.add
-      .text(0, 38, '', { fontFamily: FONT, resolution: this.z, fontSize: '9px', color: '#f4efe6', padding: { x: 3, y: 1 } })
-      .setOrigin(0.5)
-      .setVisible(false);
-    const person = this.add.container(0, 0, [figure, bubble, mark, tag]); // 陰影已畫在角色素材裡
+    const person = this.add.container(0, 0, [figure, bubble, mark]); // 陰影已畫在角色素材裡
     person.setInteractive(new Phaser.Geom.Rectangle(-20, -28, 40, 56), Phaser.Geom.Rectangle.Contains);
     const id = e.sessionId;
     person.on('pointerover', () => {
@@ -626,12 +589,7 @@ export class OfficeScene extends Phaser.Scene {
       this.card.show(cur.emp, r.left + (person.x + 26) * k, r.top + (person.y - 40) * k);
     });
     person.on('pointerout', () => this.card.scheduleHide());
-    const more = this.add
-      .text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '9px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
-      .setOrigin(0.5)
-      .setDepth(5000)
-      .setVisible(false);
-    return { more, tag, atTable: false, chair: -1, dest: 'seat' as const, emp: e, person, figure, sprite, bubble, bubbleBg, bubbleText, mark, shown: null, walking: false, assist: new Map() };
+    return { emp: e, person, figure, sprite, bubble, bubbleBg, bubbleText, mark, shown: null, walking: false };
   }
 
   // ---- 繪製 ----
@@ -685,195 +643,71 @@ export class OfficeScene extends Phaser.Scene {
     }
   }
 
-  private drawAssistant(v: AsstView, a: Assistant): void {
-    setSprite(v.box, a.status === 'done' ? 'bot-done' : 'bot-working');
-    v.label.setText(a.status === 'done' ? '✓ 完成' : fitText(a.description, (t) => [...t].length <= 4));
-  }
-
   /** e 有值：畫出該員工的桌子；e 為 undefined：把 at 那一桌清成空桌 */
-  private drawDesk(e?: Employee, at?: Employee, away = false): void {
+  private drawDesk(e?: Employee, at?: Employee): void {
     const t = e ?? at;
     if (!t) return;
     const d = this.desks.get(`${roomKey(t)}#${t.seat}`);
     if (!d || !d.img.active || !d.plate.active) return;
-    setSprite(d.img, deskKey(deskState(e, away)));
-    const str = e && !away ? nameplate(e) : ''; // 人去討論桌時，名牌跟著人
+    setSprite(d.img, deskKey(deskState(e)));
+    const str = e ? nameplate(e) : '';
     const plate = d.plate;
-    plate.setBackgroundColor(str ? 'rgba(20,23,42,0.7)' : '');
+    plate.setBackgroundColor(str ? (e && isAsst(e) ? 'rgba(44,58,94,0.8)' : 'rgba(20,23,42,0.7)') : ''); // 助理的名牌偏藍
     plate.setText(str);
     // 依實際寬度裁切並補「…」，避免被硬切在字中間
     if (plate.width > PLATE_W) plate.setText(fitText(str, (x) => (plate.setText(x), plate.width <= PLATE_W)));
   }
 
-  // ---- 助理 ----
+  // ---- 助理：進行中的助理是主人那座島上的一位員工 ----
 
-  private syncAssistants(s: Slot, e: Employee, animate = false): void {
+  private seatsTaken(cwd: string, except?: string): Set<number> {
+    const taken = new Set<number>();
+    for (const o of [...this.store.employees.values(), ...this.virtuals.values()]) if (o.cwd === cwd && o.sessionId !== except) taken.add(o.seat);
+    return taken;
+  }
+
+  /** 虛擬員工的座位不能和真員工（伺服器依 cwd 配的座位，不知道有助理）或其他助理重複；撞到的助理換到新桌 */
+  private resolveSeats(cwd: string): void {
+    const used = new Set<number>();
+    for (const e of this.store.employees.values()) if (e.cwd === cwd) used.add(e.seat);
+    for (const v of this.virtuals.values()) {
+      if (v.cwd !== cwd) continue;
+      if (used.has(v.seat)) v.seat = assistantSeat(this.store.employees.get(v.asst.parentId)?.seat ?? 0, used);
+      used.add(v.seat);
+    }
+  }
+
+  /** 依主人的助理清單增減虛擬員工；完成的助理 3 秒後走出辦公室（由前端計時） */
+  private syncAssistants(e: Employee): void {
     const now = Date.now();
+    const prefix = `${e.sessionId}/`;
     const present = new Set<string>();
     for (const a of e.assistants) {
-      present.add(a.id);
-      const key = `${e.sessionId}/${a.id}`;
-      let v = s.assist.get(a.id);
-      if (!v) {
-        if (a.status === 'done' && this.clock.remaining(key, now) <= 0) continue; // 已淡出過，不再出現
-        v = this.createAsst();
-        s.assist.set(a.id, v);
-      }
-      if (a.status === 'done') {
-        v.done = true;
+      const key = asstKey(e.sessionId, a.id);
+      const done = a.status === 'done';
+      if (done && !this.virtuals.has(key) && this.clock.remaining(key, now) <= 0) continue; // 已離開過，不再出現
+      present.add(key);
+      if (done) {
         this.clock.mark(key, now);
-        // 完成 3 秒後淡出，由前端計時；伺服器之後是否移除該助理都不影響
-        v.fadeTimer ??= this.time.delayedCall(this.clock.remaining(key, now), () => this.fadeAsst(s, a.id, v!));
+        if (!this.asstTimers.has(key)) this.asstTimers.set(key, this.time.delayedCall(this.clock.remaining(key, now), () => this.dropAssistant(key)));
       }
-      this.drawAssistant(v, a);
+      const seat = this.virtuals.get(key)?.seat ?? assistantSeat(e.seat, this.seatsTaken(e.cwd));
+      this.virtuals.set(key, makeAssistant(e, a, seat));
     }
-    // 還在工作卻從清單消失的助理直接移除；已完成的留給自己的淡出計時
-    for (const [id, v] of s.assist) {
-      if (!present.has(id) && !v.done) {
-        this.destroyAsst(v);
-        s.assist.delete(id);
-      }
-    }
-    this.clock.prune(`${e.sessionId}/`, new Set(e.assistants.map((a) => `${e.sessionId}/${a.id}`)));
-    // 助理小機器人：平常站在桌子前面（第 1 個在右下角、第 2 個在左下角），標籤在腳下；
-    // 員工在討論桌時站在他那張椅子靠桌心的一側。超過 2 個只顯示前 2 個，加「+N」
-    const base = this.cellOf(e);
-    const isl = this.islandOf(e);
-    const atTable = s.atTable && !!isl && s.chair >= 0;
-    const all = [...s.assist.values()];
-    const shown = Math.min(all.length, MAX_ASSIST);
-    all.forEach((v, i) => {
-      const p = atTable ? tableBotSpot(isl!, s.chair, i) : { x: base.x + (BOT.xs[i] ?? BOT.xs[0]!), y: base.y + BOT.y };
-      const depth = atTable ? p.y + BOT.size + 1 : base.y + DESK.y + DESK.h + 1; // 平常永遠在桌子前面
-      this.placeBot(v, p.x, p.y, depth, i < shown, animate);
-    });
-    const m = atTable ? tableBotSpot(isl!, s.chair, 0) : { x: base.x + BOT.more.x - BOT.size / 2, y: base.y + BOT.more.y + 6 };
-    s.more
-      .setPosition(m.x + BOT.size / 2, atTable ? m.y - 8 : m.y - 6)
-      .setText(`+${all.length - shown}`)
-      .setVisible(all.length > shown);
+    // 還在工作卻從清單消失的助理直接離開；已完成的留給自己的計時
+    for (const [key, v] of [...this.virtuals]) if (key.startsWith(prefix) && !present.has(key) && !v.asst.done) this.dropAssistant(key);
+    this.clock.prune(prefix, new Set(e.assistants.map((a) => asstKey(e.sessionId, a.id))));
+    this.resolveSeats(e.cwd);
+    this.guard(() => this.relayout());
+    for (const v of [...this.virtuals.values()]) if (v.cwd === e.cwd) this.guard(() => this.upsert(v, true));
   }
 
-  /** 把機器人放到 (x, y)（左上角）；animate 時從原位置走過去，標籤跟著 */
-  private placeBot(v: AsstView, x: number, y: number, depth: number, visible: boolean, animate: boolean): void {
-    const lx = x + BOT.size / 2, ly = y + (BOT.labelY - BOT.y);
-    v.box.setVisible(visible).setDepth(depth);
-    v.label.setVisible(visible);
-    if (v.tx === x && v.ty === y) return;
-    const first = v.tx === undefined;
-    v.tx = x;
-    v.ty = y;
-    this.tweens.killTweensOf([v.box, v.label]);
-    if (first || !animate) {
-      v.box.setPosition(x, y);
-      v.label.setPosition(lx, ly);
-      return;
-    }
-    this.tweens.add({ targets: v.box, x, y, duration: BOT_MOVE_MS });
-    this.tweens.add({ targets: v.label, x: lx, y: ly, duration: BOT_MOVE_MS });
+  /** 助理離開：走回門口，空桌保留到整座島沒人 */
+  private dropAssistant(key: string): void {
+    this.asstTimers.get(key)?.remove(false);
+    this.asstTimers.delete(key);
+    this.virtuals.delete(key);
+    this.leave(key);
   }
 
-  // ---- 討論桌：有助理在跑的員工帶著助理過去，做完再回座位 ----
-
-  /** 員工在討論桌邊時的人物位置（沒在討論桌回傳 undefined） */
-  private tableSpot(s: Slot): Pt | undefined {
-    const isl = this.islandOf(s.emp);
-    return s.atTable && isl && s.chair >= 0 ? chairSpot(isl, s.chair) : undefined;
-  }
-
-  private claimChair(s: Slot): boolean {
-    const isl = this.islandOf(s.emp);
-    if (!isl) return false;
-    const seats = this.tableSeats.get(isl.key) ?? [null, null, null, null];
-    this.tableSeats.set(isl.key, seats);
-    const id = s.emp.sessionId;
-    const i = seats.findIndex((o) => o === null || !this.slots.has(o));
-    if (i < 0) return false;
-    seats[i] = id;
-    s.chair = i;
-    return true;
-  }
-
-  private releaseChair(s: Slot): void {
-    const seats = this.tableSeats.get(roomKey(s.emp));
-    if (seats && s.chair >= 0 && seats[s.chair] === s.emp.sessionId) seats[s.chair] = null;
-    s.chair = -1;
-  }
-
-  /** 依助理狀況決定去討論桌或回座位（走路中先不動，走完會再呼叫） */
-  private syncTeam(s: Slot): void {
-    if (s.walking) return;
-    const busy = s.emp.assistants.some((a) => a.status !== 'done');
-    if (busy) {
-      s.returnTimer?.remove(false);
-      s.returnTimer = undefined;
-      if (!s.atTable && this.claimChair(s)) this.goTable(s);
-    } else if (s.atTable && !s.returnTimer) {
-      s.returnTimer = this.time.delayedCall(RETURN_MS, () => {
-        s.returnTimer = undefined;
-        if (this.slots.get(s.emp.sessionId) !== s) return;
-        if (!s.emp.assistants.some((a) => a.status !== 'done')) this.goSeat(s);
-      });
-    }
-  }
-
-  private goTable(s: Slot): void {
-    const isl = this.islandOf(s.emp);
-    if (!isl) return;
-    s.atTable = true;
-    this.drawDesk(s.emp, undefined, true);
-    this.syncAssistants(s, s.emp, true);
-    this.startWalk(s, tableRoute(isl, Math.max(0, s.emp.seat), s.chair), 'table');
-  }
-
-  private goSeat(s: Slot): void {
-    const isl = this.islandOf(s.emp);
-    const chair = s.chair;
-    s.atTable = false;
-    this.releaseChair(s);
-    this.drawDesk(s.emp);
-    this.syncAssistants(s, s.emp, true);
-    const home = this.homeOf(s.emp);
-    const route = isl && chair >= 0 ? tableRoute(isl, Math.max(0, s.emp.seat), chair) : [];
-    this.startWalk(s, [...route.slice(0, 2).reverse(), home]);
-  }
-
-  /** 名牌：在討論桌邊且沒在走路時，顯示在人物腳下 */
-  private updateTag(s: Slot): void {
-    const show = s.atTable && !s.walking;
-    s.tag.setVisible(show);
-    if (!show) return;
-    const str = nameplate(s.emp);
-    s.tag.setBackgroundColor('rgba(20,23,42,0.7)').setText(str);
-    if (s.tag.width > PLATE_W) s.tag.setText(fitText(str, (x) => (s.tag.setText(x), s.tag.width <= PLATE_W)));
-  }
-
-  private createAsst(): AsstView {
-    const box = addSprite(this, 'bot-working', 0, 0);
-    const label = this.add
-      .text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#fff', backgroundColor: '#2b2233', padding: { x: 3, y: 1 } })
-      .setOrigin(0.5)
-      .setDepth(5000);
-    return { box, label, done: false };
-  }
-
-  private fadeAsst(s: Slot, id: string, v: AsstView): void {
-    v.fadeTimer = undefined;
-    this.tweens.add({
-      targets: [v.box, v.label],
-      alpha: 0,
-      duration: FADE_MS,
-      onComplete: () => {
-        if (s.assist.get(id) === v) s.assist.delete(id);
-        this.destroyAsst(v);
-      },
-    });
-  }
-
-  private destroyAsst(v: AsstView): void {
-    v.fadeTimer?.remove(false);
-    this.tweens.killTweensOf([v.box, v.label]);
-    v.box.destroy();
-    v.label.destroy();
-  }
 }

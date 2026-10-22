@@ -140,19 +140,7 @@ export function desk(state: DeskState): FlatSprite {
   return { w: 72, h: 36, shapes: out };
 }
 
-// ---------- 助理機器人 24×24、驚嘆號 20×28 ----------
-export function bot(done: boolean): FlatSprite {
-  const B = done ? '#5fd38a' : '#9fb2c4', BD = darker(B, 0.2);
-  return { w: 24, h: 24, shapes: [
-    e(12, 22.5, 8, 1.6, '#000000', 0.22),
-    r(11, 0, 2, 5, 1, '#6b7288'), c(12, 1.5, 2.2, done ? '#ffd24a' : '#ff7a7a'),
-    r(3, 4, 18, 13, 6, B), r(3, 12, 18, 5, 3, BD, 0.5),
-    c(8.5, 10, 2.6, '#ffffff'), c(15.5, 10, 2.6, '#ffffff'),
-    c(8.8, 10.2, 1.4, INK), c(15.8, 10.2, 1.4, INK),
-    done ? e(12, 14.6, 3.2, 1.8, '#ffffff') : r(9.5, 14, 5, 1.4, 0.7, INK),
-    r(6, 17, 12, 4, 2, BD), r(7, 20, 3.5, 3, 1.5, '#2c3042'), r(13.5, 20, 3.5, 3, 1.5, '#2c3042'),
-  ] };
-}
+// ---------- 驚嘆號 20×28 ----------
 export function exclamation(): FlatSprite {
   return { w: 20, h: 28, shapes: [
     c(10, 10, 10, '#ff4d4d', 0.25), r(2, 1, 16, 21, 8, '#ff4d4d'), p([7, 21, 13, 21, 10, 27], '#ff4d4d'),
@@ -167,7 +155,6 @@ const shifted = (shapes: Shape[], dx: number, dy: number): Shape[] =>
 export const OFFICE = { floor: '#2d3558', wall: '#46507a', wainscot: '#3b4468', base: '#252b48', frame: '#2a3150', wallH: 56, baseH: 8, side: 10 };
 export const FLOOR_TOP = OFFICE.wallH + OFFICE.baseH; // 64：地板從這裡開始
 export const WALL_FEET = 78; // 靠牆家具的腳底線
-export const MEETING = { w: 116, h: 80 };
 
 export const windowNight = (): FlatSprite => ({ w: 76, h: 44, shapes: [
   r(0, 0, 76, 40, 5, OFFICE.frame), r(4, 4, 68, 32, 3, '#1c2a52'), r(4, 4, 68, 13, 3, '#2c4078', 0.7), r(37, 4, 2, 32, 0, OFFICE.frame),
@@ -266,20 +253,6 @@ export const station = (): FlatSprite => ({ w: 48, h: 44, shapes: [
   e(24, 42, 22, 2.5, '#000000', 0.2), r(2, 16, 44, 4, 2, '#c8cde0'), r(5, 20, 38, 22, 2, '#a7aec8'), r(8, 24, 32, 4, 1, '#8089ad'),
   r(8, 3, 32, 14, 4, '#e6ebf5'), r(12, 0, 24, 6, 2, '#f4f6fb'), r(16, 8, 16, 3, 1.5, '#8089ad'), c(36, 12, 1.6, '#46d983'),
 ] });
-/** 每座島的討論桌：4 張椅子（座標見 CHAIRS），桌上有文件和筆電 */
-export const meeting = (): FlatSprite => {
-  const chair = (x: number, y: number, col: string): Shape => r(x, y, 16, 14, 6, col);
-  return { w: MEETING.w, h: MEETING.h, shapes: [
-    e(58, 62, 44, 8, '#000000', 0.2),
-    chair(14, 8, '#4a90d9'), chair(86, 8, '#e98f3f'), chair(14, 50, '#4fb477'), chair(86, 50, '#d9669a'),
-    e(58, 38, 38, 20, '#b87a45'), e(58, 34, 38, 20, '#e0a96d'),
-    r(34, 26, 16, 10, 2, '#f4efe6'), r(36, 28, 10, 1.6, 0.8, '#a7a3b3'), r(36, 31, 7, 1.6, 0.8, '#a7a3b3'),
-    r(62, 24, 18, 11, 2, '#3a3f52'), r(63.5, 25.5, 15, 7, 1, '#2c4078'), r(60, 35, 24, 2.5, 1.2, '#8089ad'),
-    r(50, 36, 6, 6, 2, '#ffffff'), r(50, 36, 6, 2, 1, '#6f4e37'),
-  ] };
-};
-/** 4 張椅子的中心（相對討論桌左上角） */
-export const CHAIRS: Pt[] = [{ x: 22, y: 15 }, { x: 94, y: 15 }, { x: 22, y: 57 }, { x: 94, y: 57 }];
 export const planterRow = (w: number): FlatSprite => {
   const out: Shape[] = [r(0, 8, w, 16, 4, '#8a6a4c'), r(0, 8, w, 4, 2, '#a07c5a')];
   for (let x = 14; x < w - 8; x += 30) out.push(e(x, 4, 8, 10, '#3f9a5b'), e(x + 6, 3, 6, 12, '#4fb477'), e(x - 5, 5, 5, 8, '#5cc487'));

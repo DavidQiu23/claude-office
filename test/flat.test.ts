@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  character, desk, bot, exclamation, extent, LED, officeShell, CHAIRS, windowNight, clock, door, whiteboard, bookcase, poster, plant, cooler, bin,
-  banner, calendar, sofa, table, vending, fridge, lamp, beanbag, cat, counter, station, meeting, planterRow,
+  character, desk, exclamation, extent, LED, officeShell, windowNight, clock, door, whiteboard, bookcase, poster, plant, cooler, bin,
+  banner, calendar, sofa, table, vending, fridge, lamp, beanbag, cat, counter, station, planterRow,
   type FlatSprite, type Pose, type Outfit, type DeskState,
 } from '../web/src/flat.js';
 
@@ -43,14 +43,11 @@ describe('flat', () => {
   it('所有圖形的數字有限、顏色是 #rrggbb、透明度在 0–1', () => {
     checkSprite(character({}));
     for (const st of STATES) checkSprite(desk(st));
-    checkSprite(bot(false));
-    checkSprite(bot(true));
     checkSprite(exclamation());
   });
 
   it('素材名義尺寸固定', () => {
     expect([desk('empty').w, desk('empty').h]).toEqual([72, 36]);
-    expect([bot(false).w, bot(false).h]).toEqual([24, 24]);
     expect([exclamation().w, exclamation().h]).toEqual([20, 28]);
   });
 
@@ -105,14 +102,6 @@ describe('office shell', () => {
 
   it('背景物件格式合法、尺寸固定', () => {
     for (const sp of [windowNight(), clock(), door(), whiteboard(), bookcase(), poster(0), poster(1), poster(2), plant(), cooler(), bin(), banner(), calendar(),
-      sofa(), table(), vending(), fridge(), lamp(), beanbag(), cat(), counter(), station(), meeting(), planterRow(90)]) checkSprite(sp);
-    expect([meeting().w, meeting().h]).toEqual([116, 80]);
-    expect(CHAIRS.length).toBe(4);
-    for (const c of CHAIRS) {
-      expect(c.x).toBeGreaterThan(0);
-      expect(c.x).toBeLessThan(116);
-      expect(c.y).toBeGreaterThan(0);
-      expect(c.y).toBeLessThan(80);
-    }
+      sofa(), table(), vending(), fridge(), lamp(), beanbag(), cat(), counter(), station(), planterRow(90)]) checkSprite(sp);
   });
 });
