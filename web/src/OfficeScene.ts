@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
 import type { Employee } from '../../src/state/types.js';
-import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, setSprite, type DeskState, type Pose } from './art.js';
-import { OFFICE, officeShell } from './flat.js';
+import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, setSprite, type DeskState, type Pose } from './art.js';
+import { character, OFFICE, officeShell } from './flat.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, entryPath, fitMiddle, fitText, formatTime, helperHome, helperSlots, layout, layoutSig, nameplate, PALETTE,
+  appearance, entryPath, fitMiddle, fitText, formatTime, helperHome, helperSlots, layout, layoutSig, nameplate, PALETTE, projectColor,
   roomKey, seatCell, waitingCount, DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout,
 } from './view.js';
 
@@ -79,29 +79,143 @@ interface Helper {
 const helperKey = (ownerId: string, id: string): string => `${ownerId}/${id}`;
 const HELPER_R = 12; // 小幫手素材 24×24，容器中心在素材正中
 
-// 資訊卡（HTML 浮層）。內容一律用 textContent，避免 prompt 內容被當成 HTML。
+// 資訊卡（HTML 浮層）。內容一律用 textContent / DOM 建立，避免 prompt 內容被當成 HTML。
+const STATUS: Record<Employee['status'], { text: string; color: string; bg: string }> = {
+  working: { text: '工作中', color: '#46d983', bg: '#46d98322' },
+  waiting: { text: '等你處理', color: '#ff6b6b', bg: '#ff4d4d26' },
+  idle: { text: '閒置', color: '#f2b83d', bg: '#f2b83d22' },
+};
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim();
+const clampCss = (n: number): string => `display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;overflow:hidden;word-break:break-all`;
+
+/** 小 DOM 工具：建立元素、套樣式、放文字 */
+const el = (tag: string, css = '', text = ''): HTMLElement => {
+  const n = document.createElement(tag);
+  n.style.cssText = css;
+  if (text) n.textContent = text;
+  return n;
+};
+
+/** 這位員工的頭與肩膀（和桌上的人同一個外觀）：把角色圖形清單畫成 SVG */
+function avatarSvg(e: Employee): SVGSVGElement {
+  const look = appearance(e.sessionId);
+  const shirt = '#' + (PALETTE[look.shirt] ?? PALETTE[0]!).toString(16).padStart(6, '0');
+  const sprite = character({ pose: 'sit0', style: look.style, outfit: OUTFITS[look.outfit], glasses: look.glasses, hair: HAIR_COLORS[look.hair], shirt });
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 8 40 36');
+  svg.setAttribute('width', '56');
+  svg.setAttribute('height', '56');
+  svg.style.display = 'block';
+  for (const s of sprite.shapes) {
+    const n =
+      s.t === 'r' ? document.createElementNS(SVG_NS, 'rect')
+      : s.t === 'c' ? document.createElementNS(SVG_NS, 'circle')
+      : s.t === 'e' ? document.createElementNS(SVG_NS, 'ellipse')
+      : document.createElementNS(SVG_NS, 'polygon');
+    const set = (k: string, v: number | string) => n.setAttribute(k, String(v));
+    if (s.t === 'r') { set('x', s.x); set('y', s.y); set('width', s.w); set('height', s.h); set('rx', s.r ?? 0); }
+    else if (s.t === 'c') { set('cx', s.x); set('cy', s.y); set('r', s.r); }
+    else if (s.t === 'e') { set('cx', s.x); set('cy', s.y); set('rx', s.rx); set('ry', s.ry); }
+    else set('points', s.pts.join(' '));
+    set('fill', s.c);
+    if (s.a != null && s.a !== 1) set('fill-opacity', s.a);
+    svg.append(n);
+  }
+  return svg;
+}
+
 class InfoCard {
-  private el = document.createElement('div');
-  private prompt = document.createElement('div');
-  private activity = document.createElement('div');
-  private time = document.createElement('div');
-  private helpers = document.createElement('div');
-  private err = document.createElement('div');
-  private btn = document.createElement('button');
+  private box = document.createElement('div');
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
+  private err = '';
   id: string | null = null;
 
   constructor() {
-    this.el.style.cssText =
-      'position:fixed;display:none;z-index:10;max-width:280px;padding:10px 12px;background:#2b2840;color:#eee;' +
-      'border:2px solid #8a7fc4;border-radius:4px;font:13px/1.5 system-ui,sans-serif;word-break:break-all;box-shadow:3px 3px 0 #0007';
-    this.prompt.style.marginBottom = '4px';
-    this.prompt.style.whiteSpace = 'pre-line';
-    this.helpers.style.cssText = 'white-space:pre-line;margin-top:4px';
-    this.btn.textContent = '請他下班';
-    this.btn.style.cssText = 'margin-top:8px;padding:4px 10px;cursor:pointer';
-    this.err.style.cssText = 'color:#ff8a80;margin-top:4px';
-    this.btn.onclick = async () => {
+    this.box.style.cssText =
+      'position:fixed;display:none;z-index:10;width:300px;box-sizing:border-box;background:#1e2542;color:#eef0ff;border:1px solid #3a4470;' +
+      'border-radius:16px;box-shadow:0 12px 28px #0008;overflow:hidden;font:13px/1.5 system-ui,"Microsoft JhengHei",sans-serif';
+    this.box.onmouseenter = () => clearTimeout(this.hideTimer);
+    this.box.onmouseleave = () => this.scheduleHide();
+    document.body.append(this.box);
+  }
+
+  show(e: Employee, left: number, top: number): void {
+    clearTimeout(this.hideTimer);
+    if (this.id !== e.sessionId) this.err = '';
+    this.id = e.sessionId;
+    this.fill(e);
+    this.box.style.display = 'block';
+    this.box.style.left = `${Math.max(0, Math.min(left, window.innerWidth - 320))}px`;
+    this.box.style.top = `${Math.max(0, Math.min(top, window.innerHeight - this.box.offsetHeight - 8))}px`;
+  }
+
+  private label(text: string): HTMLElement {
+    return el('div', 'font-size:11px;font-weight:700;letter-spacing:.08em;color:#8d95bd;margin-bottom:4px', text);
+  }
+
+  fill(e: Employee): void {
+    const color = projectColor(roomKey(e));
+    const st = STATUS[e.status];
+    const body = el('div', 'padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px');
+
+    // 頭像 + 標題 + 狀態標籤 + 專案資料夾
+    const avatar = el('div', `width:56px;height:56px;border-radius:16px;background:${color}33;border:1px solid ${color}88;overflow:hidden;flex:none`);
+    avatar.append(avatarSvg(e));
+    const chip = el('span', `display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${st.bg};color:${st.color};font-size:12px;font-weight:700`);
+    chip.append(el('span', `width:7px;height:7px;border-radius:50%;background:${st.color}`), document.createTextNode(st.text));
+    const folder = el('span', 'font-size:12px;color:#8d95bd');
+    folder.append(el('span', `display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:5px`), document.createTextNode(e.folder));
+    const title = oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt) || '（無標題）';
+    const head = el('div', 'display:flex;gap:12px;align-items:center');
+    head.append(avatar, el('div', 'min-width:0;display:flex;flex-direction:column;gap:6px'));
+    head.lastElementChild!.append(el('div', `font-size:16px;font-weight:700;line-height:1.35;${clampCss(2)}`, title), (() => {
+      const row = el('div', 'display:flex;align-items:center;gap:8px;flex-wrap:wrap');
+      row.append(chip, folder);
+      return row;
+    })());
+    body.append(head);
+
+    // 目前在做什麼；等你批准時整塊變紅
+    if (e.activity) {
+      const red = e.status === 'waiting';
+      body.append(el('div', `background:${red ? '#ff4d4d1f' : '#ffffff0d'};border:1px solid ${red ? '#ff6b6b66' : '#ffffff14'};border-radius:10px;padding:8px 10px;color:${red ? '#ffb3b3' : '#dfe3ff'};${clampCss(2)}`, e.activity));
+    }
+
+    // prompt：第一個只在和最近的不同時才顯示
+    const last = el('div');
+    last.append(this.label('最近的 PROMPT'), el('div', `line-height:1.55;color:#c9cee8;${clampCss(3)}`, oneLine(e.lastPrompt) || '（無）'));
+    body.append(last);
+    if (e.firstPrompt && oneLine(e.firstPrompt) !== oneLine(e.lastPrompt)) {
+      const first = el('div');
+      first.append(this.label('第一個 PROMPT'), el('div', `line-height:1.55;color:#8d95bd;${clampCss(1)}`, oneLine(e.firstPrompt)));
+      body.append(first);
+    }
+
+    // 助理：每位一行
+    if (e.assistants.length) {
+      const list = el('div', 'border-top:1px solid #ffffff14');
+      for (const a of e.assistants) {
+        const done = a.status === 'done';
+        const row = el('div', 'display:flex;align-items:center;gap:8px;padding:5px 0');
+        row.append(
+          el('span', `width:8px;height:8px;border-radius:50%;background:${done ? '#f2b83d' : '#46d983'};flex:none`),
+          el('span', `flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${done ? '#8d95bd' : '#dfe3ff'}`, oneLine(a.description) || '（無描述）'),
+          el('span', 'font-size:12px;color:#8d95bd', done ? '完成' : '工作中'),
+        );
+        list.append(row);
+      }
+      const help = el('div');
+      help.append(this.label(`助理 · ${e.assistants.length}`), list);
+      body.append(help);
+    }
+
+    // 頁尾：到班時間 / 錯誤，右邊「請他下班」
+    const left = el('span', `flex:1;font-size:12px;color:${this.err ? '#ff8a80' : '#8d95bd'}`, this.err || `到班 ${formatTime(e.arrivedAt)}`);
+    const btn = el('button', 'cursor:pointer;padding:6px 12px;border-radius:8px;font:inherit;color:#c9cee8;background:transparent;border:1px solid #ffffff26', '請他下班');
+    btn.onmouseenter = () => { btn.style.color = '#ffb3b3'; btn.style.borderColor = '#ff6b6b99'; };
+    btn.onmouseleave = () => { btn.style.color = '#c9cee8'; btn.style.borderColor = '#ffffff26'; };
+    btn.onclick = async () => {
       const id = this.id;
       if (!id) return;
       try {
@@ -109,32 +223,16 @@ class InfoCard {
         if (!r.ok) throw new Error(String(r.status));
         this.hide();
       } catch {
-        this.err.textContent = '操作失敗，請稍後再試';
+        this.err = '操作失敗，請稍後再試';
+        const cur = this.id === id ? e : null;
+        if (cur) this.fill(cur);
       }
     };
-    this.el.append(this.prompt, this.activity, this.time, this.helpers, this.btn, this.err);
-    this.el.onmouseenter = () => clearTimeout(this.hideTimer);
-    this.el.onmouseleave = () => this.scheduleHide();
-    document.body.append(this.el);
-  }
+    const foot = el('div', 'border-top:1px solid #ffffff14;padding-top:12px;display:flex;align-items:center;gap:8px');
+    foot.append(left, btn);
+    body.append(foot);
 
-  show(e: Employee, left: number, top: number): void {
-    clearTimeout(this.hideTimer);
-    if (this.id !== e.sessionId) this.err.textContent = '';
-    this.id = e.sessionId;
-    this.fill(e);
-    this.el.style.display = 'block';
-    this.el.style.left = `${Math.max(0, Math.min(left, window.innerWidth - 300))}px`;
-    this.el.style.top = `${Math.max(0, top)}px`;
-  }
-
-  fill(e: Employee): void {
-    this.prompt.textContent = `${e.title ? `標題：${e.title}\n` : ''}第一個 prompt：${e.firstPrompt || '（無）'}\n最近的 prompt：${e.lastPrompt || '（無）'}`;
-    this.activity.textContent = `目前：${e.activity ?? '—'}`;
-    this.time.textContent = `到班時間：${formatTime(e.arrivedAt)}`;
-    this.helpers.textContent = e.assistants.length
-      ? `助理 · ${e.assistants.length}\n` + e.assistants.map((a) => `・${a.description || '(無描述)'}（${a.status === 'done' ? '完成' : '工作中'}）`).join('\n')
-      : '';
+    this.box.replaceChildren(el('div', `height:5px;background:${color}`), body);
   }
 
   scheduleHide(): void {
@@ -144,7 +242,7 @@ class InfoCard {
 
   hide(): void {
     clearTimeout(this.hideTimer);
-    this.el.style.display = 'none';
+    this.box.style.display = 'none';
     this.id = null;
   }
 }
