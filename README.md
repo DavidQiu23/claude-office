@@ -1,10 +1,11 @@
 # Claude 辦公室
 
-把本機的 Claude Code session 顯示成扁平向量風的辦公室：每個 session 是一位員工，subagent 是他的助理。
+把本機的 Claude Code session 顯示成扁平向量風的辦公室：每個 session 是一位員工，subagent 是他桌邊的小機器人助理。
 
 ## 需求
 
-Node 22
+- Node 22
+- Windows：hook 會經由 Git Bash 執行，請先安裝 Git for Windows（見下方「已知限制」）
 
 ## 安裝
 
@@ -14,7 +15,9 @@ npm run build
 npm run install-hooks
 ```
 
-`install-hooks` 會把 hook 寫入 `~/.claude/settings.json`（13 個事件：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、PostToolUseFailure、PermissionRequest、Notification、Elicitation、ElicitationResult、Stop、StopFailure、SubagentStop、SessionEnd）。更新版本後請重新執行一次，才會掛上新增的事件。
+- 請**先 build 再安裝 hook**：hook 指令指向 `dist/hook/send.js`，沒有 build 就沒有這個檔。
+- `install-hooks` 會把 hook 寫入 `~/.claude/settings.json`（13 個事件：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、PostToolUseFailure、PermissionRequest、Notification、Elicitation、ElicitationResult、Stop、StopFailure、SubagentStop、SessionEnd）。
+- hook 寫的是這個資料夾的絕對路徑，**專案搬移後請重新 build 並重新執行 `install-hooks`**。更新版本後也請重新執行一次，才會掛上新增的事件。
 
 ## 使用
 
@@ -23,27 +26,62 @@ npm start
 ```
 
 然後用瀏覽器打開 http://127.0.0.1:47823 。伺服器只監聽 127.0.0.1，僅限本機存取。滑鼠移到員工身上會出現資訊卡，可按「請他下班」。
-沒有真實 session 時可用 `npm run simulate` 模擬各種狀態。
 
-## 修改 port
+沒有真實 session 時，可以先模擬：
 
-建立 `%USERPROFILE%\.claude-office\config.json`：
+```
+npm start                       # 先開伺服器（另開一個終端機）
+npm run simulate                # 跑一輪 4 個模擬 session（3 個專案）
+npm run simulate -- --loop      # 一直重複
+```
+
+`simulate` 只是把事件送給本機伺服器，所以**必須先 `npm start`**；伺服器沒開時會顯示「送不出事件」並結束。
+
+### 修改 port
+
+建立設定檔 `config.json`，內容如下：
 
 ```json
 {"port": 50000}
 ```
 
-## 移除
+- Windows：`%USERPROFILE%\.claude-office\config.json`
+- macOS / Linux：`~/.claude-office/config.json`
 
-```
-npm run uninstall-hooks
-```
+改完後**重新啟動伺服器**。hook 每次執行都會重新讀取這個檔，所以不必重裝 hook。
 
-只會從 `~/.claude/settings.json` 移除 claude-office 的項目；第一次安裝時會建立原始檔備份 `settings.json.claude-office.bak`。
+## 疑難排解
+
+- **畫面一直是空的**：確認 `npm start` 還在跑，且瀏覽器網址的 port 與設定一致；已經開著的 Claude Code session 要等下一次事件（例如送出下一個 prompt）才會出現。
+- **改了 port 但沒有反應**：伺服器要重新啟動；之後新送出的事件才會用新 port。
+- **Windows 上所有 hook 一起逾時**：Claude Code 在 Windows 上經由 Git Bash 執行 hook，Git Bash 異常時所有 hook 會一起逾時，辦公室因此收不到事件。這是 Git Bash 的問題，不是 claude-office 的設定；請先確認 `bash.exe -c "echo ok"` 能在一秒內回應。
 
 ## 辦公室怎麼排
 
-整個畫面是一層辦公室樓面，每個專案（以完整路徑 cwd 判斷，一個資料夾一個）是一座桌子「島」，島上有招牌顯示專案名稱；同名但路徑不同的資料夾，招牌會顯示路徑最後兩層來區分。招牌上若有 session 正在等你，會出現紅色徽章「等你 N」（N 為等你的 session 數）。一座島的桌子數是最大座位編號加 1，每排最多 3 張，人多再加排；空桌會保留。最後一位員工離開，該島才消失。助理（subagent）和員工一樣是一位角色：每位進行中的助理在主人那座島佔一張桌（優先坐主人之後第一張空桌，沒有就接在最後），名牌是偏藍底的「↳ 描述」，完成後名牌改「↳ ✓ 完成」，3 秒後走回門口離開；助理不會「等你回覆」，招牌的「等你 N」也不算助理。整間辦公室是一個大空間：後牆有窗、白板、旗幟和時鐘，靠牆有影印區、茶水間、沙發區，較矮的島下方空地擺閱讀角，員工從左上角的門進出。畫面大小會依視窗自動調整。
+整間辦公室一開始就是一個固定的大空間（最小 1280 × 720），後牆有窗、白板、旗幟和時鐘，靠牆有影印區、茶水間、沙發區，員工從左上角的門進出。人和桌子慢慢長進去：島多到一排放不下才往下加一排，辦公室才跟著變高。視窗比辦公室小時會出現捲軸（不會縮小）。
+
+每個專案（以完整路徑 cwd 判斷，一個資料夾一個）是一座桌子「島」，島上有招牌顯示專案名稱；同名但路徑不同的資料夾，招牌會顯示路徑最後兩層來區分。招牌上若有 session 正在等你，會出現紅色徽章「等你 N」（N 為等你的 session 數）。最後一位員工離開，該島才消失。
+
+一座島的桌子數是最大座位編號加 1，空桌會保留。桌子多了就加欄：
+
+| 桌數 | 欄數 |
+| --- | --- |
+| 1–3 | 桌數（一桌一欄） |
+| 4–9 | 3 |
+| 10–16 | 4 |
+| 17 以上 | 5 |
+
+較矮的島下方空地擺閱讀角或花槽。
+
+**員工進出**：上班時從左上角的門走進來，沿島上方的走道走到座位；下班時沿原路走回，從門口往左走出畫面後消失。
+
+**助理**不佔座位：直接出現在主人桌邊的左右兩側，最多畫 2 位，其餘合併成右上角橘色「+N」。助理工作中輕晃，完成變綠，3 秒後原地消失（不會走路）；主人下班時一起消失。助理不會「等你回覆」，招牌的「等你 N」也不算助理。
+
+**資訊卡**（滑鼠移上去就會出現）：
+
+- 員工：專案色條與頭像、標題、狀態標籤、目前動作、最近的 prompt（和第一個不同時才另列第一個）、助理清單，以及「請他下班」（按一下就送出）。
+- 小機器人：自己的卡，有描述、狀態、屬於哪位主人、開始時間，沒有「請他下班」。
+- 「+N」：開主人的卡。
 
 ## 狀態說明
 
@@ -52,19 +90,48 @@ npm run uninstall-hooks
 | 員工 | 工作中 | 坐在桌前打字（雙手交替），螢幕背面指示燈綠色，頭上氣泡顯示目前動作 | 送出 prompt、工具執行，批准或回答之後（PostToolUse、PostToolUseFailure、ElicitationResult） |
 | 員工 | 等你處理 | 站起來舉手，頭上紅色驚嘆號跳動，桌面泛紅光、螢幕背面指示燈變紅，招牌出現「等你 N」 | 要跳權限詢問（PermissionRequest）、Claude 用 AskUserQuestion 問你（PreToolUse）、MCP 要你輸入（Elicitation），或權限／MCP 表單的 Notification |
 | 員工 | 閒置 | 坐著閉眼休息，桌上咖啡冒煙，螢幕背面指示燈黃色 | 回合結束（Stop、StopFailure） |
-| 員工 | 下班 | 走回畫面最左緣後消失 | SessionEnd、按「請他下班」、閒置 12 小時 |
-| 助理 | 工作中 | 另一位員工坐在主人的島上打字，名牌偏藍底「↳ 描述」 | subagent 啟動 |
-| 助理 | 完成 | 閒置姿勢，名牌「↳ ✓ 完成」，3 秒後走出辦公室 | subagent 結束 |
+| 員工 | 下班 | 沿原路走回左上角的門，離開後消失 | SessionEnd、按「請他下班」、閒置 12 小時 |
+| 助理 | 工作中 | 灰藍小機器人站在主人桌邊，天線紅燈，輕晃 | subagent 啟動（`PreToolUse` 的 `Agent`，相容舊名 `Task`） |
+| 助理 | 完成 | 機器人變綠、天線黃燈，3 秒後原地消失 | subagent 結束（前景看 `PostToolUse`，背景看 `SubagentStop`） |
 
 ## 已知限制
 
-- 「等你處理」的判斷依官方 hooks 文件的事件與 `notification_type`（`permission_prompt`、`elicitation_dialog`、`elicitation_url_dialog`），**尚未用真實的互動式事件驗證**（驗證流程為 headless，收不到這些事件）。`PermissionRequest` 在跳詢問時立刻觸發；`Notification` 要等提示出現約 6 秒才送，所以兩者都收，前者讓員工馬上舉手。
-- 「AskUserQuestion 算等你處理」也是依工具名稱推論，**尚未用真實事件驗證**；如果你選擇答案後員工沒回到工作中，通常是 PostToolUse 沒收到。
-- 直接關閉終端機視窗可能收不到 SessionEnd，員工會留在辦公室。請用「請他下班」，或等 12 小時自動離開。
-- 按 Esc 中斷不會觸發 Stop，員工可能一直停在「工作中」（或拒絕互動式權限後停在「等你處理」），直到下一次 prompt／事件；**尚未用真實互動式 session 驗證**。
-- `run_in_background` 的 Agent 行為尚未測試。
-- 細節見 `docs/findings.md`。
+**已驗證**（headless 實測）
 
-## 美術
+- `PermissionRequest` 會觸發，在跳詢問時立刻觸發；`Notification` 要等提示出現約 6 秒才送，所以兩者都收，前者讓員工馬上舉手。
+- `run_in_background` 的 Agent：`PostToolUse` 與主 session 的 `Stop` 都早於助理真正結束，所以背景助理要等 `SubagentStop`（依 `agent_id`）才算完成。
 
-所有畫面（人物（員工與助理）、桌子、桌島、辦公室牆面與家具、驚嘆號）都是扁平向量圖，素材資料是 `web/src/flat.ts`（圖形清單），再由 `web/src/art.ts` 烘焙成貼圖，沒有使用任何外部素材，因此沒有授權問題。想改外觀（髮色、桌子、配色）請改 `web/src/flat.ts`，再執行 `npm run build`。
+**未驗證**（需要互動式 session，headless 收不到）
+
+- `AskUserQuestion` 算等你處理，是依工具名稱推論；如果你選擇答案後員工沒回到工作中，通常是 PostToolUse 沒收到。
+- Elicitation（MCP 輸入）：依官方 hooks 文件的事件與 `notification_type`（`elicitation_dialog`、`elicitation_url_dialog`）判斷。
+- 按 Esc 中斷：不會觸發 Stop，員工可能一直停在「工作中」（或拒絕互動式權限後停在「等你處理」），直到下一次 prompt／事件。
+- 直接關閉終端機視窗：可能收不到 SessionEnd，員工會留在辦公室。請用「請他下班」，或等 12 小時自動離開。
+
+**Windows**：hook 經由 Git Bash 執行，Git Bash 異常時 hook 會一起逾時（見「疑難排解」）。
+
+細節見 `docs/findings.md`。
+
+## 設定與移除
+
+- 設定：只有 port（見「修改 port」）。
+- 移除：
+
+```
+npm run uninstall-hooks
+```
+
+只會從 `~/.claude/settings.json` 移除 claude-office 的項目。`install-hooks` 與 `uninstall-hooks` 在 `settings.json` 已存在時，會先建立原始檔備份 `settings.json.claude-office.bak`（備份已存在就不會覆蓋，永遠保留最初的原始檔）；原本沒有 `settings.json` 就不會備份。
+
+## 開發
+
+```
+npm test            # vitest
+npx tsc             # 型別檢查（伺服器、hook、installer）
+npx tsc -p web      # 型別檢查（前端）
+npm run build       # tsc + tsc -p web + vite build
+```
+
+架構一行：hook 腳本（`src/hook/send.ts`）把事件 POST 給本機伺服器（`src/server`），狀態由 `src/state` 整理後推給瀏覽器，前端用 Phaser 畫辦公室（`web/src`）。
+
+美術全是扁平向量圖，素材資料是 `web/src/flat.ts`（圖形清單），再由 `web/src/art.ts` 烘焙成貼圖，沒有使用外部素材。想改外觀（髮色、桌子、配色）請改 `web/src/flat.ts`，再執行 `npm run build`。
