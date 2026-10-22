@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
 import type { Assistant, Employee } from '../../src/state/types.js';
-import { addSprite, bakeTextures, deskKey, ensureChar, setSprite, type DeskState, type Pose } from './art.js';
+import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, setSprite, type DeskState, type Pose } from './art.js';
+import { office, OFFICE } from './flat.js';
 import type { OfficeStore } from './sync.js';
 import {
   appearance, entryPath, fitMiddle, fitText, formatTime, layout, layoutSig, nameplate, PALETTE, roomKey, seatCell, waitingCount,
@@ -16,8 +17,7 @@ const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
 
 // 地板與島
-const FLOOR = '#2d3558';
-const TILE = 56; // 地板磁磚線間距
+const FLOOR = OFFICE.floor;
 const ISLAND_R = 22;
 const FAILED_SIG = '\u0000failed'; // 不會等於任何版面簽名：強制下次重畫
 const SIGN = { dx: 16, dy: -14, h: 28, r: 8, color: 0xf4ecd6, text: '#2a2238', badge: 0xff4d4d, badgeH: 20, minName: 48 };
@@ -309,11 +309,8 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private drawFloor(l: Layout): void {
-    this.keep(this.add.rectangle(0, 0, l.width, l.height, hexNum(FLOOR)).setOrigin(0).setDepth(-100));
     const g = this.keep(this.add.graphics().setDepth(-100));
-    g.lineStyle(1, 0xffffff, 0.035);
-    for (let x = TILE; x < l.width; x += TILE) g.lineBetween(x, 0, x, l.height);
-    for (let y = TILE; y < l.height; y += TILE) g.lineBetween(0, y, l.width, y);
+    drawShapes(g, office(l.width, l.height).shapes, 1, 0, 0);
   }
 
   private drawIsland(isl: Island): void {

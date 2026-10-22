@@ -158,3 +158,46 @@ export function exclamation(): FlatSprite {
     r(8.5, 5, 3, 9, 1.5, '#ffffff'), c(10, 17.5, 1.9, '#ffffff'),
   ] };
 }
+
+// ---------- 整間辦公室外殼：地板、牆、窗、時鐘、門、盆栽 ----------
+export const OFFICE = { floor: '#2d3558', wallH: 56, baseH: 8, side: 10 };
+
+/** 一整間辦公室的底圖（w×h）：島畫在它上面。座標與遊戲世界座標相同。 */
+export function office(w: number, h: number): FlatSprite {
+  const { floor, wallH, baseH, side } = OFFICE;
+  const wall = '#46507a', base = '#252b48', frame = '#2a3150';
+  const out: Shape[] = [r(0, 0, w, h, 0, floor)];
+  // 地板磁磚線
+  for (let x = 56; x < w; x += 56) out.push(r(x, wallH + baseH, 1, h - wallH - baseH, 0, '#ffffff', 0.035));
+  for (let y = wallH + baseH + 56; y < h; y += 56) out.push(r(0, y, w, 1, 0, '#ffffff', 0.035));
+  // 後牆 + 踢腳板 + 牆腳陰影
+  out.push(r(0, 0, w, wallH, 0, wall), r(0, wallH, w, baseH, 0, base), r(0, wallH + baseH, w, 10, 0, '#000000', 0.12));
+  // 左右與下方的矮牆
+  out.push(r(0, 0, side, h, 0, wall), r(w - side, 0, side, h, 0, wall), r(0, h - side, w, side, 0, wall));
+  out.push(r(side, wallH + baseH, 4, h - wallH - baseH - side, 0, '#000000', 0.1), r(w - side - 4, wallH + baseH, 4, h - wallH - baseH - side, 0, '#000000', 0.1));
+  out.push(r(side, h - side - 4, w - side * 2, 4, 0, '#000000', 0.1));
+  // 窗：每 200px 一扇，避開左側的門和右側的時鐘
+  const slot = 200;
+  for (let i = 0; i * slot + slot <= w; i++) {
+    const cx = i * slot + slot / 2;
+    if (cx < 90 || cx > w - 80) continue;
+    out.push(r(cx - 36, 8, 72, 40, 4, frame), r(cx - 32, 12, 64, 32, 2, '#1c2a52'), r(cx - 32, 12, 64, 12, 2, '#2c4078', 0.7));
+    out.push(r(cx - 1, 12, 2, 32, 0, frame), c(cx - 18, 22, 1, '#ffffff', 0.8), c(cx + 14, 32, 1, '#ffffff', 0.6), c(cx + 22, 18, 1.2, '#ffe9a8', 0.9));
+    out.push(r(cx - 38, 48, 76, 3, 1.5, '#5a6590'));
+  }
+  // 門（左）+ 出口招牌
+  out.push(r(20, 6, 40, 50, 3, frame), r(24, 10, 32, 46, 2, '#6b5a4a'), r(26, 12, 28, 44, 1, '#7d6a58'), c(50, 36, 2, '#e8d9a8'));
+  out.push(r(24, -1, 32, 9, 2, '#1f7a4d'), r(27, 1.5, 26, 4, 1, '#7dffb2'));
+  // 時鐘（右）
+  out.push(c(w - 48, 28, 14, frame), c(w - 48, 28, 11.5, '#f4efe6'), r(w - 49, 20, 2, 9, 1, '#2a3150'), r(w - 49, 27, 7, 2, 1, '#2a3150'), c(w - 48, 28, 1.6, '#d9534f'));
+  // 四角盆栽
+  const plant = (px: number, py: number): void => {
+    out.push(e(px, py + 1, 11, 3, '#000000', 0.2), r(px - 7, py - 12, 14, 12, 3, '#b86b4a'), r(px - 8, py - 14, 16, 4, 2, '#cc7e5a'));
+    out.push(e(px - 7, py - 20, 5, 9, '#3f9a5b'), e(px + 7, py - 20, 5, 9, '#3f9a5b'), e(px, py - 24, 5, 11, '#4fb477'));
+  };
+  plant(side + 18, wallH + baseH + 40);
+  plant(w - side - 18, wallH + baseH + 40);
+  plant(side + 18, h - side - 6);
+  plant(w - side - 18, h - side - 6);
+  return { w, h, shapes: out };
+}

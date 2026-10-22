@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  character, desk, bot, exclamation, extent, LED,
+  character, desk, bot, exclamation, extent, LED, office,
   type FlatSprite, type Pose, type Outfit, type DeskState,
 } from '../web/src/flat.js';
 
@@ -63,5 +63,16 @@ describe('flat', () => {
 
   it('等你回覆的桌子比工作中多紅色光暈', () => {
     expect(desk('waiting').shapes.length).toBeGreaterThanOrEqual(desk('working').shapes.length);
+  });
+});
+
+describe('office shell', () => {
+  it('draws valid shapes and scales with the room', () => {
+    const small = office(400, 300), big = office(1200, 600);
+    checkSprite(small);
+    checkSprite(big);
+    expect(big.shapes.length).toBeGreaterThan(small.shapes.length);
+    expect(big.w).toBe(1200);
+    expect(big.h).toBe(600);
   });
 });
