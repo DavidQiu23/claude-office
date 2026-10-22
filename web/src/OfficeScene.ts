@@ -2,11 +2,11 @@ import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
 import type { Assistant, Employee } from '../../src/state/types.js';
 import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, setSprite, type DeskState, type Pose } from './art.js';
-import { office, OFFICE } from './flat.js';
+import { meeting, OFFICE, officeShell } from './flat.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, entryPath, fitMiddle, fitText, formatTime, layout, layoutSig, nameplate, PALETTE, roomKey, seatCell, waitingCount,
-  DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout,
+  appearance, chairSpot, entryPath, fitMiddle, fitText, formatTime, layout, layoutSig, nameplate, PALETTE, roomKey, seatCell, tableBotSpot,
+  tableOrigin, tableRoute, waitingCount, DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout,
 } from './view.js';
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
@@ -15,10 +15,14 @@ const PLATE_W = 84;
 const MAX_ASSIST = 2; // 一格最多畫 2 個助理，其餘以「+N」表示
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
+const RETURN_MS = 1500; // 助理全部完成後，員工再等這麼久才走回座位
+const BOT_MOVE_MS = 600; // 助理跟著員工走去／走回討論桌的時間
 
 // 地板與島
 const FLOOR = OFFICE.floor;
 const ISLAND_R = 22;
+type Pt = { x: number; y: number };
+
 const FAILED_SIG = '\u0000failed'; // 不會等於任何版面簽名：強制下次重畫
 const SIGN = { dx: 16, dy: -14, h: 28, r: 8, color: 0xf4ecd6, text: '#2a2238', badge: 0xff4d4d, badgeH: 20, minName: 48 };
 
@@ -57,8 +61,10 @@ interface SignObj {
   tween?: Phaser.Tweens.Tween;
   count: number; // 上次畫的等待人數（-1 = 還沒畫過）
 }
-interface Leaver { emp: Employee; sprite: Phaser.GameObjects.Image }
+interface Leaver { emp: Employee; sprite: Phaser.GameObjects.Image; table?: Pt[] }
 interface AsstView {
+  tx?: number; // 目前（或移動的目標）左上角，undefined = 還沒放過
+  ty?: number;
   box: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
   done: boolean;
@@ -73,14 +79,18 @@ interface Slot {
   bubbleBg: Phaser.GameObjects.Graphics;
   bubbleText: Phaser.GameObjects.Text;
   mark: Phaser.GameObjects.Image;
-  more: Phaser.GameObjects.Text; // 助理超過 3 個時顯示 +N
+  more: Phaser.GameObjects.Text; // 助理超過 2 個時顯示 +N
+  tag: Phaser.GameObjects.Text; // 在討論桌邊時，名牌跟著人（座位上的名牌清空）
+  atTable: boolean; // 帶著助理在討論桌（或正走向討論桌）
+  chair: number; // 佔用的椅子（-1 = 沒有）；椅子登記在 tableSeats
+  dest: 'seat' | 'table'; // 走路中的目的地
+  returnTimer?: Phaser.Time.TimerEvent; // 助理全部完成後等一下再回座位
   shown: Employee['status'] | null; // 目前套用的動作對應的狀態
   walking: boolean;
   anim?: Phaser.Time.TimerEvent; // 打字換幀
   assist: Map<string, AsstView>;
 }
 
-type Pt = { x: number; y: number };
 
 // 資訊卡（HTML 浮層）。內容一律用 textContent，避免 prompt 內容被當成 HTML。
 class InfoCard {
@@ -151,11 +161,12 @@ class InfoCard {
   }
 }
 
-const deskState = (e?: Employee): DeskState =>
-  !e ? 'empty' : e.status === 'waiting' ? 'waiting' : e.status === 'working' ? 'working' : 'idle';
+const deskState = (e?: Employee, away = false): DeskState =>
+  !e || away ? 'empty' : e.status === 'waiting' ? 'waiting' : e.status === 'working' ? 'working' : 'idle';
 
 export class OfficeScene extends Phaser.Scene {
-  private lay: Layout = { islands: [], width: BASE_W, height: BASE_H };
+  private lay: Layout = { islands: [], width: BASE_W, height: BASE_H, voids: [] };
+  private tableSeats = new Map<string, (string | null)[]>(); // 每座島討論桌的 4 張椅子，值是坐著的員工 id
   private sig = '';
   private roomObjs: Phaser.GameObjects.GameObject[] = [];
   private desks = new Map<string, DeskObj>();
@@ -242,9 +253,12 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /** 下班路線：從目前位置上到走道，再往左走出辦公室 */
-  private exitOf(e: Employee, from: Pt): Pt[] {
+  private exitOf(e: Employee, from: Pt, table?: Pt[]): Pt[] {
     const p = this.entryOf(e);
     const corridor = p[1];
+    // 坐在討論桌邊：先照來時的路回座位，再走上班路線的反向
+    const chair = table?.[2];
+    if (table && chair && p.length >= 3 && Math.hypot(chair.x - from.x, chair.y - from.y) < 1) return [table[1]!, table[0]!, ...[...p].reverse()];
     if (p.length < 3 || !corridor) return [{ x: 0, y: from.y }];
     const seat = p[2];
     // 在座位上：照上班路線反過來走；不在座位（走到一半）：直接上走道再出去
@@ -288,14 +302,16 @@ export class OfficeScene extends Phaser.Scene {
     });
     for (const s of this.slots.values()) {
       this.guard(() => {
-        if (s.walking) this.startWalk(s, this.rerouteTo(s.emp, s.person));
+        const spot = this.tableSpot(s);
+        if (s.walking) this.startWalk(s, s.dest === 'table' && spot ? [spot] : this.rerouteTo(s.emp, s.person), s.dest);
         else {
-          const home = this.homeOf(s.emp);
+          const home = spot ?? this.homeOf(s.emp);
           s.person.setPosition(home.x, home.y);
           this.sortDepth(s.person);
         }
-        this.drawDesk(s.emp);
+        this.drawDesk(s.emp, undefined, s.atTable);
         this.syncAssistants(s, s.emp);
+        this.updateTag(s);
       });
     }
     // 島搬動了，走出中的人重新規劃路線
@@ -310,13 +326,16 @@ export class OfficeScene extends Phaser.Scene {
 
   private drawFloor(l: Layout): void {
     const g = this.keep(this.add.graphics().setDepth(-100));
-    drawShapes(g, office(l.width, l.height).shapes, 1, 0, 0);
+    drawShapes(g, officeShell(l.width, l.height, l.voids).shapes, 1, 0, 0);
   }
 
   private drawIsland(isl: Island): void {
     const R = this.z;
     const base = this.keep(this.add.graphics().setDepth(-90));
     base.fillStyle(mixColor(FLOOR, isl.color, 0.3), 1).fillRoundedRect(isl.x, isl.y, isl.w, isl.h, ISLAND_R);
+    // 討論桌：每座島一張，在座位列下方；有助理的員工帶著助理來這裡
+    const t = tableOrigin(isl);
+    drawShapes(this.keep(this.add.graphics().setDepth(-80)), meeting().shapes, 1, t.x, t.y);
 
     // 招牌：米色板 + 專案色塊 + 專案名；等你回覆的人數由 updateSigns 畫徽章並調整板寬
     const depth = isl.y + 20;
@@ -408,6 +427,7 @@ export class OfficeScene extends Phaser.Scene {
       p.destroy();
     }
     this.leaving.clear();
+    this.tableSeats.clear();
     this.card.hide();
     this.relayout(true);
     for (const e of this.store.employees.values()) this.upsert(e, false);
@@ -421,6 +441,8 @@ export class OfficeScene extends Phaser.Scene {
     for (const v of s.assist.values()) this.destroyAsst(v);
     this.clock.prune(`${id}/`, new Set());
     s.anim?.remove(false);
+    s.returnTimer?.remove(false);
+    this.releaseChair(s);
     s.more.destroy();
     this.tweens.killTweensOf([s.person, s.figure, s.mark]);
     s.person.destroy();
@@ -491,19 +513,23 @@ export class OfficeScene extends Phaser.Scene {
     } else if (s.emp.seat !== e.seat) {
       this.clearDeskIfFree(s.emp, e.sessionId);
       s.emp = e;
-      this.startWalk(s, [this.homeOf(e)]); // 換座位：直接走到新座位
+      if (!s.atTable) this.startWalk(s, [this.homeOf(e)]); // 換座位：直接走到新座位（在討論桌時回座位會走到新座位）
     }
     s.emp = e;
-    this.drawDesk(e);
+    this.drawDesk(e, undefined, s.atTable);
     this.drawEmployee(s, e);
     this.syncAssistants(s, e);
+    this.syncTeam(s);
+    this.updateTag(s);
     if (this.card.id === e.sessionId) this.card.fill(e);
     this.updateSigns();
   }
 
-  private startWalk(s: Slot, path: Pt[]): void {
+  private startWalk(s: Slot, path: Pt[], dest: 'seat' | 'table' = 'seat'): void {
     const id = s.emp.sessionId;
     s.walking = true;
+    s.dest = dest;
+    this.updateTag(s);
     s.anim?.remove(false);
     s.anim = undefined;
     this.tweens.killTweensOf(s.figure);
@@ -518,6 +544,8 @@ export class OfficeScene extends Phaser.Scene {
         s.walking = false;
         s.shown = null; // 強制重新套用目前狀態的姿勢
         this.drawEmployee(s, s.emp);
+        this.updateTag(s);
+        this.syncTeam(s); // 走路期間助理的狀況可能變了
       },
     );
   }
@@ -531,7 +559,12 @@ export class OfficeScene extends Phaser.Scene {
     s.assist.clear();
     this.clock.prune(`${id}/`, new Set());
     s.anim?.remove(false);
+    s.returnTimer?.remove(false);
     s.more.destroy();
+    const isl = this.islandOf(s.emp);
+    const table = s.atTable && isl && s.chair >= 0 ? tableRoute(isl, Math.max(0, s.emp.seat), s.chair) : undefined;
+    this.releaseChair(s);
+    s.tag.setVisible(false);
     this.clearDeskIfFree(s.emp, id);
     if (this.card.id === id) this.card.hide();
     this.tweens.killTweensOf([s.figure, s.mark]);
@@ -539,7 +572,7 @@ export class OfficeScene extends Phaser.Scene {
     person.disableInteractive();
     s.bubble.setVisible(false);
     s.mark.setVisible(false);
-    const l: Leaver = { emp: s.emp, sprite: s.sprite };
+    const l: Leaver = { emp: s.emp, sprite: s.sprite, table };
     this.leaving.set(person, l); // 走出辦公室之前，這座島先保留
     this.walkOut(person, l);
     this.updateSigns();
@@ -549,7 +582,7 @@ export class OfficeScene extends Phaser.Scene {
   private walkOut(person: Phaser.GameObjects.Container, l: Leaver): void {
     this.walkPath(
       person,
-      this.exitOf(l.emp, person),
+      this.exitOf(l.emp, person, l.table),
       (f) => setSprite(l.sprite, this.charTexture(l.emp, f === 0 ? 'walk0' : 'walk1')),
       () => {
         if (this.leaving.get(person) !== l) return;
@@ -578,7 +611,11 @@ export class OfficeScene extends Phaser.Scene {
     const bubbleText = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '10px', color: '#2b2233' }).setOrigin(0.5);
     const bubble = this.add.container(0, -40, [bubbleBg, bubbleText]).setVisible(false);
     const mark = addSprite(this, 'exclamation', EXCL.x, EXCL.y).setVisible(false);
-    const person = this.add.container(0, 0, [figure, bubble, mark]); // 陰影已畫在角色素材裡
+    const tag = this.add
+      .text(0, 38, '', { fontFamily: FONT, resolution: this.z, fontSize: '9px', color: '#f4efe6', padding: { x: 3, y: 1 } })
+      .setOrigin(0.5)
+      .setVisible(false);
+    const person = this.add.container(0, 0, [figure, bubble, mark, tag]); // 陰影已畫在角色素材裡
     person.setInteractive(new Phaser.Geom.Rectangle(-20, -28, 40, 56), Phaser.Geom.Rectangle.Contains);
     const id = e.sessionId;
     person.on('pointerover', () => {
@@ -594,7 +631,7 @@ export class OfficeScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(5000)
       .setVisible(false);
-    return { more, emp: e, person, figure, sprite, bubble, bubbleBg, bubbleText, mark, shown: null, walking: false, assist: new Map() };
+    return { more, tag, atTable: false, chair: -1, dest: 'seat' as const, emp: e, person, figure, sprite, bubble, bubbleBg, bubbleText, mark, shown: null, walking: false, assist: new Map() };
   }
 
   // ---- 繪製 ----
@@ -654,13 +691,13 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /** e 有值：畫出該員工的桌子；e 為 undefined：把 at 那一桌清成空桌 */
-  private drawDesk(e?: Employee, at?: Employee): void {
+  private drawDesk(e?: Employee, at?: Employee, away = false): void {
     const t = e ?? at;
     if (!t) return;
     const d = this.desks.get(`${roomKey(t)}#${t.seat}`);
     if (!d || !d.img.active || !d.plate.active) return;
-    setSprite(d.img, deskKey(deskState(e)));
-    const str = e ? nameplate(e) : '';
+    setSprite(d.img, deskKey(deskState(e, away)));
+    const str = e && !away ? nameplate(e) : ''; // 人去討論桌時，名牌跟著人
     const plate = d.plate;
     plate.setBackgroundColor(str ? 'rgba(20,23,42,0.7)' : '');
     plate.setText(str);
@@ -670,7 +707,7 @@ export class OfficeScene extends Phaser.Scene {
 
   // ---- 助理 ----
 
-  private syncAssistants(s: Slot, e: Employee): void {
+  private syncAssistants(s: Slot, e: Employee, animate = false): void {
     const now = Date.now();
     const present = new Set<string>();
     for (const a of e.assistants) {
@@ -698,21 +735,117 @@ export class OfficeScene extends Phaser.Scene {
       }
     }
     this.clock.prune(`${e.sessionId}/`, new Set(e.assistants.map((a) => `${e.sessionId}/${a.id}`)));
-    // 助理小機器人站在桌子前面（第 1 個在右下角、第 2 個在左下角），標籤在腳下；超過 2 個只顯示前 2 個，中間加「+N」
+    // 助理小機器人：平常站在桌子前面（第 1 個在右下角、第 2 個在左下角），標籤在腳下；
+    // 員工在討論桌時站在他那張椅子靠桌心的一側。超過 2 個只顯示前 2 個，加「+N」
     const base = this.cellOf(e);
+    const isl = this.islandOf(e);
+    const atTable = s.atTable && !!isl && s.chair >= 0;
     const all = [...s.assist.values()];
     const shown = Math.min(all.length, MAX_ASSIST);
-    const depth = base.y + DESK.y + DESK.h + 1; // 永遠在桌子前面
     all.forEach((v, i) => {
-      const x = base.x + (BOT.xs[i] ?? BOT.xs[0]!);
-      const y = base.y + BOT.y;
-      v.box.setPosition(x, y).setVisible(i < shown).setDepth(depth);
-      v.label.setPosition(x + BOT.size / 2, base.y + BOT.labelY).setVisible(i < shown);
+      const p = atTable ? tableBotSpot(isl!, s.chair, i) : { x: base.x + (BOT.xs[i] ?? BOT.xs[0]!), y: base.y + BOT.y };
+      const depth = atTable ? p.y + BOT.size + 1 : base.y + DESK.y + DESK.h + 1; // 平常永遠在桌子前面
+      this.placeBot(v, p.x, p.y, depth, i < shown, animate);
     });
+    const m = atTable ? tableBotSpot(isl!, s.chair, 0) : { x: base.x + BOT.more.x - BOT.size / 2, y: base.y + BOT.more.y + 6 };
     s.more
-      .setPosition(base.x + BOT.more.x, base.y + BOT.more.y)
+      .setPosition(m.x + BOT.size / 2, atTable ? m.y - 8 : m.y - 6)
       .setText(`+${all.length - shown}`)
       .setVisible(all.length > shown);
+  }
+
+  /** 把機器人放到 (x, y)（左上角）；animate 時從原位置走過去，標籤跟著 */
+  private placeBot(v: AsstView, x: number, y: number, depth: number, visible: boolean, animate: boolean): void {
+    const lx = x + BOT.size / 2, ly = y + (BOT.labelY - BOT.y);
+    v.box.setVisible(visible).setDepth(depth);
+    v.label.setVisible(visible);
+    if (v.tx === x && v.ty === y) return;
+    const first = v.tx === undefined;
+    v.tx = x;
+    v.ty = y;
+    this.tweens.killTweensOf([v.box, v.label]);
+    if (first || !animate) {
+      v.box.setPosition(x, y);
+      v.label.setPosition(lx, ly);
+      return;
+    }
+    this.tweens.add({ targets: v.box, x, y, duration: BOT_MOVE_MS });
+    this.tweens.add({ targets: v.label, x: lx, y: ly, duration: BOT_MOVE_MS });
+  }
+
+  // ---- 討論桌：有助理在跑的員工帶著助理過去，做完再回座位 ----
+
+  /** 員工在討論桌邊時的人物位置（沒在討論桌回傳 undefined） */
+  private tableSpot(s: Slot): Pt | undefined {
+    const isl = this.islandOf(s.emp);
+    return s.atTable && isl && s.chair >= 0 ? chairSpot(isl, s.chair) : undefined;
+  }
+
+  private claimChair(s: Slot): boolean {
+    const isl = this.islandOf(s.emp);
+    if (!isl) return false;
+    const seats = this.tableSeats.get(isl.key) ?? [null, null, null, null];
+    this.tableSeats.set(isl.key, seats);
+    const id = s.emp.sessionId;
+    const i = seats.findIndex((o) => o === null || !this.slots.has(o));
+    if (i < 0) return false;
+    seats[i] = id;
+    s.chair = i;
+    return true;
+  }
+
+  private releaseChair(s: Slot): void {
+    const seats = this.tableSeats.get(roomKey(s.emp));
+    if (seats && s.chair >= 0 && seats[s.chair] === s.emp.sessionId) seats[s.chair] = null;
+    s.chair = -1;
+  }
+
+  /** 依助理狀況決定去討論桌或回座位（走路中先不動，走完會再呼叫） */
+  private syncTeam(s: Slot): void {
+    if (s.walking) return;
+    const busy = s.emp.assistants.some((a) => a.status !== 'done');
+    if (busy) {
+      s.returnTimer?.remove(false);
+      s.returnTimer = undefined;
+      if (!s.atTable && this.claimChair(s)) this.goTable(s);
+    } else if (s.atTable && !s.returnTimer) {
+      s.returnTimer = this.time.delayedCall(RETURN_MS, () => {
+        s.returnTimer = undefined;
+        if (this.slots.get(s.emp.sessionId) !== s) return;
+        if (!s.emp.assistants.some((a) => a.status !== 'done')) this.goSeat(s);
+      });
+    }
+  }
+
+  private goTable(s: Slot): void {
+    const isl = this.islandOf(s.emp);
+    if (!isl) return;
+    s.atTable = true;
+    this.drawDesk(s.emp, undefined, true);
+    this.syncAssistants(s, s.emp, true);
+    this.startWalk(s, tableRoute(isl, Math.max(0, s.emp.seat), s.chair), 'table');
+  }
+
+  private goSeat(s: Slot): void {
+    const isl = this.islandOf(s.emp);
+    const chair = s.chair;
+    s.atTable = false;
+    this.releaseChair(s);
+    this.drawDesk(s.emp);
+    this.syncAssistants(s, s.emp, true);
+    const home = this.homeOf(s.emp);
+    const route = isl && chair >= 0 ? tableRoute(isl, Math.max(0, s.emp.seat), chair) : [];
+    this.startWalk(s, [...route.slice(0, 2).reverse(), home]);
+  }
+
+  /** 名牌：在討論桌邊且沒在走路時，顯示在人物腳下 */
+  private updateTag(s: Slot): void {
+    const show = s.atTable && !s.walking;
+    s.tag.setVisible(show);
+    if (!show) return;
+    const str = nameplate(s.emp);
+    s.tag.setBackgroundColor('rgba(20,23,42,0.7)').setText(str);
+    if (s.tag.width > PLATE_W) s.tag.setText(fitText(str, (x) => (s.tag.setText(x), s.tag.width <= PLATE_W)));
   }
 
   private createAsst(): AsstView {

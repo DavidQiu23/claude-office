@@ -8,6 +8,7 @@ export type Shape =
   | { t: 'e'; x: number; y: number; rx: number; ry: number; c: string; a?: number }
   | { t: 'p'; pts: number[]; c: string; a?: number };
 
+export type Pt = { x: number; y: number };
 export interface FlatSprite { w: number; h: number; shapes: Shape[] }
 
 export type Pose = 'sit0' | 'sit1' | 'up' | 'idle' | 'walk0' | 'walk1';
@@ -159,45 +160,219 @@ export function exclamation(): FlatSprite {
   ] };
 }
 
-// ---------- 整間辦公室外殼：地板、牆、窗、時鐘、門、盆栽 ----------
-export const OFFICE = { floor: '#2d3558', wallH: 56, baseH: 8, side: 10 };
+// ---------- 辦公室背景物件（移植自 docs/superpowers/specs/assets/office-shapes.js）----------
+const shifted = (shapes: Shape[], dx: number, dy: number): Shape[] =>
+  shapes.map((sh) => (sh.t === 'p' ? { ...sh, pts: sh.pts.map((v, i) => v + (i % 2 ? dy : dx)) } : { ...sh, x: sh.x + dx, y: sh.y + dy }));
 
-/** 一整間辦公室的底圖（w×h）：島畫在它上面。座標與遊戲世界座標相同。 */
-export function office(w: number, h: number): FlatSprite {
-  const { floor, wallH, baseH, side } = OFFICE;
-  const wall = '#46507a', base = '#252b48', frame = '#2a3150';
-  const out: Shape[] = [r(0, 0, w, h, 0, floor)];
-  // 地板磁磚線
-  for (let x = 56; x < w; x += 56) out.push(r(x, wallH + baseH, 1, h - wallH - baseH, 0, '#ffffff', 0.035));
-  for (let y = wallH + baseH + 56; y < h; y += 56) out.push(r(0, y, w, 1, 0, '#ffffff', 0.035));
-  // 後牆 + 踢腳板 + 牆腳陰影
-  out.push(r(0, 0, w, wallH, 0, wall), r(0, wallH, w, baseH, 0, base), r(0, wallH + baseH, w, 10, 0, '#000000', 0.12));
-  // 左右與下方的矮牆
-  out.push(r(0, 0, side, h, 0, wall), r(w - side, 0, side, h, 0, wall), r(0, h - side, w, side, 0, wall));
-  out.push(r(side, wallH + baseH, 4, h - wallH - baseH - side, 0, '#000000', 0.1), r(w - side - 4, wallH + baseH, 4, h - wallH - baseH - side, 0, '#000000', 0.1));
-  out.push(r(side, h - side - 4, w - side * 2, 4, 0, '#000000', 0.1));
-  // 窗：每 200px 一扇，避開左側的門和右側的時鐘
-  const slot = 200;
-  for (let i = 0; i * slot + slot <= w; i++) {
-    const cx = i * slot + slot / 2;
-    if (cx < 90 || cx > w - 80) continue;
-    out.push(r(cx - 36, 8, 72, 40, 4, frame), r(cx - 32, 12, 64, 32, 2, '#1c2a52'), r(cx - 32, 12, 64, 12, 2, '#2c4078', 0.7));
-    out.push(r(cx - 1, 12, 2, 32, 0, frame), c(cx - 18, 22, 1, '#ffffff', 0.8), c(cx + 14, 32, 1, '#ffffff', 0.6), c(cx + 22, 18, 1.2, '#ffe9a8', 0.9));
-    out.push(r(cx - 38, 48, 76, 3, 1.5, '#5a6590'));
+export const OFFICE = { floor: '#2d3558', wall: '#46507a', wainscot: '#3b4468', base: '#252b48', frame: '#2a3150', wallH: 56, baseH: 8, side: 10 };
+export const FLOOR_TOP = OFFICE.wallH + OFFICE.baseH; // 64：地板從這裡開始
+export const WALL_FEET = 78; // 靠牆家具的腳底線
+export const MEETING = { w: 116, h: 80 };
+
+export const windowNight = (): FlatSprite => ({ w: 76, h: 44, shapes: [
+  r(0, 0, 76, 40, 5, OFFICE.frame), r(4, 4, 68, 32, 3, '#1c2a52'), r(4, 4, 68, 13, 3, '#2c4078', 0.7), r(37, 4, 2, 32, 0, OFFICE.frame),
+  c(14, 14, 1, '#ffffff', 0.85), c(30, 26, 1, '#ffffff', 0.6), c(52, 12, 1, '#ffffff', 0.7), c(62, 24, 1.3, '#ffe9a8', 0.95),
+  p([44, 36, 56, 22, 72, 36], '#243660', 0.9), p([4, 36, 16, 26, 30, 36], '#243660', 0.9),
+  r(-2, 39, 80, 5, 2.5, '#5a6590'),
+] });
+export const clock = (): FlatSprite => ({ w: 30, h: 30, shapes: [
+  c(15, 15, 15, OFFICE.frame), c(15, 15, 12, '#f4efe6'), r(14, 6, 2, 10, 1, '#2a3150'), r(14, 14, 8, 2, 1, '#2a3150'), c(15, 15, 1.8, '#d9534f'),
+] });
+export const door = (): FlatSprite => ({ w: 44, h: 64, shapes: [
+  r(0, 8, 44, 56, 4, OFFICE.frame), r(4, 12, 36, 52, 2, '#6b5a4a'), r(7, 15, 30, 49, 1, '#7d6a58'), r(7, 15, 30, 12, 1, '#8a7663'), c(33, 42, 2.2, '#e8d9a8'),
+  r(6, 0, 32, 10, 3, '#1f7a4d'), r(9, 3, 26, 4, 2, '#7dffb2'),
+] });
+export const whiteboard = (): FlatSprite => ({ w: 76, h: 44, shapes: [
+  r(0, 0, 76, 42, 4, '#9aa3c4'), r(3, 3, 70, 33, 2, '#f4f6fb'), r(3, 3, 70, 8, 2, '#ffffff', 0.7),
+  r(9, 10, 28, 3, 1.5, '#4a90d9'), r(9, 17, 40, 3, 1.5, '#a0a8c4'), r(9, 24, 22, 3, 1.5, '#e98f3f'), r(48, 8, 18, 14, 3, '#ffd166', 0.9), c(60, 28, 3, '#d9534f'),
+  r(10, 38, 56, 6, 3, '#8089ad'), r(14, 39, 8, 3, 1.5, '#4a90d9'), r(26, 39, 8, 3, 1.5, '#d9534f'),
+] });
+export const bookcase = (): FlatSprite => {
+  const out: Shape[] = [r(0, 0, 44, 58, 3, '#6a4a38'), r(3, 3, 38, 52, 2, '#4a3328')];
+  const cols = ['#d9534f', '#4a90d9', '#e6c34a', '#4fb477', '#8e6fc9', '#e98f3f', '#38a8a0'];
+  [3, 21, 39].forEach((y, row) => {
+    out.push(r(3, y + 12, 38, 3, 0, '#6a4a38'));
+    let x = 5;
+    for (let i = 0; i < 6; i++) {
+      const w = 4 + ((i + row) % 3) * 1.5, h = 9 + ((i * 2 + row) % 3) * 2;
+      out.push(r(x, y + 12 - h, w, h, 1, cols[(i + row * 2) % cols.length]!));
+      x += w + 1.2;
+    }
+  });
+  return { w: 44, h: 58, shapes: out };
+};
+export const poster = (i: number): FlatSprite => {
+  const cols = [['#e98f3f', '#ffd166'], ['#4a90d9', '#9ad0ff'], ['#4fb477', '#b8f0c8']][i % 3]!;
+  const art: Shape[][] = [
+    [c(14, 18, 7, cols[1]!), p([2, 34, 12, 22, 24, 34], mix(cols[0]!, '#000000', 0.2))],
+    [r(5, 8, 18, 3, 1.5, cols[1]!), r(5, 15, 12, 3, 1.5, cols[1]!), r(5, 22, 16, 3, 1.5, cols[1]!)],
+    [e(14, 20, 8, 8, cols[1]!), c(14, 20, 3.5, cols[0]!)],
+  ];
+  return { w: 28, h: 38, shapes: [r(0, 0, 28, 38, 3, OFFICE.frame), r(2, 2, 24, 34, 2, cols[0]!), ...art[i % 3]!] };
+};
+export const plant = (): FlatSprite => ({ w: 28, h: 40, shapes: [
+  e(14, 38, 11, 2.5, '#000000', 0.2), r(6, 26, 16, 13, 3.5, '#b86b4a'), r(5, 24, 18, 5, 2.5, '#cc7e5a'),
+  e(7, 16, 5, 11, '#3f9a5b'), e(21, 16, 5, 11, '#3f9a5b'), e(14, 11, 5.5, 13, '#4fb477'), e(10, 18, 3, 8, '#5cc487'),
+] });
+export const cooler = (): FlatSprite => ({ w: 24, h: 44, shapes: [
+  e(12, 42.5, 10, 2, '#000000', 0.2), r(2, 20, 20, 23, 3, '#dfe6f5'), r(2, 20, 20, 5, 3, '#c3cde6'), r(6, 29, 12, 9, 2, '#aeb9d6'), r(9, 32, 6, 3, 1.5, '#4a90d9'),
+  r(3, 0, 18, 22, 6, '#8cc7ff', 0.85), r(3, 11, 18, 11, 3, '#5aa8f0', 0.9), c(8, 6, 1.4, '#ffffff', 0.7),
+] });
+export const bin = (): FlatSprite => ({ w: 18, h: 22, shapes: [
+  e(9, 20.5, 8, 1.8, '#000000', 0.2), r(2, 6, 14, 15, 3, '#6b7288'), r(1, 3, 16, 5, 2.5, '#8089ad'), r(5, 10, 2, 8, 1, '#4f566b'), r(11, 10, 2, 8, 1, '#4f566b'),
+] });
+export const banner = (): FlatSprite => ({ w: 84, h: 34, shapes: [
+  r(0, 0, 84, 34, 6, '#1f2542'), r(3, 3, 78, 28, 4, '#d9855c'),
+  c(20, 17, 9, '#f4e4d4'), p([20, 6, 22.5, 14.5, 31, 17, 22.5, 19.5, 20, 28, 17.5, 19.5, 9, 17, 17.5, 14.5], '#d9855c'),
+  r(36, 11, 38, 4, 2, '#f4e4d4'), r(36, 19, 26, 4, 2, '#f4e4d4', 0.7),
+] });
+export const calendar = (): FlatSprite => ({ w: 28, h: 36, shapes: [
+  r(0, 0, 28, 36, 3, '#f4f6fb'), r(0, 0, 28, 9, 3, '#d9534f'), r(6, -2, 3, 6, 1.5, '#8089ad'), r(19, -2, 3, 6, 1.5, '#8089ad'),
+  ...[0, 1, 2, 3, 4].flatMap((i) => [0, 1, 2].map((j) => r(4 + i * 4.4, 13 + j * 7, 3, 4, 1, (i + j * 5) % 7 === 3 ? '#d9534f' : '#a0a8c4'))),
+] });
+export const sofa = (): FlatSprite => ({ w: 104, h: 44, shapes: [
+  e(52, 42, 48, 3, '#000000', 0.22), r(4, 4, 96, 24, 10, '#7b5fb5'), r(0, 18, 14, 24, 6, '#6a4fa0'), r(90, 18, 14, 24, 6, '#6a4fa0'),
+  r(12, 22, 80, 18, 6, '#8e72c9'), r(14, 24, 38, 14, 5, '#9b80d4'), r(54, 24, 36, 14, 5, '#9b80d4'), r(4, 4, 96, 6, 3, '#a68be0', 0.6),
+  r(20, 14, 16, 12, 5, '#ffd166'), r(70, 14, 16, 12, 5, '#ff9ac1'),
+] });
+export const table = (): FlatSprite => ({ w: 48, h: 24, shapes: [
+  e(24, 22, 22, 2.5, '#000000', 0.2), r(2, 6, 44, 6, 3, '#e0a96d'), r(6, 12, 4, 10, 1.5, '#b87a45'), r(38, 12, 4, 10, 1.5, '#b87a45'),
+  r(10, 1, 9, 6, 2, '#ffffff'), r(10, 1, 9, 2, 1, '#6f4e37'), r(26, 0, 12, 7, 2, '#f4efe6'), r(28, 2, 8, 1.4, 0.7, '#a7a3b3'),
+] });
+export const vending = (): FlatSprite => ({ w: 38, h: 60, shapes: [
+  e(19, 58, 17, 2.5, '#000000', 0.22), r(0, 0, 38, 58, 5, '#d9534f'), r(3, 4, 24, 36, 3, '#1c2a52'), r(3, 4, 24, 12, 3, '#2c4078', 0.7),
+  ...[0, 1, 2].flatMap((i) => [0, 1].map((j) => r(6 + j * 11, 8 + i * 10.5, 8, 7, 2, ['#ffd166', '#4fb477', '#4a90d9', '#ff9ac1', '#e98f3f', '#8e6fc9'][i * 2 + j]!))),
+  r(30, 6, 5, 4, 1.5, '#ffe9a8'), r(30, 14, 5, 4, 1.5, '#8089ad'), r(5, 44, 28, 9, 2.5, '#8c1f1c'),
+] });
+export const fridge = (): FlatSprite => ({ w: 34, h: 62, shapes: [
+  e(17, 60, 15, 2.5, '#000000', 0.22), r(0, 0, 34, 60, 5, '#e6ebf5'), r(0, 21, 34, 2, 0, '#b8c2dc'), r(26, 8, 3, 9, 1.5, '#8089ad'), r(26, 28, 3, 16, 1.5, '#8089ad'),
+  r(6, 6, 11, 8, 2, '#ffd166'), r(8, 30, 14, 10, 2, '#ff9ac1'),
+] });
+export const lamp = (): FlatSprite => ({ w: 22, h: 60, shapes: [
+  e(11, 58, 8, 2, '#000000', 0.2), r(10, 18, 2.4, 40, 1.2, '#6b7288'), r(5, 56, 12, 3, 1.5, '#4f566b'), p([3, 18, 19, 18, 15, 2, 7, 2], '#f2d37a'), e(11, 20, 12, 8, '#ffe9a8', 0.18),
+] });
+export const beanbag = (): FlatSprite => ({ w: 40, h: 28, shapes: [
+  e(20, 26, 18, 2.5, '#000000', 0.2), r(2, 6, 36, 20, 12, '#38a8a0'), e(20, 8, 13, 6, '#4cc3ba'), r(8, 10, 8, 3, 1.5, '#ffffff', 0.25),
+] });
+export const cat = (): FlatSprite => ({ w: 28, h: 16, shapes: [
+  e(14, 14.5, 12, 1.8, '#000000', 0.2), e(13, 10, 11, 5.5, '#e98f3f'), c(23, 8, 5, '#e98f3f'), p([19.5, 4.5, 21, 0, 23.5, 4], '#e98f3f'), p([24, 4, 27, 0.5, 27.5, 5.5], '#e98f3f'),
+  e(10, 11, 7, 3, '#f4a560', 0.7), r(1, 10, 6, 3, 1.5, '#e98f3f'), c(24.5, 8.2, 0.9, '#2a2238'),
+] });
+export const counter = (): FlatSprite => ({ w: 76, h: 48, shapes: [
+  e(38, 46, 34, 2.5, '#000000', 0.2), r(0, 20, 76, 26, 3, '#b87a45'), r(0, 18, 76, 5, 2.5, '#e0a96d'), r(3, 26, 33, 17, 2, '#9a6838'), r(40, 26, 33, 17, 2, '#9a6838'),
+  r(8, 3, 16, 16, 3, '#3a3f52'), r(10, 6, 12, 5, 2, '#f2b83d'), r(11, 14, 10, 6, 1, '#1d1a2e'), r(32, 8, 10, 11, 2.5, '#ffffff'), r(32, 8, 10, 3, 1.5, '#6f4e37'), r(50, 12, 18, 7, 2, '#c8cde0'), r(52, 14, 10, 3, 1.5, '#46d983'),
+] });
+export const station = (): FlatSprite => ({ w: 48, h: 44, shapes: [
+  e(24, 42, 22, 2.5, '#000000', 0.2), r(2, 16, 44, 4, 2, '#c8cde0'), r(5, 20, 38, 22, 2, '#a7aec8'), r(8, 24, 32, 4, 1, '#8089ad'),
+  r(8, 3, 32, 14, 4, '#e6ebf5'), r(12, 0, 24, 6, 2, '#f4f6fb'), r(16, 8, 16, 3, 1.5, '#8089ad'), c(36, 12, 1.6, '#46d983'),
+] });
+/** 每座島的討論桌：4 張椅子（座標見 CHAIRS），桌上有文件和筆電 */
+export const meeting = (): FlatSprite => {
+  const chair = (x: number, y: number, col: string): Shape => r(x, y, 16, 14, 6, col);
+  return { w: MEETING.w, h: MEETING.h, shapes: [
+    e(58, 62, 44, 8, '#000000', 0.2),
+    chair(14, 8, '#4a90d9'), chair(86, 8, '#e98f3f'), chair(14, 50, '#4fb477'), chair(86, 50, '#d9669a'),
+    e(58, 38, 38, 20, '#b87a45'), e(58, 34, 38, 20, '#e0a96d'),
+    r(34, 26, 16, 10, 2, '#f4efe6'), r(36, 28, 10, 1.6, 0.8, '#a7a3b3'), r(36, 31, 7, 1.6, 0.8, '#a7a3b3'),
+    r(62, 24, 18, 11, 2, '#3a3f52'), r(63.5, 25.5, 15, 7, 1, '#2c4078'), r(60, 35, 24, 2.5, 1.2, '#8089ad'),
+    r(50, 36, 6, 6, 2, '#ffffff'), r(50, 36, 6, 2, 1, '#6f4e37'),
+  ] };
+};
+/** 4 張椅子的中心（相對討論桌左上角） */
+export const CHAIRS: Pt[] = [{ x: 22, y: 15 }, { x: 94, y: 15 }, { x: 22, y: 57 }, { x: 94, y: 57 }];
+export const planterRow = (w: number): FlatSprite => {
+  const out: Shape[] = [r(0, 8, w, 16, 4, '#8a6a4c'), r(0, 8, w, 4, 2, '#a07c5a')];
+  for (let x = 14; x < w - 8; x += 30) out.push(e(x, 4, 8, 10, '#3f9a5b'), e(x + 6, 3, 6, 12, '#4fb477'), e(x - 5, 5, 5, 8, '#5cc487'));
+  return { w, h: 24, shapes: out };
+};
+
+export interface Void { x: number; y: number; w: number; h: number }
+
+// 靠後牆的三組家具；優先序決定放不下時留哪些，顯示順序從左到右
+interface Zone { mat: string; items: () => FlatSprite[]; gap: number }
+const ZONES: Record<'print' | 'pantry' | 'sofa', Zone> = {
+  print: { mat: '#5a6a7a', items: () => [bookcase(), station(), bin()], gap: 8 },
+  pantry: { mat: '#4a6a8a', items: () => [cooler(), counter(), fridge(), vending()], gap: 6 },
+  sofa: { mat: '#6a4fa0', items: () => [sofa(), table(), lamp(), cat()], gap: 10 },
+};
+const ZONE_PRIORITY = ['sofa', 'pantry', 'print'] as const;
+const ZONE_ORDER = ['print', 'pantry', 'sofa'] as const;
+const ZONE_PAD = 12, WALL_LEFT = 70, WALL_RIGHT = 48, WALL_MIN_GAP = 10;
+const zoneWidth = (z: Zone): number => z.items().reduce((n, it) => n + it.w, 0) + z.gap * (z.items().length - 1) + ZONE_PAD * 2;
+
+/** 整間辦公室底圖（w×h 與遊戲世界座標相同）：地板、後牆與牆上物件、矮牆、靠牆家具、空地擺設、角落盆栽。島與桌子另外畫。 */
+export function officeShell(w: number, h: number, voids: Void[] = []): FlatSprite {
+  const O = OFFICE, side = O.side;
+  const out: Shape[] = [r(0, 0, w, h, 0, O.floor)];
+  const put = (spr: FlatSprite, x: number, y: number): void => void out.push(...shifted(spr.shapes, x, y));
+  // 地板：棋盤淡色 + 磁磚線
+  for (let ix = 0, x = side; x < w - side; ix++, x += 56)
+    for (let iy = 0, y = FLOOR_TOP; y < h - side; iy++, y += 56)
+      if ((ix + iy) % 2 === 0) out.push(r(x, y, Math.min(56, w - side - x), Math.min(56, h - side - y), 0, '#ffffff', 0.018));
+  for (let x = side + 56; x < w - side; x += 56) out.push(r(x, FLOOR_TOP, 1, h - FLOOR_TOP - side, 0, '#ffffff', 0.035));
+  for (let y = FLOOR_TOP + 56; y < h - side; y += 56) out.push(r(side, y, w - side * 2, 1, 0, '#ffffff', 0.035));
+  // 後牆
+  out.push(r(0, 0, w, O.wallH, 0, O.wall), r(0, 34, w, O.wallH - 34, 0, O.wainscot), r(0, 34, w, 2, 0, '#ffffff', 0.08), r(0, O.wallH, w, O.baseH, 0, O.base), r(0, FLOOR_TOP, w, 12, 0, '#000000', 0.14));
+  // 左右、下矮牆
+  out.push(r(0, 0, side, h, 0, O.wall), r(w - side, 0, side, h, 0, O.wall), r(0, h - side, w, side, 0, O.wall));
+  out.push(r(side, FLOOR_TOP, 5, h - FLOOR_TOP - side, 0, '#000000', 0.12), r(w - side - 5, FLOOR_TOP, 5, h - FLOOR_TOP - side, 0, '#000000', 0.12), r(side, h - side - 5, w - side * 2, 5, 0, '#000000', 0.12));
+  put(door(), 18, 2);
+  put(clock(), w - side - 40, 10);
+
+  // 靠牆家具：挑放得下的組，依顯示順序排，剩餘寬度平均分成間隔
+  const avail = w - WALL_LEFT - WALL_RIGHT;
+  const chosen: string[] = [];
+  let used = 0;
+  for (const name of ZONE_PRIORITY) {
+    const zw = zoneWidth(ZONES[name]);
+    if (used + zw + WALL_MIN_GAP * (chosen.length + 1) > avail) continue;
+    chosen.push(name);
+    used += zw;
   }
-  // 門（左）+ 出口招牌
-  out.push(r(20, 6, 40, 50, 3, frame), r(24, 10, 32, 46, 2, '#6b5a4a'), r(26, 12, 28, 44, 1, '#7d6a58'), c(50, 36, 2, '#e8d9a8'));
-  out.push(r(24, -1, 32, 9, 2, '#1f7a4d'), r(27, 1.5, 26, 4, 1, '#7dffb2'));
-  // 時鐘（右）
-  out.push(c(w - 48, 28, 14, frame), c(w - 48, 28, 11.5, '#f4efe6'), r(w - 49, 20, 2, 9, 1, '#2a3150'), r(w - 49, 27, 7, 2, 1, '#2a3150'), c(w - 48, 28, 1.6, '#d9534f'));
-  // 四角盆栽
-  const plant = (px: number, py: number): void => {
-    out.push(e(px, py + 1, 11, 3, '#000000', 0.2), r(px - 7, py - 12, 14, 12, 3, '#b86b4a'), r(px - 8, py - 14, 16, 4, 2, '#cc7e5a'));
-    out.push(e(px - 7, py - 20, 5, 9, '#3f9a5b'), e(px + 7, py - 20, 5, 9, '#3f9a5b'), e(px, py - 24, 5, 11, '#4fb477'));
-  };
-  plant(side + 18, wallH + baseH + 40);
-  plant(w - side - 18, wallH + baseH + 40);
-  plant(side + 18, h - side - 6);
-  plant(w - side - 18, h - side - 6);
+  const order = ZONE_ORDER.filter((n) => chosen.includes(n));
+  const gap = (avail - used) / (order.length + 1);
+  let x = WALL_LEFT + gap;
+  let cursor = WALL_LEFT;
+  const free: [number, number][] = []; // 牆上沒有家具的空段
+  for (const name of order) {
+    const z = ZONES[name], zw = zoneWidth(z);
+    free.push([cursor, x]);
+    out.push(r(x, 66, zw, 14, 7, z.mat, 0.3));
+    let ix = x + ZONE_PAD;
+    for (const it of z.items()) {
+      put(it, ix, WALL_FEET - it.h);
+      ix += it.w + z.gap;
+    }
+    cursor = x + zw;
+    x += zw + gap;
+  }
+  free.push([cursor, w - WALL_RIGHT]);
+  // 牆面：空段 ≥ 84 掛一件（窗、窗、白板、窗、旗幟、月曆加海報輪流）
+  const hang = ['win', 'win', 'board', 'win', 'banner', 'cal'];
+  let hi = 0, pi = 0;
+  for (const [a0, b0] of free) {
+    if (b0 - a0 < 84) continue;
+    const cx = (a0 + b0) / 2, t = hang[hi++ % hang.length];
+    out.push(e(cx, FLOOR_TOP + 10, 56, 7, '#ffe9a8', 0.045)); // 窗光落在地板上
+    if (t === 'win') put(windowNight(), cx - 38, 6);
+    else if (t === 'board') put(whiteboard(), cx - 38, 6);
+    else if (t === 'banner') put(banner(), cx - 42, 10);
+    else {
+      put(calendar(), cx - 32, 9);
+      put(poster(pi++), cx + 4, 9);
+    }
+  }
+  // 島群空地：夠大擺閱讀角（懶骨頭、立燈、盆栽），其次擺長花槽
+  for (const v of voids) {
+    if (v.h >= 80 && v.w >= 120) {
+      const bx = v.x + (v.w - 110) / 2, by = v.y + 40;
+      put(beanbag(), bx, by);
+      put(lamp(), bx + 52, by - 32);
+      put(plant(), bx + 82, by - 12);
+    } else if (v.h >= 50 && v.w >= 60) put(planterRow(Math.floor((v.w - 16) / 30) * 30 + 8), v.x + 8, v.y + 12);
+  }
+  // 下方兩角：盆栽
+  put(plant(), side + 2, h - side - 44);
+  put(plant(), w - side - 30, h - side - 44);
   return { w, h, shapes: out };
 }

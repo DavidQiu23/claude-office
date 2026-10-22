@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  character, desk, bot, exclamation, extent, LED, office,
+  character, desk, bot, exclamation, extent, LED, officeShell, CHAIRS, windowNight, clock, door, whiteboard, bookcase, poster, plant, cooler, bin,
+  banner, calendar, sofa, table, vending, fridge, lamp, beanbag, cat, counter, station, meeting, planterRow,
   type FlatSprite, type Pose, type Outfit, type DeskState,
 } from '../web/src/flat.js';
 
@@ -67,12 +68,51 @@ describe('flat', () => {
 });
 
 describe('office shell', () => {
-  it('draws valid shapes and scales with the room', () => {
-    const small = office(400, 300), big = office(1200, 600);
-    checkSprite(small);
-    checkSprite(big);
-    expect(big.shapes.length).toBeGreaterThan(small.shapes.length);
-    expect(big.w).toBe(1200);
-    expect(big.h).toBe(600);
+  const inside = (sp: FlatSprite): void => {
+    const e = extent(sp);
+    expect(e.x0).toBeGreaterThanOrEqual(0);
+    expect(e.y0).toBeGreaterThanOrEqual(-1); // 出口燈頂端可能略出牆
+    expect(e.x1).toBeLessThanOrEqual(sp.w);
+    expect(e.y1).toBeLessThanOrEqual(sp.h);
+  };
+
+  it('每種寬度都畫出合法圖形，且不超出辦公室範圍', () => {
+    for (const [w, h] of [[320, 300], [396, 346], [700, 500], [1116, 532], [1500, 900]] as const) {
+      const sh = officeShell(w, h, [{ x: 40, y: 200, w: 124, h: 140 }]);
+      checkSprite(sh);
+      inside(sh);
+      expect(sh.w).toBe(w);
+      expect(sh.h).toBe(h);
+    }
+  });
+
+  it('家具依寬度增減：窄的辦公室只留優先的組，寬的全留', () => {
+    const narrow = officeShell(396, 346), wide = officeShell(1116, 532);
+    expect(wide.shapes.length).toBeGreaterThan(narrow.shapes.length);
+    // 沙發區優先：窄辦公室也要有沙發的紫色
+    expect(narrow.shapes.some((sh) => sh.c === '#7b5fb5')).toBe(true);
+    // 影印區（書櫃棕色）最後留：396 寬放不下
+    expect(narrow.shapes.some((sh) => sh.c === '#6a4a38')).toBe(false);
+    expect(wide.shapes.some((sh) => sh.c === '#6a4a38')).toBe(true);
+  });
+
+  it('空地：夠大擺閱讀角、較小擺花槽、太小不擺', () => {
+    const base = officeShell(800, 500).shapes.length;
+    expect(officeShell(800, 500, [{ x: 40, y: 200, w: 124, h: 140 }]).shapes.length).toBeGreaterThan(officeShell(800, 500, [{ x: 40, y: 200, w: 124, h: 60 }]).shapes.length);
+    expect(officeShell(800, 500, [{ x: 40, y: 200, w: 124, h: 60 }]).shapes.length).toBeGreaterThan(base);
+    expect(officeShell(800, 500, [{ x: 40, y: 200, w: 124, h: 20 }]).shapes.length).toBe(base);
+  });
+
+  it('背景物件格式合法、尺寸固定', () => {
+    for (const sp of [windowNight(), clock(), door(), whiteboard(), bookcase(), poster(0), poster(1), poster(2), plant(), cooler(), bin(), banner(), calendar(),
+      sofa(), table(), vending(), fridge(), lamp(), beanbag(), cat(), counter(), station(), meeting(), planterRow(90)]) checkSprite(sp);
+    expect([meeting().w, meeting().h]).toEqual([116, 80]);
+    expect(CHAIRS.length).toBe(4);
+    for (const c of CHAIRS) {
+      expect(c.x).toBeGreaterThan(0);
+      expect(c.x).toBeLessThan(116);
+      expect(c.y).toBeGreaterThan(0);
+      expect(c.y).toBeLessThan(80);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, entryPath, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
+import { appearance, chairSpot, DOOR_X, entryPath, tableBotSpot, tableOrigin, tableRoute, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -58,13 +58,13 @@ test('layout：每個資料夾一座島，桌數 = 最大座位 + 1，欄數最�
   expect(l.islands[0].desks).toBe(1);
   expect(l.islands[0].cols).toBe(1);
   expect(l.islands[0].w).toBe(1 * 96 + 28);
-  expect(l.islands[0].h).toBe(26 + 124 + 10);
+  expect(l.islands[0].h).toBe(26 + 124 + 112 + 10);
   expect(l.islands[1].x).toBeGreaterThan(l.islands[0].x);
   const big = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 3 })]);
   expect(big.islands[0].desks).toBe(4);
   expect(big.islands[0].cols).toBe(3);
   expect(big.islands[0].rows).toBe(2);
-  expect(big.islands[0].h).toBe(26 + 2 * 124 + 10);
+  expect(big.islands[0].h).toBe(26 + 2 * 124 + 112 + 10);
 });
 
 test('layout：座位有空缺時仍給足桌數', () => {
@@ -76,13 +76,13 @@ test('layout：座位有空缺時仍給足桌數', () => {
 test('layout：位置規則', () => {
   const three = layout(['a', 'b', 'c'].map((n) => emp(n, 'idle', { cwd: 'D:/p/' + n, folder: n, seat: 2 })));
   expect(three.islands[0].x).toBe(40);
-  expect(three.islands[0].y).toBe(72);
+  expect(three.islands[0].y).toBe(96);
   expect(new Set(three.islands.map((i) => i.y)).size).toBe(1);
   expect(three.width).toBe(40 + 3 * 316 + 2 * 44 + 40);
   const four = layout(['a', 'b', 'c', 'd'].map((n, k) => emp(n, 'idle', { cwd: 'D:/p/' + n, folder: n, seat: 2, arrivedAt: k })));
   const rowH = Math.max(...four.islands.slice(0, 3).map((i) => i.h));
   expect(four.islands[3].x).toBe(40);
-  expect(four.islands[3].y).toBe(72 + rowH + 72);
+  expect(four.islands[3].y).toBe(96 + rowH + 72);
 });
 
 test('layout：同名資料夾用上一層區分（含反斜線）；空辦公室仍有大小', () => {
@@ -124,14 +124,14 @@ test('waitingCount 只算該專案 status 為 waiting 的人', () => {
   expect(waitingCount(new Map(es.map((e) => [e.sessionId, e])).values(), '/other')).toBe(1);
 });
 
-test('seatCell 在島內，entryPath 從最左緣經走道到座位', () => {
+test('seatCell 在島內，entryPath 從門口經走道到座位', () => {
   const [i] = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 4 })]).islands;
   const c = seatCell(i, 4);
   expect(c.x).toBeGreaterThanOrEqual(i.x);
   expect(c.y + 124).toBeLessThanOrEqual(i.y + i.h);
   const p = entryPath(i, 4);
   expect(p.length).toBe(3);
-  expect(p[0].x).toBe(0);
+  expect(p[0].x).toBe(DOOR_X);
   expect(p[1].x).toBe(p[2].x);
   expect(p[0].y).toBe(p[1].y);
   expect(p[1].y).toBeLessThan(i.y);
@@ -200,4 +200,41 @@ test('fitMiddle：放得下原樣；放不下保留開頭與結尾、中間換�
   expect(fitMiddle('claudeOffice', fits(10))).not.toBe(a);
   expect(fitMiddle('專案名稱非常非常長的資料夾', fits(6))).toMatch(/^專.*….*夾$/);
   expect(fitMiddle('abc', fits(0))).toBe('…');
+});
+
+test('layout：較矮的島下方是空地，高度相同的島沒有空地', () => {
+  const l = layout([
+    emp('a', 'idle', { cwd: 'D:/p/a', folder: 'a', seat: 2, arrivedAt: 0 }),
+    emp('b', 'idle', { cwd: 'D:/p/b', folder: 'b', seat: 3, arrivedAt: 1 }),
+  ]);
+  const [a, b] = l.islands;
+  expect(l.voids).toEqual([{ x: a.x, y: a.y + a.h, w: a.w, h: b.h - a.h }]);
+  expect(layout([emp('a', 'idle', { seat: 2 })]).voids).toEqual([]);
+  expect(layoutSig(l)).not.toBe(layoutSig(layout([emp('a', 'idle', { cwd: 'D:/p/a', folder: 'a', seat: 3 }), emp('b', 'idle', { cwd: 'D:/p/b', folder: 'b', seat: 3 })])));
+});
+
+test('討論桌：桌子和椅子在島內，路線沿座位右邊的走道往下再橫向走到椅子', () => {
+  const [i] = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 4 })]).islands;
+  const t = tableOrigin(i);
+  expect(t.x).toBeGreaterThanOrEqual(i.x);
+  expect(t.x + 116).toBeLessThanOrEqual(i.x + i.w);
+  expect(t.y + 80).toBeLessThanOrEqual(i.y + i.h);
+  expect(t.y).toBe(i.y + 26 + i.rows * 124 + 30);
+  for (let ch = 0; ch < 4; ch++) {
+    const s = chairSpot(i, ch);
+    expect(s.x).toBeGreaterThan(t.x);
+    expect(s.x).toBeLessThan(t.x + 116);
+    const r = tableRoute(i, 4, ch);
+    expect(r.length).toBe(3);
+    expect(r[2]).toEqual(s);
+    expect(r[0].x).toBe(r[1].x); // 先垂直
+    expect(r[1].y).toBe(s.y); // 再水平
+    expect(r[0].y).toBe(seatCell(i, 4).y + 48);
+    for (const b of [0, 1]) {
+      const bs = tableBotSpot(i, ch, b);
+      expect(bs.x).toBeGreaterThanOrEqual(i.x);
+      expect(bs.x + 24).toBeLessThanOrEqual(i.x + i.w);
+      expect(bs.y + 24).toBeLessThanOrEqual(i.y + i.h);
+    }
+  }
 });
