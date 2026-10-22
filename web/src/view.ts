@@ -103,12 +103,15 @@ export const fitMiddle = (text: string, fits: (s: string) => boolean): string =>
 // ---- 版面：一個專案（cwd）一座桌島 ----
 
 // marginTop 96：後牆家具腳底 y = 78，招牌從 y = 82 起
-export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, bottom: 10, gap: 44, marginX: 40, marginTop: 96, vgap: 72, marginBottom: 40, maxRowW: 1100 };
+export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, bottom: 10, gap: 44, marginX: 40, marginTop: 96, vgap: 72, marginBottom: 40 };
 
 /** 桌數越多欄數越多，島不會一直往下長：1–3 桌 = 桌數欄；4–9 桌 3 欄；10–16 桌 4 欄；17 桌以上 5 欄 */
 export const columnsFor = (desks: number): number => (desks <= 3 ? Math.max(1, desks) : desks <= 9 ? 3 : desks <= 16 ? 4 : 5);
-export const BASE_W = 560; // 計算放大倍率時的參考尺寸（典型的 1~3 間辦公室）
-export const BASE_H = 400;
+// 辦公室的最小尺寸：一開始就是完整的大空間，島長進去；放不下才加寬加高
+export const BASE_W = 1280;
+export const BASE_H = 720;
+/** 一排島最右可以排到的位置（右邊留一個邊距） */
+const ROW_RIGHT = BASE_W - ISLAND.marginX;
 export const PROJECT_COLORS: string[] = ['#4a90d9', '#e98f3f', '#4fb477', '#8e6fc9', '#d9669a', '#38a8a0', '#e6c34a', '#d9534f'];
 
 export interface Island {
@@ -172,7 +175,7 @@ export function layout(employees: Employee[]): Layout {
     row = [];
   };
   for (const r of islands) {
-    if (x > ISLAND.marginX && x + r.w > ISLAND.maxRowW) {
+    if (x > ISLAND.marginX && x + r.w > ROW_RIGHT) {
       closeRow();
       x = ISLAND.marginX;
       y += rowH + ISLAND.vgap;
@@ -189,8 +192,8 @@ export function layout(employees: Employee[]): Layout {
   return {
     islands,
     voids,
-    width: Math.max(right + ISLAND.marginX, 320),
-    height: Math.max(y + rowH + ISLAND.marginBottom, 200),
+    width: Math.max(right + ISLAND.marginX, BASE_W),
+    height: Math.max(y + rowH + ISLAND.marginBottom, BASE_H),
   };
 }
 

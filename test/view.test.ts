@@ -78,7 +78,11 @@ test('layout：位置規則', () => {
   expect(three.islands[0].x).toBe(40);
   expect(three.islands[0].y).toBe(96);
   expect(new Set(three.islands.map((i) => i.y)).size).toBe(1);
-  expect(three.width).toBe(40 + 3 * 316 + 2 * 44 + 40);
+  expect(three.width).toBe(1280); // 3 座島只要 1116，不到最小尺寸，仍是 1280 × 720
+  expect(three.height).toBe(720);
+  // 一排可以排到 1240（不留 180 的空位）：4 座一欄的小島放得進同一排
+  const small = layout(['a', 'b', 'c', 'd'].map((n, k) => emp(n, 'idle', { cwd: 'D:/p/' + n, folder: n, seat: 1, arrivedAt: k })));
+  expect(new Set(small.islands.map((i) => i.y)).size).toBe(1);
   const four = layout(['a', 'b', 'c', 'd'].map((n, k) => emp(n, 'idle', { cwd: 'D:/p/' + n, folder: n, seat: 2, arrivedAt: k })));
   const rowH = Math.max(...four.islands.slice(0, 3).map((i) => i.h));
   expect(four.islands[3].x).toBe(40);

@@ -11,6 +11,7 @@ import {
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const PLATE_W = 84;
+const EMPTY_DY = 60; // 「目前沒有人上班」放在地板中央偏下，不擋後牆家具
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
 
@@ -275,7 +276,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cameras.main.setOrigin(0, 0).setZoom(this.z);
     bakeTextures(this);
     this.emptyText = this.add
-      .text(BASE_W / 2, BASE_H / 2, '目前沒有人上班\n開一個 Claude Code session 就會出現', {
+      .text(BASE_W / 2, BASE_H / 2 + EMPTY_DY, '目前沒有人上班\n開一個 Claude Code session 就會出現', {
         fontFamily: FONT, resolution: this.z, fontSize: '14px', color: '#8a82b3', align: 'center',
       })
       .setOrigin(0.5);
@@ -381,7 +382,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     if (ok) this.sig = sig;
     this.guard(() => {
-      this.emptyText.setPosition(next.width / 2, next.height / 2).setVisible(next.islands.length === 0);
+      this.emptyText.setPosition(next.width / 2, next.height / 2 + EMPTY_DY).setVisible(next.islands.length === 0);
       this.scale.resize(next.width * this.z, next.height * this.z);
       this.game.events.emit('office-size', next.width, next.height);
     });
