@@ -148,6 +148,20 @@ export function exclamation(): FlatSprite {
   ] };
 }
 
+// ---------- 助理小幫手 24×24（工作中灰藍、天線紅燈；完成綠色、天線黃燈） ----------
+export function bot(done: boolean): FlatSprite {
+  const B = done ? '#5fd38a' : '#9fb2c4', BD = darker(B, 0.2);
+  return { w: 24, h: 24, shapes: [
+    e(12, 22.5, 8, 1.6, '#000000', 0.22),
+    r(11, 0, 2, 5, 1, '#6b7288'), c(12, 1.5, 2.2, done ? '#ffd24a' : '#ff7a7a'),
+    r(3, 4, 18, 13, 6, B), r(3, 12, 18, 5, 3, BD, 0.5),
+    c(8.5, 10, 2.6, '#ffffff'), c(15.5, 10, 2.6, '#ffffff'),
+    c(8.8, 10.2, 1.4, INK), c(15.8, 10.2, 1.4, INK),
+    done ? e(12, 14.6, 3.2, 1.8, '#ffffff') : r(9.5, 14, 5, 1.4, 0.7, INK),
+    r(6, 17, 12, 4, 2, BD), r(7, 20, 3.5, 3, 1.5, '#2c3042'), r(13.5, 20, 3.5, 3, 1.5, '#2c3042'),
+  ] };
+}
+
 // ---------- 辦公室背景物件（移植自 docs/superpowers/specs/assets/office-shapes.js）----------
 const shifted = (shapes: Shape[], dx: number, dy: number): Shape[] =>
   shapes.map((sh) => (sh.t === 'p' ? { ...sh, pts: sh.pts.map((v, i) => v + (i % 2 ? dy : dx)) } : { ...sh, x: sh.x + dx, y: sh.y + dy }));

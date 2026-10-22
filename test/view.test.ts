@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantSeat, asstKey, DOOR_X, entryPath, isAsst, makeAssistant, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
+import { appearance, columnsFor, DOOR_X, entryPath, helperHome, helperSlots, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -216,43 +216,28 @@ test('layout：較矮的島下方是空地，高度相同的島沒有空地', ()
   expect(layoutSig(l)).not.toBe(layoutSig(layout([emp('a', 'idle', { cwd: 'D:/p/a', folder: 'a', seat: 3 }), emp('b', 'idle', { cwd: 'D:/p/b', folder: 'b', seat: 3 })])));
 });
 
-test('assistantSeat：優先主人之後第一張空桌，沒有就接在最後', () => {
-  expect(assistantSeat(0, new Set([0]))).toBe(1);
-  expect(assistantSeat(0, new Set([0, 1, 2]))).toBe(3);
-  expect(assistantSeat(0, new Set([0, 2]))).toBe(1);
-  expect(assistantSeat(1, new Set([0, 1, 3]))).toBe(2);
-  expect(assistantSeat(2, new Set([0, 1, 2]))).toBe(3); // 主人之前的空桌不回頭找
-  expect(assistantSeat(1, new Set([1, 5]))).toBe(2);
+test('columnsFor：桌數越多欄越多，高度不會一直往上長', () => {
+  expect([1, 2, 3].map(columnsFor)).toEqual([1, 2, 3]);
+  expect([4, 9].map(columnsFor)).toEqual([3, 3]);
+  expect([10, 16].map(columnsFor)).toEqual([4, 4]);
+  expect([17, 40].map(columnsFor)).toEqual([5, 5]);
+  const l = layout([emp('a', 'idle', { seat: 11 })]);
+  expect(l.islands[0].cols).toBe(4);
+  expect(l.islands[0].rows).toBe(3);
 });
 
-test('makeAssistant：工作中是 working，完成是 idle；名牌是「↳ 描述」', () => {
-  const parent = emp('p', 'working', { title: '主題', seat: 2 });
-  const w = makeAssistant(parent, { id: 'a1', description: '  寫  測試 ', status: 'working', startedAt: 5 }, 3);
-  expect(w.sessionId).toBe('p/a1');
-  expect(asstKey('p', 'a1')).toBe('p/a1');
-  expect(isAsst(w)).toBe(true);
-  expect(isAsst(parent)).toBe(false);
-  expect(w.status).toBe('working');
-  expect(w.seat).toBe(3);
-  expect(w.cwd).toBe(parent.cwd);
-  expect(w.folder).toBe(parent.folder);
-  expect(w.assistants).toEqual([]);
-  expect(nameplate(w)).toBe('↳ 寫 測試');
-  expect(w.asst).toEqual({ parentId: 'p', parentTitle: '主題', description: '寫 測試', done: false });
-  const d = makeAssistant(parent, { id: 'a1', description: '寫測試', status: 'done', startedAt: 5 }, 3);
-  expect(d.status).toBe('idle');
-  expect(nameplate(d)).toBe('↳ ✓ 完成');
-  expect(d.asst.done).toBe(true);
-  expect(nameplate(makeAssistant(parent, { id: 'a2', description: '', status: 'working', startedAt: 6 }, 4))).toBe('↳ 助理');
+test('helperSlots：最多畫 2 位，其餘算進 +N；完成的也佔位', () => {
+  const a = (id: string, status: 'working' | 'done' = 'working') => ({ id, description: id, status, startedAt: 0 });
+  expect(helperSlots([])).toEqual({ shown: [], extra: 0 });
+  expect(helperSlots([a('1'), a('2')]).shown.map((x) => x.id)).toEqual(['1', '2']);
+  const five = helperSlots([a('1'), a('2', 'done'), a('3'), a('4'), a('5')]);
+  expect(five.shown.map((x) => x.id)).toEqual(['1', '2']);
+  expect(five.extra).toBe(3);
 });
 
-test('助理扮成的員工參與排版：每位助理多一張桌，招牌的等你人數不算助理', () => {
-  const parent = emp('p', 'waiting', { seat: 0 });
-  const a1 = makeAssistant(parent, { id: '1', description: 'x', status: 'working', startedAt: 1 }, 1);
-  const a2 = makeAssistant(parent, { id: '2', description: 'y', status: 'working', startedAt: 2 }, 2);
-  const l = layout([parent, a1, a2]);
-  expect(l.islands.length).toBe(1);
-  expect(l.islands[0].desks).toBe(3);
-  expect(waitingCount([parent, a1, a2], parent.cwd)).toBe(1);
-  expect(appearance(a1.sessionId)).not.toEqual(appearance(a2.sessionId));
+test('helperHome：小幫手站在人物左／右側的空位', () => {
+  const [i] = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 4 })]).islands;
+  const c = seatCell(i, 4);
+  expect(helperHome(i, 4, 0).x).toBeLessThan(c.x + 28);
+  expect(helperHome(i, 4, 1).x).toBeGreaterThan(c.x + 68);
 });

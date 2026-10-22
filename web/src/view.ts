@@ -103,7 +103,10 @@ export const fitMiddle = (text: string, fits: (s: string) => boolean): string =>
 // ---- 版面：一個專案（cwd）一座桌島 ----
 
 // marginTop 96：後牆家具腳底 y = 78，招牌從 y = 82 起
-export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, bottom: 10, gap: 44, marginX: 40, marginTop: 96, vgap: 72, marginBottom: 40, maxRowW: 1100, maxCols: 3 };
+export const ISLAND = { cellW: 96, cellH: 124, pad: 14, top: 26, bottom: 10, gap: 44, marginX: 40, marginTop: 96, vgap: 72, marginBottom: 40, maxRowW: 1100 };
+
+/** 桌數越多欄數越多，島不會一直往下長：1–3 桌 = 桌數欄；4–9 桌 3 欄；10–16 桌 4 欄；17 桌以上 5 欄 */
+export const columnsFor = (desks: number): number => (desks <= 3 ? Math.max(1, desks) : desks <= 9 ? 3 : desks <= 16 ? 4 : 5);
 export const BASE_W = 560; // 計算放大倍率時的參考尺寸（典型的 1~3 間辦公室）
 export const BASE_H = 400;
 export const PROJECT_COLORS: string[] = ['#4a90d9', '#e98f3f', '#4fb477', '#8e6fc9', '#d9669a', '#38a8a0', '#e6c34a', '#d9534f'];
@@ -143,7 +146,7 @@ export function layout(employees: Employee[]): Layout {
   const names = keys.map((k) => groups.get(k)![0].folder);
   const islands: Island[] = keys.map((k, i) => {
     const desks = Math.max(...groups.get(k)!.map((e) => e.seat + 1));
-    const cols = Math.min(ISLAND.maxCols, desks);
+    const cols = columnsFor(desks);
     const rows = Math.ceil(desks / cols);
     const dup = names.filter((n) => n === names[i]).length > 1;
     return {
@@ -215,43 +218,20 @@ export const entryPath = (island: Island, seat: number): { x: number; y: number 
   return [{ x: DOOR_X, y: py }, { x: c.x, y: py }, { x: c.x, y: sy }, { x: c.x + 48, y: sy }];
 };
 
-// ---- 助理：每位進行中的助理是主人那座島上的一位「虛擬員工」 ----
+// ---- 助理：主人桌邊的小幫手（不佔座位） ----
 
-/** 助理扮成的員工：sessionId 是 `${主人 id}/${助理 id}`，asst 帶出資訊卡要的資料 */
-export interface VEmployee extends Employee {
-  asst: { parentId: string; parentTitle: string; description: string; done: boolean };
-}
-export const isAsst = (e: Employee): e is VEmployee => 'asst' in e;
+export const HELPER_MAX = 2; // 最多畫 2 位，其餘合併成「+N」
 
-export const asstKey = (parentId: string, id: string): string => `${parentId}/${id}`;
+/** 要畫的小幫手（依出現順序前 HELPER_MAX 位，完成的也佔位）與其餘人數 */
+export const helperSlots = (assistants: readonly Assistant[]): { shown: Assistant[]; extra: number } => ({
+  shown: assistants.slice(0, HELPER_MAX),
+  extra: Math.max(0, assistants.length - HELPER_MAX),
+});
 
-/** 把主人的某個助理轉成虛擬員工：工作中 = working，完成 = idle（閒置姿勢）；名牌是「↳ 描述」或「↳ ✓ 完成」 */
-export const makeAssistant = (parent: Employee, a: Assistant, seat: number): VEmployee => {
-  const done = a.status === 'done';
-  const description = oneLine(a.description);
-  return {
-    sessionId: asstKey(parent.sessionId, a.id),
-    folder: parent.folder,
-    cwd: parent.cwd,
-    lastPrompt: '',
-    firstPrompt: '',
-    title: done ? '↳ ✓ 完成' : `↳ ${description || '助理'}`,
-    transcriptPath: '',
-    status: done ? 'idle' : 'working',
-    activity: done ? null : description || null,
-    seat,
-    arrivedAt: a.startedAt,
-    lastEventAt: parent.lastEventAt,
-    assistants: [],
-    asst: { parentId: parent.sessionId, parentTitle: oneLine(parent.title) || oneLine(parent.firstPrompt) || oneLine(parent.lastPrompt), description, done },
-  };
-};
-
-/** 助理的座位：優先主人之後第一張空桌，沒有空桌就接在最後。taken = 同一座島已被占用的座位 */
-export const assistantSeat = (parentSeat: number, taken: ReadonlySet<number>): number => {
-  const max = Math.max(parentSeat, ...taken);
-  for (let i = parentSeat + 1; i <= max; i++) if (!taken.has(i)) return i;
-  return max + 1;
+/** 小幫手中心點：人物兩側的空位（格內 x 3–27、69–93），第 0 位在左、第 1 位在右 */
+export const helperHome = (island: Island, seat: number, slot: number): { x: number; y: number } => {
+  const c = seatCell(island, seat);
+  return { x: c.x + (slot === 0 ? 15 : 81), y: c.y + 46 };
 };
 
 /** 版面是否需要重畫（島的位置、大小、桌數有變才重畫） */
