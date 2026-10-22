@@ -31,6 +31,8 @@ export function describeTool(toolName: string, input: Record<string, unknown> | 
     case 'Task':
     case 'Agent':
       return '派出助理';
+    case 'AskUserQuestion':
+      return '提問中';
     default:
       return '使用 ' + toolName;
   }

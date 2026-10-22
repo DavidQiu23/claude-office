@@ -59,7 +59,8 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
         }
         break;
       case 'PreToolUse':
-        emp.status = 'working';
+        // AskUserQuestion：Claude 在問問題等你選，和權限詢問一樣算「等你回覆」；回答後的 PostToolUse 會回到工作中
+        emp.status = e.tool_name === 'AskUserQuestion' ? 'waiting' : 'working';
         if (top) emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
         break;
       case 'PostToolUse':

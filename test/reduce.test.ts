@@ -186,3 +186,21 @@ test('帶 agent_id 的事件不覆寫 activity，但仍可把等你處理救回�
   expect(r.state.employees.s1.activity).toBe(act);
   expect(r.state.employees.s1.status).toBe('working');
 });
+
+test('PreToolUse AskUserQuestion：等你回覆，氣泡「提問中」；使用者回答後 PostToolUse 回到工作中', () => {
+  const asked = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'AskUserQuestion', tool_use_id: 'q1', tool_input: { questions: [] } })]);
+  expect(asked.state.employees.s1.status).toBe('waiting');
+  expect(asked.state.employees.s1.activity).toBe('提問中');
+  const answered = run([ev('PostToolUse', { tool_name: 'AskUserQuestion', tool_use_id: 'q1' })], asked.state);
+  expect(answered.state.employees.s1.status).toBe('working');
+});
+
+test('subagent 內部的 AskUserQuestion 也讓員工等你回覆，但不動氣泡', () => {
+  const { state } = run([
+    ev('UserPromptSubmit'),
+    ev('PreToolUse', { tool_name: 'Read', tool_input: { file_path: 'a.ts' } }),
+    ev('PreToolUse', { tool_name: 'AskUserQuestion', tool_use_id: 'q2', agent_id: 'sub' }),
+  ]);
+  expect(state.employees.s1.status).toBe('waiting');
+  expect(state.employees.s1.activity).toBe('讀取 a.ts');
+});
