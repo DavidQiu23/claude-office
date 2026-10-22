@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
-import type { Employee } from '../../src/state/types.js';
+import type { Assistant, Employee } from '../../src/state/types.js';
 import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, setSprite, type DeskState, type Pose } from './art.js';
-import { character, OFFICE, officeShell } from './flat.js';
+import { bot, character, OFFICE, officeShell, type Shape } from './flat.js';
 import type { OfficeStore } from './sync.js';
 import {
   appearance, entryPath, fitMiddle, fitText, formatTime, helperHome, helperSlots, layout, layoutSig, nameplate, PALETTE, projectColor,
@@ -73,6 +73,7 @@ interface Helper {
   c: Phaser.GameObjects.Container;
   img: Phaser.GameObjects.Image;
   ownerId: string;
+  aid: string; // 助理 id（資訊卡用）
   slot: number; // 0 = 人物左側、1 = 右側
   done: boolean;
   walking: boolean;
@@ -98,17 +99,14 @@ const el = (tag: string, css = '', text = ''): HTMLElement => {
   return n;
 };
 
-/** 這位員工的頭與肩膀（和桌上的人同一個外觀）：把角色圖形清單畫成 SVG */
-function avatarSvg(e: Employee): SVGSVGElement {
-  const look = appearance(e.sessionId);
-  const shirt = '#' + (PALETTE[look.shirt] ?? PALETTE[0]!).toString(16).padStart(6, '0');
-  const sprite = character({ pose: 'sit0', style: look.style, outfit: OUTFITS[look.outfit], glasses: look.glasses, hair: HAIR_COLORS[look.hair], shirt });
+/** 圖形清單畫成 SVG（資訊卡的頭像用） */
+function shapesSvg(shapes: Shape[], viewBox: string, size: number): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 8 40 36');
-  svg.setAttribute('width', '56');
-  svg.setAttribute('height', '56');
+  svg.setAttribute('viewBox', viewBox);
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
   svg.style.display = 'block';
-  for (const s of sprite.shapes) {
+  for (const s of shapes) {
     const n =
       s.t === 'r' ? document.createElementNS(SVG_NS, 'rect')
       : s.t === 'c' ? document.createElementNS(SVG_NS, 'circle')
@@ -126,11 +124,20 @@ function avatarSvg(e: Employee): SVGSVGElement {
   return svg;
 }
 
+/** 這位員工的頭與肩膀（和桌上的人同一個外觀） */
+function avatarSvg(e: Employee): SVGSVGElement {
+  const look = appearance(e.sessionId);
+  const shirt = '#' + (PALETTE[look.shirt] ?? PALETTE[0]!).toString(16).padStart(6, '0');
+  const sprite = character({ pose: 'sit0', style: look.style, outfit: OUTFITS[look.outfit], glasses: look.glasses, hair: HAIR_COLORS[look.hair], shirt });
+  return shapesSvg(sprite.shapes, '0 8 40 36', 56);
+}
+
 class InfoCard {
   private box = document.createElement('div');
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   private err = '';
-  id: string | null = null;
+  id: string | null = null; // 目前顯示的員工 session id（小幫手的卡也記主人的 id）
+  private asstId: string | null = null; // 不是 null 就顯示這位小幫手自己的卡
 
   constructor() {
     this.box.style.cssText =
@@ -141,10 +148,11 @@ class InfoCard {
     document.body.append(this.box);
   }
 
-  show(e: Employee, left: number, top: number): void {
+  show(e: Employee, left: number, top: number, asstId: string | null = null): void {
     clearTimeout(this.hideTimer);
     if (this.id !== e.sessionId) this.err = '';
     this.id = e.sessionId;
+    this.asstId = asstId;
     this.fill(e);
     this.box.style.display = 'block';
     this.box.style.left = `${Math.max(0, Math.min(left, window.innerWidth - 320))}px`;
@@ -155,7 +163,44 @@ class InfoCard {
     return el('div', 'font-size:11px;font-weight:700;letter-spacing:.08em;color:#8d95bd;margin-bottom:4px', text);
   }
 
+  /** 小幫手自己的卡：機器人頭像、描述、狀態、屬於哪位主人、開始時間；沒有「請他下班」 */
+  private fillHelper(e: Employee, a: Assistant): void {
+    const color = projectColor(roomKey(e));
+    const done = a.status === 'done';
+    const st = done ? { text: '完成', color: '#f2b83d', bg: '#f2b83d22' } : { text: '工作中', color: '#46d983', bg: '#46d98322' };
+    const body = el('div', 'padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px');
+    const avatar = el('div', `width:56px;height:56px;border-radius:16px;background:${color}33;border:1px solid ${color}88;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center`);
+    avatar.append(shapesSvg(bot(done).shapes, '0 0 24 24', 44));
+    const chip = el('span', `display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${st.bg};color:${st.color};font-size:12px;font-weight:700`);
+    chip.append(el('span', `width:7px;height:7px;border-radius:50%;background:${st.color}`), document.createTextNode(st.text));
+    const text = el('div', 'min-width:0;display:flex;flex-direction:column;gap:6px');
+    const chipRow = el('div');
+    chipRow.append(chip);
+    text.append(
+      el('div', 'font-size:11px;font-weight:700;letter-spacing:.08em;color:#8d95bd', '助理'),
+      el('div', `font-size:16px;font-weight:700;line-height:1.35;${clampCss(2)}`, oneLine(a.description) || '（無描述）'),
+      chipRow,
+    );
+    const head = el('div', 'display:flex;gap:12px;align-items:center');
+    head.append(avatar, text);
+    const owner = el('div', 'background:#ffffff0d;border:1px solid #ffffff14;border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:8px');
+    owner.append(
+      el('span', `width:8px;height:8px;border-radius:2px;background:${color};flex:none`),
+      el('span', 'color:#8d95bd;flex:none', '屬於'),
+      el('span', 'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt) || '（無標題）'),
+      el('span', 'color:#8d95bd;font-size:12px;flex:none', e.folder),
+    );
+    body.append(head, owner, el('div', 'border-top:1px solid #ffffff14;padding-top:12px;font-size:12px;color:#8d95bd', `開始 ${formatTime(a.startedAt)}`));
+    this.box.replaceChildren(el('div', `height:5px;background:${color}`), body);
+  }
+
   fill(e: Employee): void {
+    if (this.asstId) {
+      const a = e.assistants.find((x) => x.id === this.asstId);
+      if (a) return this.fillHelper(e, a);
+      this.hide(); // 這位小幫手已經離開
+      return;
+    }
     const color = projectColor(roomKey(e));
     const st = STATUS[e.status];
     const body = el('div', 'padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px');
@@ -234,6 +279,11 @@ class InfoCard {
     body.append(foot);
 
     this.box.replaceChildren(el('div', `height:5px;background:${color}`), body);
+  }
+
+  /** 這位小幫手離開時，如果正顯示它的卡就收起來 */
+  hideHelper(ownerId: string, asstId: string): void {
+    if (this.id === ownerId && this.asstId === asstId) this.hide();
   }
 
   scheduleHide(): void {
@@ -786,7 +836,7 @@ export class OfficeScene extends Phaser.Scene {
     });
   }
 
-  private makeHelper(e: Employee, slot: number): Helper {
+  private makeHelper(e: Employee, slot: number, aid: string): Helper {
     const img = addSprite(this, 'bot-work', -HELPER_R, -HELPER_R);
     const c = this.add.container(0, 0, [img]);
     c.setInteractive(new Phaser.Geom.Rectangle(-HELPER_R, -HELPER_R, HELPER_R * 2, HELPER_R * 2), Phaser.Geom.Rectangle.Contains);
@@ -796,10 +846,10 @@ export class OfficeScene extends Phaser.Scene {
       if (!cur) return;
       const r = this.game.canvas.getBoundingClientRect();
       const k = r.width / this.lay.width;
-      this.card.show(cur, r.left + (c.x + 20) * k, r.top + (c.y - 30) * k);
+      this.card.show(cur, r.left + (c.x + 20) * k, r.top + (c.y - 30) * k, aid);
     });
     c.on('pointerout', () => this.card.scheduleHide());
-    return { c, img, ownerId, slot, done: false, walking: false };
+    return { c, img, ownerId, aid, slot, done: false, walking: false };
   }
 
   /** 工作中的小幫手上下輕晃 1 px；完成的不動 */
@@ -833,7 +883,7 @@ export class OfficeScene extends Phaser.Scene {
       }
       let h = this.helpers.get(key);
       if (!h) {
-        h = this.makeHelper(e, slot);
+        h = this.makeHelper(e, slot, a.id);
         this.helpers.set(key, h);
         this.placeHelper(h, e, 'snap'); // 直接出現在主人桌邊，不從門口走進來
         this.applyHelperLook(h, done, true);
@@ -888,6 +938,7 @@ export class OfficeScene extends Phaser.Scene {
     const h = this.helpers.get(key);
     if (!h) return;
     this.helpers.delete(key);
+    this.card.hideHelper(h.ownerId, h.aid);
     this.tweens.killTweensOf([h.c, h.img]);
     h.c.destroy();
   }
