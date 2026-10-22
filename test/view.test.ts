@@ -130,14 +130,17 @@ test('seatCell 在島內，entryPath 從門口經走道到座位', () => {
   expect(c.x).toBeGreaterThanOrEqual(i.x);
   expect(c.y + 124).toBeLessThanOrEqual(i.y + i.h);
   const p = entryPath(i, 4);
-  expect(p.length).toBe(3);
+  expect(p.length).toBe(4);
   expect(p[0].x).toBe(DOOR_X);
-  expect(p[1].x).toBe(p[2].x);
   expect(p[0].y).toBe(p[1].y);
   expect(p[1].y).toBeLessThan(i.y);
-  expect(p[2].y).toBeGreaterThan(p[1].y);
   expect(p[1].y).toBe(i.y - 16 - 28);
-  expect(p[2]).toEqual({ x: c.x + 48, y: c.y + 48 });
+  // 沿兩欄桌子之間的走道往下，不穿過上一排的桌子，最後才橫向走進座位
+  expect(p[1].x).toBe(p[2].x);
+  expect(p[2].x).toBeLessThan(c.x + 12);
+  expect(p[2].x).toBeGreaterThanOrEqual(i.x);
+  expect(p[2].y).toBe(c.y + 48);
+  expect(p[3]).toEqual({ x: c.x + 48, y: c.y + 48 });
 });
 
 test('layoutSig：島的位置或大小改變時簽名不同', () => {

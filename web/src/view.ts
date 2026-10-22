@@ -207,12 +207,12 @@ export const waitingCount = (employees: Iterable<Employee>, key: string): number
 /** 後牆左上角的門：員工從這裡進出（人物中心 x） */
 export const DOOR_X = 40;
 
-/** 員工中心點的上班路線：門口 → 島上緣外的走道 → 座位（下班走反向） */
+/** 員工中心點的上班路線：門口 → 島上緣外的走道 → 沿該欄左側兩欄桌子之間的空隙往下 → 橫向走進座位（下班走反向） */
 export const entryPath = (island: Island, seat: number): { x: number; y: number }[] => {
   const c = seatCell(island, seat);
   const py = island.y - 16 - 28;
-  const sx = c.x + 48;
-  return [{ x: DOOR_X, y: py }, { x: sx, y: py }, { x: sx, y: c.y + 48 }];
+  const sy = c.y + 48;
+  return [{ x: DOOR_X, y: py }, { x: c.x, y: py }, { x: c.x, y: sy }, { x: c.x + 48, y: sy }];
 };
 
 // ---- 助理：每位進行中的助理是主人那座島上的一位「虛擬員工」 ----

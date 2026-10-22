@@ -230,25 +230,25 @@ export class OfficeScene extends Phaser.Scene {
     return r ? entryPath(r, Math.max(0, e.seat)) : [this.homeOf(e)];
   }
 
-  /** 走路中重新規劃路線：先回到島上方走道，再沿走道到座位正上方，最後往下 */
+  /** 走路中重新規劃路線：先回到島上方走道，再沿走道、桌間空隙到座位；已在座位那一列就直接走進去 */
   private rerouteTo(e: Employee, from: Pt): Pt[] {
     const p = this.entryOf(e);
-    const corridor = p[1];
-    const seat = p[2];
-    if (p.length < 3 || !corridor || !seat) return [this.homeOf(e)];
-    if (Math.abs(from.x - seat.x) < 1) return [seat]; // 已在座位正上方/下方：直接走過去，不繞回走道
-    return [{ x: from.x, y: corridor.y }, ...p.slice(1)];
+    const seat = p[3];
+    if (p.length < 4 || !seat) return [this.homeOf(e)];
+    if (Math.abs(from.y - seat.y) < 1) return [seat]; // 已在座位那一列：往上走會穿過上一排的桌子
+    return [{ x: from.x, y: p[1].y }, ...p.slice(1)];
   }
 
   /** 下班路線：從目前位置上到走道，再往左走出辦公室 */
   private exitOf(e: Employee, from: Pt): Pt[] {
     const p = this.entryOf(e);
     const corridor = p[1];
-    if (p.length < 3 || !corridor) return [{ x: 0, y: from.y }];
-    const seat = p[2];
-    // 在座位上：照上班路線反過來走；不在座位（走到一半）：直接上走道再出去
+    if (p.length < 4 || !corridor) return [{ x: 0, y: from.y }];
+    const seat = p[3];
+    // 在座位上：照上班路線反過來走；走到一半：先回桌間空隙（在座位那一列時），再上走道出去
     if (seat && Math.hypot(seat.x - from.x, seat.y - from.y) < 1) return [...p].reverse();
-    return [{ x: from.x, y: corridor.y }, { x: 0, y: corridor.y }];
+    const gap = seat && Math.abs(from.y - seat.y) < 1 ? [p[2]] : [{ x: from.x, y: from.y }];
+    return [...gap, { x: gap[0].x, y: corridor.y }, { x: 0, y: corridor.y }];
   }
 
   /** 島的位置、大小或桌數有變才重畫；在座位上的人跟著搬到新位置 */
