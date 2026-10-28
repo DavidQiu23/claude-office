@@ -1,4 +1,5 @@
 import { open, stat } from 'node:fs/promises';
+import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
 
 const TAIL = 512 * 1024;
 const MARK = '"type":"ai-title"';
@@ -34,5 +35,31 @@ export async function readAiTitle(path: string): Promise<string> {
       await fh.close();
     }
   } catch {} // 檔案不存在或讀不到：沒有標題而已
+  return '';
+}
+
+// Claude Code 閒置一陣子後會把對話接到新的 session_id，並在舊 transcript 最後寫一筆 continued-in。
+// 只在新 session 第一個事件時讀一次，且這筆在檔尾，所以同步讀最後一小段即可。
+const CONT_TAIL = 64 * 1024;
+export function readContinuedIn(path: string): string {
+  if (!path.endsWith('.jsonl')) return '';
+  try {
+    const fd = openSync(path, 'r');
+    try {
+      const size = fstatSync(fd).size;
+      const len = Math.min(size, CONT_TAIL);
+      const buf = Buffer.alloc(len);
+      readSync(fd, buf, 0, len, size - len);
+      for (const line of buf.toString('utf8').split('\n').reverse()) {
+        if (!line.includes('"continued-in"')) continue;
+        try {
+          const rec = JSON.parse(line);
+          if (rec.type === 'continued-in' && typeof rec.continuedInSessionId === 'string') return rec.continuedInSessionId;
+        } catch {} // 檔尾視窗切到一半的行
+      }
+    } finally {
+      closeSync(fd);
+    }
+  } catch {}
   return '';
 }

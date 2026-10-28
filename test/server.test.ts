@@ -211,3 +211,19 @@ test('Stop 之後從 transcript 讀到標題並更新員工', async () => {
   }
   expect((await employees())[0].title).toBe('修登入');
 });
+test('閒置後接續到新 session_id 時沿用原本的員工', async () => {
+  const tp = join(dir, 'old.jsonl');
+  writeFileSync(tp, JSON.stringify({ type: 'user' }) + '\n');
+  await post('/events', { hook_event_name: 'UserPromptSubmit', session_id: 'old', cwd: 'D:\p\api', transcript_path: tp, prompt: '第一句', sentAt: clock });
+  await start('other'); // 同資料夾的另一位不受影響
+  writeFileSync(tp, JSON.stringify({ type: 'continued-in', sessionId: 'old', continuedInSessionId: 'new' }) + '\n', { flag: 'a' });
+  const np = join(dir, 'new.jsonl');
+  await post('/events', { hook_event_name: 'UserPromptSubmit', session_id: 'new', cwd: 'D:\p\api', transcript_path: np, prompt: '第二句', sentAt: clock + 1 });
+  let list = await employees();
+  expect(list.map((e: any) => e.sessionId).sort()).toEqual(['old', 'other']);
+  const emp = list.find((e: any) => e.sessionId === 'old');
+  expect([emp.firstPrompt, emp.lastPrompt, emp.transcriptPath]).toEqual(['第一句', '第二句', np]);
+  await post('/events', { hook_event_name: 'SessionEnd', session_id: 'new', sentAt: clock + 2 });
+  list = await employees();
+  expect(list.map((e: any) => e.sessionId)).toEqual(['other']);
+});

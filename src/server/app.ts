@@ -3,7 +3,7 @@ import http from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
 import { dismiss, setTitle, sweep } from '../state/maintenance.js';
 import { reduce } from '../state/reduce.js';
-import { readAiTitle } from './title.js';
+import { readAiTitle, readContinuedIn } from './title.js';
 import { emptyState, type Change, type HookEvent } from '../state/types.js';
 
 export const portInUseMessage = (port: number): string =>
@@ -33,6 +33,18 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
           res.write(`data: ${JSON.stringify(c)}\n\n`);
         } catch {} // 死掉的用戶端不可拖垮其他人或 sweep 計時器
       }
+  };
+
+  // 接續的新 session_id → 原本那位員工的 id；同一段對話換了 id 仍是同一位員工（外觀、座位都不變）
+  const aliases = new Map<string, string>();
+  const continuedFrom = (id: string, cwd: unknown): string => {
+    const known = aliases.get(id);
+    if (known) return known;
+    if (Object.hasOwn(state.employees, id) || typeof cwd !== 'string') return id;
+    const prev = Object.values(state.employees).find((e) => e.cwd === cwd && e.transcriptPath && readContinuedIn(e.transcriptPath) === id);
+    if (!prev) return id;
+    aliases.set(id, prev.sessionId);
+    return prev.sessionId;
   };
 
   const readBody = (req: http.IncomingMessage) =>
@@ -96,6 +108,7 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
       if (typeof ev.hook_event_name !== 'string') ev.hook_event_name = '';
       if (typeof ev.tool_input !== 'object' || ev.tool_input === null || Array.isArray(ev.tool_input)) delete ev.tool_input;
       if (!Number.isFinite(ev.sentAt)) ev.sentAt = now();
+      ev.session_id = continuedFrom(ev.session_id, ev.cwd);
       const r = reduce(state, ev as HookEvent);
       apply(r);
       // 標題在第一輪回應後才會寫進 transcript；回合結束時背景讀取，不拖慢 hook 回應
