@@ -5,7 +5,7 @@ import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, 
 import { bot, character, OFFICE, officeShell, type Shape } from './flat.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, entryPath, fitMiddle, fitText, formatTime, helperHome, helperSlots, layout, layoutSig, nameplate, PALETTE, projectColor,
+  appearance, assistantList, entryPath, fitMiddle, fitText, formatTime, helperHome, helperSlots, layout, layoutSig, nameplate, PALETTE, projectColor,
   roomKey, seatCell, waitingCount, DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout,
 } from './view.js';
 
@@ -136,8 +136,7 @@ class InfoCard {
   private box = document.createElement('div');
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   private err = '';
-  id: string | null = null; // 目前顯示的員工 session id（小幫手的卡也記主人的 id）
-  private asstId: string | null = null; // 不是 null 就顯示這位小幫手自己的卡
+  id: string | null = null; // 目前顯示的員工 session id
 
   constructor() {
     this.box.style.cssText =
@@ -148,11 +147,10 @@ class InfoCard {
     document.body.append(this.box);
   }
 
-  show(e: Employee, left: number, top: number, asstId: string | null = null): void {
+  show(e: Employee, left: number, top: number): void {
     clearTimeout(this.hideTimer);
     if (this.id !== e.sessionId) this.err = '';
     this.id = e.sessionId;
-    this.asstId = asstId;
     this.fill(e);
     this.box.style.display = 'block';
     this.box.style.left = `${Math.max(0, Math.min(left, window.innerWidth - 320))}px`;
@@ -163,44 +161,7 @@ class InfoCard {
     return el('div', 'font-size:11px;font-weight:700;letter-spacing:.08em;color:#8d95bd;margin-bottom:4px', text);
   }
 
-  /** 小幫手自己的卡：機器人頭像、描述、狀態、屬於哪位主人、開始時間；沒有「請他下班」 */
-  private fillHelper(e: Employee, a: Assistant): void {
-    const color = projectColor(roomKey(e));
-    const done = a.status === 'done';
-    const st = done ? { text: '完成', color: '#f2b83d', bg: '#f2b83d22' } : { text: '工作中', color: '#46d983', bg: '#46d98322' };
-    const body = el('div', 'padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px');
-    const avatar = el('div', `width:56px;height:56px;border-radius:16px;background:${color}33;border:1px solid ${color}88;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center`);
-    avatar.append(shapesSvg(bot(done).shapes, '0 0 24 24', 44));
-    const chip = el('span', `display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${st.bg};color:${st.color};font-size:12px;font-weight:700`);
-    chip.append(el('span', `width:7px;height:7px;border-radius:50%;background:${st.color}`), document.createTextNode(st.text));
-    const text = el('div', 'min-width:0;display:flex;flex-direction:column;gap:6px');
-    const chipRow = el('div');
-    chipRow.append(chip);
-    text.append(
-      el('div', 'font-size:11px;font-weight:700;letter-spacing:.08em;color:#8d95bd', '助理'),
-      el('div', `font-size:16px;font-weight:700;line-height:1.35;${clampCss(2)}`, oneLine(a.description) || '（無描述）'),
-      chipRow,
-    );
-    const head = el('div', 'display:flex;gap:12px;align-items:center');
-    head.append(avatar, text);
-    const owner = el('div', 'background:#ffffff0d;border:1px solid #ffffff14;border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:8px');
-    owner.append(
-      el('span', `width:8px;height:8px;border-radius:2px;background:${color};flex:none`),
-      el('span', 'color:#8d95bd;flex:none', '屬於'),
-      el('span', 'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt) || '（無標題）'),
-      el('span', 'color:#8d95bd;font-size:12px;flex:none', e.folder),
-    );
-    body.append(head, owner, el('div', 'border-top:1px solid #ffffff14;padding-top:12px;font-size:12px;color:#8d95bd', `開始 ${formatTime(a.startedAt)}`));
-    this.box.replaceChildren(el('div', `height:5px;background:${color}`), body);
-  }
-
   fill(e: Employee): void {
-    if (this.asstId) {
-      const a = e.assistants.find((x) => x.id === this.asstId);
-      if (a) return this.fillHelper(e, a);
-      this.hide(); // 這位小幫手已經離開
-      return;
-    }
     const color = projectColor(roomKey(e));
     const st = STATUS[e.status];
     const body = el('div', 'padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px');
@@ -238,21 +199,34 @@ class InfoCard {
       body.append(first);
     }
 
-    // 助理：每位一行
+    // 助理：工作中排前，最多 4 位，其餘併成一行
     if (e.assistants.length) {
+      const { rows, extra, extraWorking, extraDone, working } = assistantList(e.assistants);
       const list = el('div', 'border-top:1px solid #ffffff14');
-      for (const a of e.assistants) {
+      for (const a of rows) {
         const done = a.status === 'done';
-        const row = el('div', 'display:flex;align-items:center;gap:8px;padding:5px 0');
+        const row = el('div', `display:flex;align-items:center;gap:8px;padding:5px 0${done ? ';opacity:.55' : ''}`);
+        row.append(el('span', `width:8px;height:8px;border-radius:50%;background:${done ? '#f2b83d' : '#46d983'};flex:none`));
+        if (typeof a.kind === 'string' && a.kind) {
+          row.append(el('span', 'max-width:76px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:11px ui-monospace,Consolas,monospace;color:#b9c0e6;background:#ffffff14;border-radius:4px;padding:0 5px', a.kind));
+        }
+        const desc = oneLine(a.description);
         row.append(
-          el('span', `width:8px;height:8px;border-radius:50%;background:${done ? '#f2b83d' : '#46d983'};flex:none`),
-          el('span', `flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${done ? '#8d95bd' : '#dfe3ff'}`, oneLine(a.description) || '（無描述）'),
-          el('span', 'font-size:12px;color:#8d95bd', done ? '完成' : '工作中'),
+          el('span', `flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${desc ? (done ? '#8d95bd' : '#dfe3ff') : '#6b7399'}`, desc || '（無描述）'),
+          el('span', 'font-size:12px;color:#8d95bd;flex:none', done ? '完成' : '工作中'),
         );
         list.append(row);
       }
+      if (extra > 0) {
+        const parts = [extraWorking && `${extraWorking} 位工作中`, extraDone && `${extraDone} 位已完成`].filter(Boolean);
+        const more = el('div', 'display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;color:#8d95bd');
+        more.append(el('span', 'border:1px solid #ffffff33;border-radius:999px;padding:0 7px;flex:none', `+${extra}`), el('span', '', `另有 ${parts.join('、')}`));
+        list.append(more);
+      }
+      const title = this.label(`助理 · ${e.assistants.length}`);
+      if (working) title.append(el('span', 'margin-left:8px;color:#46d983;letter-spacing:0', `${working} 位工作中`));
       const help = el('div');
-      help.append(this.label(`助理 · ${e.assistants.length}`), list);
+      help.append(title, list);
       body.append(help);
     }
 
@@ -279,11 +253,6 @@ class InfoCard {
     body.append(foot);
 
     this.box.replaceChildren(el('div', `height:5px;background:${color}`), body);
-  }
-
-  /** 這位小幫手離開時，如果正顯示它的卡就收起來 */
-  hideHelper(ownerId: string, asstId: string): void {
-    if (this.id === ownerId && this.asstId === asstId) this.hide();
   }
 
   scheduleHide(): void {
@@ -846,7 +815,7 @@ export class OfficeScene extends Phaser.Scene {
       if (!cur) return;
       const r = this.game.canvas.getBoundingClientRect();
       const k = r.width / this.lay.width;
-      this.card.show(cur, r.left + (c.x + 20) * k, r.top + (c.y - 30) * k, aid);
+      this.card.show(cur, r.left + (c.x + 20) * k, r.top + (c.y - 30) * k);
     });
     c.on('pointerout', () => this.card.scheduleHide());
     return { c, img, ownerId, aid, slot, done: false, walking: false };
@@ -938,7 +907,6 @@ export class OfficeScene extends Phaser.Scene {
     const h = this.helpers.get(key);
     if (!h) return;
     this.helpers.delete(key);
-    this.card.hideHelper(h.ownerId, h.aid);
     this.tweens.killTweensOf([h.c, h.img]);
     h.c.destroy();
   }

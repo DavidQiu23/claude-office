@@ -39,6 +39,20 @@ export const nameplate = (e: Employee): string => {
   return truncate(base, 24);
 };
 
+/** 資訊卡的助理清單：工作中排前（同組維持原順序），前 max 位成列，其餘歸入 extra */
+export const assistantList = (list: readonly Assistant[], max = 4) => {
+  const sorted = [...list.filter((a) => a.status === 'working'), ...list.filter((a) => a.status !== 'working')];
+  const rest = sorted.slice(max);
+  const extraWorking = rest.filter((a) => a.status === 'working').length;
+  return {
+    rows: sorted.slice(0, max),
+    extra: rest.length,
+    extraWorking,
+    extraDone: rest.length - extraWorking,
+    working: list.filter((a) => a.status === 'working').length,
+  };
+};
+
 export function summary(employees: Employee[]): { text: string; alert: boolean } {
   const n = (s: Employee['status']) => employees.filter((e) => e.status === s).length;
   const waiting = n('waiting');

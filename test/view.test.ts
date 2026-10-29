@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
-import { appearance, columnsFor, DOOR_X, entryPath, helperHome, helperSlots, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, PLATE_MAX, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
+import { appearance, assistantList, columnsFor, DOOR_X, entryPath, helperHome, helperSlots, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, PLATE_MAX, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
 import type { Island } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
-import type { Employee } from '../src/state/types.js';
+import type { Assistant, Employee } from '../src/state/types.js';
 
 const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Employee> = {}): Employee => ({
   sessionId: id, folder: 'proj', cwd: '/x/proj', lastPrompt: 'hi', firstPrompt: '', title: '', transcriptPath: '', status, activity: null,
@@ -309,3 +309,23 @@ test('signFit：最小字級仍放不下就截字', () => {
   expect(meas(r.text, SIGN_FONT.min)).toBeLessThanOrEqual(60);
 });
 test('signMaxW', () => expect(signMaxW({ w: 124 } as Island)).toBe(124 + 44 - 24));
+
+const asst = (id: string, status: Assistant['status']): Assistant => ({ id, description: id, status, startedAt: 0 });
+
+test('assistantList：空清單', () => {
+  expect(assistantList([])).toEqual({ rows: [], extra: 0, extraWorking: 0, extraDone: 0, working: 0 });
+});
+
+test('assistantList：工作中排前，同組維持原順序', () => {
+  const r = assistantList([asst('a', 'done'), asst('b', 'working'), asst('c', 'done'), asst('d', 'working')]);
+  expect(r.rows.map((x) => x.id)).toEqual(['b', 'd', 'a', 'c']);
+  expect(r.working).toBe(2);
+});
+
+test('assistantList：超過上限的算進 extra', () => {
+  const list = [...[1, 2, 3, 4].map((i) => asst(`d${i}`, 'done')), ...[1, 2, 3, 4, 5].map((i) => asst(`w${i}`, 'working'))];
+  const r = assistantList(list);
+  expect(r.rows.length).toBe(4);
+  expect(r.rows.every((x) => x.status === 'working')).toBe(true);
+  expect([r.extra, r.extraWorking, r.extraDone, r.working]).toEqual([5, 1, 4, 5]);
+});
