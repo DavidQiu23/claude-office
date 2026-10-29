@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { appearance, columnsFor, DOOR_X, entryPath, helperHome, helperSlots, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
+import { appearance, columnsFor, DOOR_X, entryPath, helperHome, helperSlots, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, PLATE_MAX, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
+import type { Island } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
 import type { Employee } from '../src/state/types.js';
@@ -245,3 +246,66 @@ test('helperHome：小幫手站在人物左／右側的空位', () => {
   expect(helperHome(i, 4, 0).x).toBeLessThan(c.x + 28);
   expect(helperHome(i, 4, 1).x).toBeGreaterThan(c.x + 68);
 });
+
+const lim = (n: number) => (s: string) => [...s].length <= n;
+const plateEmp = (status: Employee['status'], activity: string | null, title = '登入流程重構') => emp('abcd1234', status, { title, activity });
+
+test('PLATE_MAX', () => expect(PLATE_MAX).toBe(200));
+
+test('plateLabel：放得下就完整顯示', () => {
+  expect(plateLabel(plateEmp('working', '編輯 view.ts'), lim(40))).toEqual({ text: '登入流程重構 · 編輯 view.ts', waiting: false });
+});
+
+test('plateLabel：等你處理加「! 」', () => {
+  const p = plateLabel(plateEmp('waiting', '編輯 view.ts'), lim(40));
+  expect(p.text.startsWith('! 登入流程重構 · ')).toBe(true);
+  expect(p.waiting).toBe(true);
+});
+
+test('plateLabel：等你處理又要截字，「! 」也算在寬度內', () => {
+  const p = plateLabel(plateEmp('waiting', '編輯非常長的檔案名稱.ts 與其他內容'), lim(16));
+  expect(p.text.startsWith('! ')).toBe(true);
+  expect(p.waiting).toBe(true);
+  expect(p.text).toContain('…');
+  expect([...p.text].length).toBeLessThanOrEqual(16);
+});
+
+test('plateLabel：沒有動作只有名字', () => {
+  expect(plateLabel(plateEmp('idle', null), lim(40)).text).toBe('登入流程重構');
+});
+
+test('plateLabel：長動作先截動作，名字完整', () => {
+  const p = plateLabel(plateEmp('working', '編輯非常長的檔案名稱.ts 與其他內容'), lim(16));
+  expect(p.text.startsWith('登入流程重構 · ')).toBe(true);
+  expect(p.text).toContain('…');
+  expect([...p.text].length).toBeLessThanOrEqual(16);
+});
+
+test('plateLabel：動作至少 4 字加…，其餘截名字', () => {
+  const p = plateLabel(plateEmp('working', '編輯非常長的檔案名稱.ts 與其他內容', 'N'.repeat(30)), lim(14));
+  const [name, act] = p.text.split(' · ');
+  expect([...p.text].length).toBeLessThanOrEqual(14);
+  expect(act).toBe('編輯非常…');
+  expect(name).toContain('…');
+});
+
+test('plateLabel：動作不超過 4 字不截動作', () => {
+  const p = plateLabel(plateEmp('working', '讀檔', 'N'.repeat(30)), lim(12));
+  expect(p.text.endsWith(' · 讀檔')).toBe(true);
+  expect([...p.text].length).toBeLessThanOrEqual(12);
+});
+
+const meas = (s: string, size: number) => [...s].length * size;
+test('signFit：能放就用最大字級', () => expect(signFit('claudeOffice', 1000, meas).size).toBe(SIGN_FONT.max));
+test('signFit：逐步縮小字級', () => {
+  const r = signFit('claudeOffice', 12 * 14, meas);
+  expect(r.size).toBe(14);
+  expect(r.text).toBe('claudeOffice');
+});
+test('signFit：最小字級仍放不下就截字', () => {
+  const r = signFit('claudeOffice', 60, meas);
+  expect(r.size).toBe(SIGN_FONT.min);
+  expect(r.text).toContain('…');
+  expect(meas(r.text, SIGN_FONT.min)).toBeLessThanOrEqual(60);
+});
+test('signMaxW', () => expect(signMaxW({ w: 124 } as Island)).toBe(124 + 44 - 24));

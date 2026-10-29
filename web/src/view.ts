@@ -126,6 +126,37 @@ export interface Island {
   desks: number;
   color: string;
 }
+/** 名牌整條最大寬度（世界單位，含左右內距） */
+export const PLATE_MAX = ISLAND.cellW + ISLAND.cellH - 20;
+
+/** 一行名牌「名字 · 動作」：先截動作（至少留 4 字加「…」），再截名字；等你處理時前綴「! 」 */
+export function plateLabel(e: Employee, fits: (s: string) => boolean): { text: string; waiting: boolean } {
+  const waiting = e.status === 'waiting';
+  const pre = waiting ? '! ' : '';
+  const name = nameplate(e);
+  const act = oneLine(e.activity ?? '');
+  const full = pre + name + (act ? ' · ' + act : '');
+  if (fits(full)) return { text: full, waiting };
+  if (!act) return { text: pre + fitMiddle(name, (s) => fits(pre + s)), waiting };
+  const chars = [...act];
+  const minAct = chars.length > 4 ? chars.slice(0, 4).join('') + '…' : act;
+  const cut = fitMiddle(act, (a) => fits(pre + name + ' · ' + a));
+  // fitMiddle 找不到時回 '…'；比最小動作短就不採用，改截名字
+  if ([...cut].length >= [...minAct].length && fits(pre + name + ' · ' + cut)) return { text: pre + name + ' · ' + cut, waiting };
+  const n = fitMiddle(name, (s) => fits(pre + s + ' · ' + minAct));
+  return { text: pre + n + ' · ' + minAct, waiting };
+}
+
+// ---- 地上招牌 ----
+export const SIGN_FONT = { max: 17, min: 12 };
+
+/** 招牌字級從 max 往下縮到放得下；到 min 還放不下才截字 */
+export function signFit(title: string, maxW: number, measure: (s: string, size: number) => number): { text: string; size: number } {
+  for (let size = SIGN_FONT.max; size >= SIGN_FONT.min; size--) if (measure(title, size) <= maxW) return { text: title, size };
+  return { text: fitMiddle(title, (t) => measure(t, SIGN_FONT.min) <= maxW), size: SIGN_FONT.min };
+}
+export const signMaxW = (isl: Island): number => isl.w + ISLAND.gap - 24;
+
 export interface Layout { islands: Island[]; width: number; height: number; voids: Void[] }
 
 export const roomKey = (e: Pick<Employee, 'cwd'>): string => e.cwd ?? '';
