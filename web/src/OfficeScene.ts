@@ -2,31 +2,27 @@ import Phaser from 'phaser';
 import { truncate } from '../../src/state/describe.js';
 import type { Assistant, Employee } from '../../src/state/types.js';
 import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, setSprite, type DeskState, type Pose } from './art.js';
-import { bot, character, OFFICE, officeShell, type Shape } from './flat.js';
+import { bot, character, ISO_FLOOR, isoRoom, type Shape } from './flat.js';
+import { fitCamera, islandsBounds, isoDepth, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, assistantList, entryPath, fitMiddle, fitText, formatTime, helperHome, helperSlots, layout, layoutSig, nameplate, PALETTE, projectColor,
-  roomKey, seatCell, waitingCount, DoneClock, BASE_H, BASE_W, ISLAND, type Island, type Layout,
+  appearance, assistantList, entryPath, formatTime, helperHome, helperSlots, layout, layoutSig, PALETTE, plateLabel, PLATE_MAX, projectColor,
+  roomKey, seatCell, signFit, signMaxW, waitingCount, DoneClock, BASE_H, BASE_W, DOOR_X, type Island, type Layout,
 } from './view.js';
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
-const PLATE_W = 84;
-const EMPTY_DY = 60; // 「目前沒有人上班」放在地板中央偏下，不擋後牆家具
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
+const MAX_ZOOM = 2; // 鏡頭最多放大 2 倍（人少時）
 
-// 地板與島
-const FLOOR = OFFICE.floor;
-const ISLAND_R = 22;
 type Pt = { x: number; y: number };
 
 const FAILED_SIG = '\u0000failed'; // 不會等於任何版面簽名：強制下次重畫
-const SIGN = { dx: 16, dy: -14, h: 28, r: 8, color: 0xf4ecd6, text: '#2a2238', badge: 0xff4d4d, badgeH: 20, minName: 48 };
+// 地上招牌：色帶在島前緣外 20–44 的地板上（避開前排名牌）；等待人數圓章直立在色帶尾端外側
+const SIGN = { gap: 20, h: 24, r: 6, pad: 9, badge: 0xff4d4d, badgeR: 9 };
 
 // 一格（seatCell 左上角）裡各物件的相對位置
 const PERSON = { x: 48, y: 48 }; // 員工座位（人物中心）
-const DESK = { x: 12, y: 66, h: 36 }; // 桌子素材 (0,0) 位置與高度
-const PLATE = { x: 6, y: 108 }; // 名牌顯示標題或第一個 prompt（專案名稱在招牌上）
 const CHAR = { x: -20, y: -28 }; // 角色素材 (0,0) 相對人物中心
 // 驚嘆號素材 (0,0) 相對人物中心，每 0.4 秒上下跳。素材高 27；舉手時頭髮頂端約 -28 + RAISE_Y + 2 = -32
 // （丸子頭 -38.5、舉起的手 -30），驚嘆號底部放在 -36，比一般頭髮高 4
@@ -46,10 +42,7 @@ const hexNum = (h: string): number => parseInt(h.slice(1), 16) || 0;
 interface DeskObj { img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Text }
 interface SignObj {
   isl: Island;
-  board: Phaser.GameObjects.Graphics;
-  name: Phaser.GameObjects.Text;
   badge: Phaser.GameObjects.Container;
-  badgeBg: Phaser.GameObjects.Graphics;
   text: Phaser.GameObjects.Text;
   tween?: Phaser.Tweens.Tween;
   count: number; // 上次畫的等待人數（-1 = 還沒畫過）
@@ -292,10 +285,11 @@ export class OfficeScene extends Phaser.Scene {
 
   create(): void {
     this.z = this.registry.get('zoom') ?? 1;
-    this.cameras.main.setOrigin(0, 0).setZoom(this.z);
+    this.cameras.main.setOrigin(0.5).setZoom(this.z);
     bakeTextures(this);
+    const mid = toScreen(BASE_W / 2, BASE_H / 2);
     this.emptyText = this.add
-      .text(BASE_W / 2, BASE_H / 2 + EMPTY_DY, '目前沒有人上班\n開一個 Claude Code session 就會出現', {
+      .text(mid.x, mid.y, '目前沒有人上班\n開一個 Claude Code session 就會出現', {
         fontFamily: FONT, resolution: this.z, fontSize: '14px', color: '#8a82b3', align: 'center',
       })
       .setOrigin(0.5);
@@ -401,9 +395,8 @@ export class OfficeScene extends Phaser.Scene {
     }
     if (ok) this.sig = sig;
     this.guard(() => {
-      this.emptyText.setPosition(next.width / 2, next.height / 2 + EMPTY_DY).setVisible(next.islands.length === 0);
-      this.scale.resize(next.width * this.z, next.height * this.z);
-      this.game.events.emit('office-size', next.width, next.height);
+      this.emptyText.setVisible(next.islands.length === 0);
+      this.fitView();
     });
     for (const s of this.slots.values()) {
       this.guard(() => {
@@ -427,83 +420,75 @@ export class OfficeScene extends Phaser.Scene {
     return o;
   }
 
+  /** 鏡頭縮放並對準所有島（含招牌與頭頂空間）；畫布大小固定 */
+  private fitView(): void {
+    const { zoom, cx, cy } = fitCamera(islandsBounds(this.lay.islands), BASE_W, BASE_H, MAX_ZOOM);
+    this.cameras.main.setZoom(this.z * zoom).centerOn(cx, cy);
+  }
+
   private drawFloor(l: Layout): void {
     const g = this.keep(this.add.graphics().setDepth(-100));
-    drawShapes(g, officeShell(l.width, l.height, l.voids).shapes, 1, 0, 0);
+    drawShapes(g, isoRoom(l.width, l.height, DOOR_X).shapes, 1, 0, 0);
   }
 
   private drawIsland(isl: Island): void {
-    const R = this.z;
-    const base = this.keep(this.add.graphics().setDepth(-90));
-    base.fillStyle(mixColor(FLOOR, isl.color, 0.3), 1).fillRoundedRect(isl.x, isl.y, isl.w, isl.h, ISLAND_R);
-    // 招牌：米色板 + 專案色塊 + 專案名；等你回覆的人數由 updateSigns 畫徽章並調整板寬
-    const depth = isl.y + 20;
-    const sx = isl.x + SIGN.dx;
-    const sy = isl.y + SIGN.dy;
-    const board = this.keep(this.add.graphics().setDepth(depth));
-    const name = this.keep(
-      this.add
-        .text(sx + 22, sy + SIGN.h / 2, isl.title, { fontFamily: FONT, resolution: R, fontSize: '14px', fontStyle: 'bold', color: SIGN.text })
-        .setOrigin(0, 0.5)
-        .setDepth(depth),
-    );
-    const badgeBg = this.add.graphics();
-    const text = this.add
-      .text(0, 0, '', { fontFamily: FONT, resolution: R, fontSize: '11px', fontStyle: 'bold', color: '#ffffff' })
-      .setOrigin(0.5);
-    const badge = this.keep(this.add.container(sx, sy + SIGN.h / 2, [badgeBg, text]).setDepth(depth).setVisible(false));
-    this.signs.set(isl.key, { isl, board, name, badge, badgeBg, text, count: -1 });
+    const R = this.z * MAX_ZOOM; // 文字以鏡頭最大倍率繪製，放大時才不會糊
+    const corners = [toScreen(isl.x, isl.y), toScreen(isl.x + isl.w, isl.y), toScreen(isl.x + isl.w, isl.y + isl.h), toScreen(isl.x, isl.y + isl.h)];
+    this.keep(this.add.graphics().setDepth(-90)).fillStyle(mixColor(ISO_FLOOR, isl.color, 0.3), 1).fillPoints(corners, true);
+
+    // 招牌：平面色帶畫好後貼到地板上。地板的 fx、fy 單位向量是 (1, 0.5)、(-1, 0.5)，
+    // 等於先轉 45° 再把 x 放大 √2、y 縮成 √2/2，所以用兩層 Container（內層轉、外層縮放）做出斜切。
+    // 外層先 keep 再加子物件：中途出錯時子物件也會隨重畫一起銷毀
+    const gy = isl.y + isl.h + SIGN.gap;
+    const o = toScreen(isl.x, gy);
+    const outer = this.keep(this.add.container(o.x, o.y).setScale(Math.SQRT2, Math.SQRT1_2).setDepth(-80));
+    const inner = this.add.container(0, 0).setRotation(Math.PI / 4);
+    outer.add(inner);
+    const font = { fontFamily: FONT, resolution: R, fontStyle: 'bold', color: '#ffffff' };
+    const label = this.add.text(SIGN.pad, SIGN.h / 2, '', font).setOrigin(0, 0.5);
+    inner.add(label);
+    const measure = (s: string, size: number): number => (label.setFontSize(size).setText(s), label.width + SIGN.pad * 2);
+    const fit = signFit(isl.title, signMaxW(isl), measure);
+    const bandW = measure(fit.text, fit.size);
+    inner.addAt(this.add.graphics().fillStyle(hexNum(isl.color), 0.9).fillRoundedRect(0, 0, bandW, SIGN.h, SIGN.r), 0);
+
+    // 等待人數圓章：直立在色帶中線、尾端外側，數字由 updateSigns 填
+    const b = toScreen(isl.x + bandW + 9, gy + SIGN.h / 2);
+    const badge = this.keep(this.add.container(b.x, b.y).setDepth(-79).setVisible(false));
+    badge.add(this.add.graphics().fillStyle(SIGN.badge, 1).fillCircle(0, 0, SIGN.badgeR).lineStyle(2, 0xffffff, 1).strokeCircle(0, 0, SIGN.badgeR));
+    const text = this.add.text(0, 0, '', { ...font, fontSize: '11px' }).setOrigin(0.5);
+    badge.add(text);
+    this.signs.set(isl.key, { isl, badge, text, count: -1 });
 
     for (let i = 0; i < isl.desks; i++) {
       const c = seatCell(isl, i);
+      const s = toScreen(c.x, c.y);
+      const p = toScreen(c.x + 48, c.y + 100);
       const d: DeskObj = {
-        img: this.keep(addSprite(this, deskKey('empty'), c.x + DESK.x, c.y + DESK.y).setDepth(c.y + DESK.y + DESK.h)),
+        img: this.keep(addSprite(this, deskKey('empty'), s.x, s.y).setDepth(isoDepth(c.x + 48, c.y + 90))),
+        // 名牌永遠在人與桌之上（頭上已沒有文字，不會擋到臉）
         plate: this.keep(
           this.add
-            .text(c.x + PLATE.x, c.y + PLATE.y, '', { fontFamily: FONT, resolution: R, fontSize: '9px', color: '#f4efe6', padding: { x: 3, y: 1 } })
-            .setDepth(c.y + DESK.y + DESK.h),
+            .text(p.x, p.y, '', { fontFamily: FONT, resolution: R, fontSize: '9px', color: '#f4efe6', padding: { x: 6, y: 2 } })
+            .setOrigin(0.5, 0)
+            .setDepth(isoDepth(c.x + 48, c.y + 100) + 1000),
         ),
       };
       this.desks.set(`${isl.key}#${i}`, d);
     }
   }
 
-  /** 招牌：依各專案等你回覆的人數更新徽章（數量 > 0 才顯示並放大縮小），板寬隨之重畫 */
+  /** 招牌：依各專案等你回覆的人數更新圓章（數量 > 0 才顯示並放大縮小） */
   private updateSigns(): void {
     for (const s of this.signs.values()) {
-      if (!s.board.active || !s.badge.active) continue;
+      if (!s.badge.active) continue;
       const n = waitingCount(this.store.employees.values(), s.isl.key);
       if (n === s.count) continue;
       s.count = n;
       const show = n > 0;
-      const { isl } = s;
-      const sx = isl.x + SIGN.dx;
-      const sy = isl.y + SIGN.dy;
-
-      let bw = 0;
-      if (show) {
-        s.text.setText(`等你 ${n}`);
-        bw = Math.ceil(s.text.width) + 14;
-        s.badgeBg.clear().fillStyle(SIGN.badge, 1).fillRoundedRect(-bw / 2, -SIGN.badgeH / 2, bw, SIGN.badgeH, SIGN.badgeH / 2);
-      }
-
-      // 招牌可以伸進右側走道：整塊招牌右緣最多到島右緣 + 走道寬 - 8（不碰下一座島的招牌）。
-      // 1 欄的島：無徽章時專案名最寬 112，有徽章時約 112 - 2 - 徽章寬
-      const boardMax = isl.w + ISLAND.gap - 8 - SIGN.dx;
-      const maxName = Math.max(SIGN.minName, show ? boardMax - 34 - bw : boardMax - 32);
-      s.name.setText(isl.title);
-      // 放不下時從中間截斷，保留開頭與結尾（同開頭的專案仍可分辨）
-      if (s.name.width > maxName) s.name.setText(fitMiddle(isl.title, (t) => (s.name.setText(t), s.name.width <= maxName)));
-      const nameW = Math.ceil(s.name.width);
-
-      const boardW = show ? 22 + nameW + 8 + bw + 4 : 22 + nameW + 10;
-      s.board.clear();
-      s.board.fillStyle(SIGN.color, 1).fillRoundedRect(sx, sy, boardW, SIGN.h, SIGN.r);
-      s.board.fillStyle(hexNum(isl.color), 1).fillRoundedRect(sx + 10, sy + (SIGN.h - 16) / 2, 6, 16, 2);
-
       s.badge.setVisible(show);
       if (show) {
-        s.badge.setPosition(sx + 22 + nameW + 8 + bw / 2, sy + SIGN.h / 2);
+        s.text.setText(String(n));
         if (!s.tween || !s.tween.isPlaying()) {
           s.badge.setScale(0.94);
           s.tween = this.tweens.add({ targets: s.badge, scale: 1.06, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
@@ -773,12 +758,12 @@ export class OfficeScene extends Phaser.Scene {
     const d = this.desks.get(`${roomKey(t)}#${t.seat}`);
     if (!d || !d.img.active || !d.plate.active) return;
     setSprite(d.img, deskKey(deskState(e)));
-    const str = e ? nameplate(e) : '';
     const plate = d.plate;
-    plate.setBackgroundColor(str ? 'rgba(20,23,42,0.7)' : '');
-    plate.setText(str);
-    // 依實際寬度裁切並補「…」，避免被硬切在字中間
-    if (plate.width > PLATE_W) plate.setText(fitText(str, (x) => (plate.setText(x), plate.width <= PLATE_W)));
+    plate.setVisible(!!e); // 空桌不顯示名牌
+    if (!e) return;
+    // 一行「名字 · 動作」，依實際寬度截斷，相鄰名牌不會疊在一起
+    const { text, waiting } = plateLabel(e, (s) => (plate.setText(s), plate.width <= PLATE_MAX));
+    plate.setText(text).setBackgroundColor(waiting ? 'rgba(214,52,52,0.92)' : 'rgba(20,23,42,0.78)');
   }
 
   // ---- 助理：主人桌邊的小幫手，不佔座位 ----

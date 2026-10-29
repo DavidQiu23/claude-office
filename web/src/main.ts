@@ -14,13 +14,11 @@ const render = () => {
 store.on(render);
 render();
 
-// 內部渲染倍率固定 3（整數，文字與向量圖形才清楚）；實際顯示大小再依視窗與辦公室數量用 zoom 調整
+// 內部渲染倍率固定 3（整數，文字與向量圖形才清楚）；實際顯示大小再依視窗用 zoom 調整（畫布大小固定，島多島少由場景鏡頭處理）
 const Z = PIXEL_RATIO;
 const MAX_ZOOM = 2.5;
-let sceneW = BASE_W;
-let sceneH = BASE_H;
-// 盡量讓整個辦公室放進視窗（不夠大時才捲動），單間辦公室不會被放得太大
-const fitZoom = () => Math.max(1, Math.min(MAX_ZOOM, (window.innerWidth - 24) / sceneW, (window.innerHeight - 110) / sceneH));
+// 整張畫布縮放到放進視窗，但不會被放得太大；縮到 0.4 倍以下才改成捲動
+const fitZoom = () => Math.max(0.4, Math.min(MAX_ZOOM, (window.innerWidth - 24) / BASE_W, (window.innerHeight - 110) / BASE_H));
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -36,16 +34,11 @@ const game = new Phaser.Game({
   callbacks: { preBoot: (g) => g.registry.set('zoom', Z) },
 });
 
-// 辦公室數量變動時，畫布大小跟著變，顯示倍率重新計算
+// 視窗大小變動時重新計算顯示倍率
 const fit = () => {
   game.scale.setZoom(fitZoom() / Z);
-  el.style.maxWidth = `${Math.max(Math.round(sceneW * fitZoom()), 360)}px`;
+  el.style.maxWidth = `${Math.max(Math.round(BASE_W * fitZoom()), 360)}px`;
 };
-game.events.on('office-size', (w: number, h: number) => {
-  sceneW = w;
-  sceneH = h;
-  fit();
-});
 fit();
 window.addEventListener('resize', fit);
 
