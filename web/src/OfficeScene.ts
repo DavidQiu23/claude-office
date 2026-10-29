@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { Employee } from '../../src/state/types.js';
-import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, setSprite, type DeskState, type Pose } from './art.js';
-import { character, FLOOR, isoRoom, type Shape } from './flat.js';
+import { addSprite, bakeSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, setSprite, type DeskState, type Pose } from './art.js';
+import { character, FLOOR, isoRoom, mix, quad, type Shape } from './flat.js';
+import { planWall } from './furniture.js';
 import { deskDepth, fitCamera, isoDepth, personDepth, roomBox, roomSize, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
@@ -30,13 +31,6 @@ const CHAR = { x: -20, y: -54 };
 const CHAR_SCALE = 1.2; // 套在 figure 容器上
 const RAISE_Y = -6; // 舉手時身體上移
 
-/** 兩個 #rrggbb 依比例 t 混合（t = 0 為 a），回傳 Phaser 顏色數字 */
-const mixColor = (a: string, b: string, t: number): number => {
-  const ch = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16) || 0;
-  let out = 0;
-  for (let i = 0; i < 3; i++) out = (out << 8) | Math.round(ch(a, i) * (1 - t) + ch(b, i) * t);
-  return out;
-};
 const hexNum = (h: string): number => parseInt(h.slice(1), 16) || 0;
 
 interface DeskObj { img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Text }
@@ -267,6 +261,7 @@ export class OfficeScene extends Phaser.Scene {
   private card!: InfoCard;
   private emptyText!: Phaser.GameObjects.Text;
   private z = 1; // 內部渲染倍率（整數）：畫布放大、文字以同倍率繪製才不會糊
+  private view = { zoom: 0, x: 0, y: 0 }; // 鏡頭目前（或 tween 中）的倍率與中心；zoom 0 = 還沒設定過
 
   constructor(private store: OfficeStore) {
     super('office');
@@ -276,10 +271,10 @@ export class OfficeScene extends Phaser.Scene {
     this.z = this.registry.get('zoom') ?? 1;
     this.cameras.main.setOrigin(0.5).setZoom(this.z);
     bakeTextures(this);
-    const mid = toScreen(BASE_W / 2, BASE_H / 2);
+    // 位置與縮放由 fitView 設定
     this.emptyText = this.add
-      .text(mid.x, mid.y, '目前沒有人上班\n開一個 Claude Code session 就會出現', {
-        fontFamily: FONT, resolution: this.z, fontSize: '14px', color: '#8a82b3', align: 'center',
+      .text(0, 0, '目前沒有人上班\n開一個 Claude Code session 就會出現', {
+        fontFamily: FONT, resolution: this.z, fontSize: '14px', color: '#aab0d0', align: 'center',
       })
       .setOrigin(0.5);
     this.card = new InfoCard();
@@ -404,22 +399,61 @@ export class OfficeScene extends Phaser.Scene {
     return o;
   }
 
-  /** 鏡頭縮放並框住整個房間；畫布大小固定 */
+  /** 鏡頭縮放並框住整個房間；畫布大小固定。第一次直接設定，之後倍率或中心有變就 300ms 平移縮放 */
   private fitView(): void {
     const { w, h } = roomSize(this.lay.islands);
     const { zoom, cx, cy } = fitCamera(roomBox(w, h), BASE_W, BASE_H, MAX_ZOOM);
-    this.cameras.main.setZoom(this.z * zoom).centerOn(cx, cy);
+    const mid = toScreen(w / 2, h / 2 + 40);
+    this.emptyText.setPosition(mid.x, mid.y);
+    const cam = this.cameras.main;
+    const to = { zoom: this.z * zoom, x: cx, y: cy };
+    const apply = (v: typeof to): void => {
+      cam.setZoom(v.zoom).centerOn(v.x, v.y);
+      this.emptyText.setScale(this.z / v.zoom); // 提示字維持 14px 畫面字級
+    };
+    this.tweens.killTweensOf(this.view);
+    if (this.view.zoom === 0) apply(Object.assign(this.view, to));
+    else if (this.view.zoom !== to.zoom || this.view.x !== to.x || this.view.y !== to.y) {
+      this.tweens.add({ targets: this.view, ...to, duration: 300, ease: 'Sine.easeInOut', onUpdate: () => apply(this.view), onComplete: () => apply(this.view) });
+    }
+  }
+
+  /** 房間類圖形（地板、牆、地墊、地毯）：用 Graphics 填色，不透明多邊形描一條 1px 邊（規格 §16.2） */
+  private drawRoom(shapes: Shape[], depth: number, dx = 0, dy = 0): void {
+    const g = this.keep(this.add.graphics().setDepth(depth));
+    drawShapes(g, shapes, 1, dx, dy);
+    for (const s of shapes) {
+      if (s.t !== 'p' || (s.a ?? 1) < 1) continue;
+      const pts: Phaser.Math.Vector2[] = [];
+      for (let i = 0; i + 1 < s.pts.length; i += 2) pts.push(new Phaser.Math.Vector2(s.pts[i]! + dx, s.pts[i + 1]! + dy));
+      g.lineStyle(1, hexNum(mix(s.c, '#1d1a2e', 0.12)), 1).strokePoints(pts, true, true);
+    }
   }
 
   private drawFloor(l: Layout): void {
-    const g = this.keep(this.add.graphics().setDepth(-100));
-    drawShapes(g, isoRoom(l.width, l.height, DOOR_X).shapes, 1, 0, 0);
+    const { w, h } = roomSize(l.islands);
+    this.drawRoom(isoRoom(w, h, DOOR_X).shapes, -100);
+    // 牆面與靠牆家具：每種物件烘一次貼圖；地墊、門墊屬房間類，直接畫
+    let poster = 0;
+    for (const it of planWall(w, h, [...new Set(l.islands.map((i) => i.y))], DOOR_X)) {
+      const at = toScreen(it.fx, it.fy);
+      if (it.id === 'zoneMat' || it.id === 'doorMat') {
+        this.drawRoom(it.make().shapes, it.depth, at.x, at.y);
+        continue;
+      }
+      const key = `furn-${it.id}${it.id === 'calendarPoster' ? `-${poster++}` : ''}`; // 第 k 張月曆配色不同
+      bakeSprite(this, key, it.make());
+      this.keep(addSprite(this, key, at.x, at.y).setDepth(it.depth));
+    }
   }
 
   private drawIsland(isl: Island): void {
     const R = this.z * MAX_ZOOM; // 文字以鏡頭最大倍率繪製，放大時才不會糊
-    const corners = [toScreen(isl.x, isl.y), toScreen(isl.x + isl.w, isl.y), toScreen(isl.x + isl.w, isl.y + isl.h), toScreen(isl.x, isl.y + isl.h)];
-    this.keep(this.add.graphics().setDepth(-90)).fillStyle(mixColor(FLOOR, isl.color, 0.3), 1).fillPoints(corners.map((p) => new Phaser.Math.Vector2(p.x, p.y)), true);
+    const rect = (x0: number, y0: number, x1: number, y1: number, c: string): Shape => ({ t: 'p', c, pts: quad([[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]]) });
+    this.drawRoom([
+      rect(isl.x, isl.y, isl.x + isl.w, isl.y + isl.h, mix(FLOOR, isl.color, 0.5)),
+      rect(isl.x + 6, isl.y + 6, isl.x + isl.w - 6, isl.y + isl.h - 6, mix(FLOOR, isl.color, 0.3)),
+    ], -90);
 
     // 招牌：平面色帶畫好後貼到地板上。地板的 fx、fy 單位向量是 (1, 0.5)、(-1, 0.5)，
     // 等於先轉 45° 再把 x 放大 √2、y 縮成 √2/2，所以用兩層 Container（內層轉、外層縮放）做出斜切。

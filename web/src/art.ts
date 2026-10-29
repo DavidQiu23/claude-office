@@ -33,7 +33,7 @@ export function drawShapes(g: Phaser.GameObjects.Graphics, shapes: Shape[], k: n
   }
 }
 
-function bakeSprite(scene: Phaser.Scene, key: string, sprite: FlatSprite): void {
+export function bakeSprite(scene: Phaser.Scene, key: string, sprite: FlatSprite): void {
   if (scene.textures.exists(key)) return;
   const e = extent(sprite);
   const x0 = Math.floor(e.x0), y0 = Math.floor(e.y0);
