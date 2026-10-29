@@ -23,6 +23,7 @@ export interface Assistant {
   status: 'working' | 'done';
   startedAt: number;
   agentId?: string;            // 背景助理：async_launched 後記下，SubagentStop 用它配對
+  kind?: string;               // subagent_type，例如 Explore、Plan；沒給就不記
   background?: boolean;        // run_in_background：PostToolUse 與 Stop 都不代表完成
 }
 

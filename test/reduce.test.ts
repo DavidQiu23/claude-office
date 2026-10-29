@@ -162,6 +162,16 @@ test.each(['toString', '__proto__', 'constructor'])('原型鏈名稱 %s 的 sess
 
 const withAssistant = () =>
   run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a1', tool_input: { description: 'x' } })]).state;
+test('PreToolUse 建立助理時記下 subagent_type', () => {
+  const { state } = run([
+    ev('UserPromptSubmit'),
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'k1', tool_input: { description: 'x', subagent_type: 'Explore' } }),
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'k2', tool_input: { description: 'y' } }),
+  ]);
+  const a = state.employees.s1.assistants;
+  expect(a[0].kind).toBe('Explore');
+  expect('kind' in a[1]).toBe(false);
+});
 test('Stop 把仍在工作的助理標為完成', () => {
   const s0 = withAssistant();
   expect(run([ev('Stop')], s0).state.employees.s1.assistants[0].status).toBe('done');

@@ -98,6 +98,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       description: String(e.tool_input?.description ?? ''),
       status: 'working',
       startedAt: e.sentAt,
+      ...(typeof e.tool_input?.subagent_type === 'string' && e.tool_input.subagent_type ? { kind: e.tool_input.subagent_type } : {}),
       ...(e.tool_input?.run_in_background === true ? { background: true } : {}),
     });
   } else if ((e.hook_event_name === 'PostToolUse' || e.hook_event_name === 'PostToolUseFailure') && e.tool_use_id) {
