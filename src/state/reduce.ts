@@ -101,6 +101,16 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       ...(typeof e.tool_input?.subagent_type === 'string' && e.tool_input.subagent_type ? { kind: e.tool_input.subagent_type } : {}),
       ...(e.tool_input?.run_in_background === true ? { background: true } : {}),
     });
+  } else if (e.hook_event_name === 'PostToolUse' && e.tool_name === 'SendMessage' && typeof e.tool_response?.resumedAgentId === 'string') {
+    // SendMessage 叫回已停下的 subagent：它在背景重新工作，SubagentStop 才完成（還在跑的只會回 queued，不另加）
+    assistants.push({
+      id: e.tool_use_id ?? 'seq-' + ++seq,
+      description: String(e.tool_input?.summary ?? ''),
+      status: 'working',
+      startedAt: e.sentAt,
+      agentId: e.tool_response.resumedAgentId,
+      background: true,
+    });
   } else if ((e.hook_event_name === 'PostToolUse' || e.hook_event_name === 'PostToolUseFailure') && e.tool_use_id) {
     const launched = e.tool_response?.status === 'async_launched';
     assistants = assistants.map((a) =>

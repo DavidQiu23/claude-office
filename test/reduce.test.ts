@@ -261,3 +261,18 @@ test('StopFailure（API 錯誤結束回合）和 Stop 一樣：閒置、清氣�
   expect(state.employees.s1.activity).toBeNull();
   expect(state.employees.s1.assistants[0].status).toBe('done');
 });
+
+test('SendMessage 叫回已停下的 subagent 時多一位背景助理，SubagentStop 才完成；queued 不另加', () => {
+  const resume = ev('PostToolUse', {
+    tool_name: 'SendMessage',
+    tool_use_id: 'toolu_r',
+    tool_input: { to: 'a1', summary: '請複審' },
+    tool_response: { success: true, resumedAgentId: 'a1' },
+  });
+  let { state } = run([ev('UserPromptSubmit'), resume, ev('Stop')]);
+  expect(state.employees.s1.assistants).toMatchObject([{ id: 'toolu_r', description: '請複審', status: 'working', agentId: 'a1' }]);
+  ({ state } = run([ev('SubagentStop', { agent_id: 'a1' })], state));
+  expect(state.employees.s1.assistants[0].status).toBe('done');
+  const queued = ev('PostToolUse', { tool_name: 'SendMessage', tool_use_id: 'toolu_q', tool_response: { success: true, message: 'Message queued' } });
+  expect(run([queued], state).state.employees.s1.assistants).toEqual([]);
+});
