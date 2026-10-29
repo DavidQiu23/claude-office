@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { chairDepth, deskDepth, fitCamera, isoDepth, personDepth, roomBox, roomSize, toScreen } from '../web/src/iso.js';
+import { chairDepth, deskDepth, fitCamera, isoDepth, personDepth, plateAt, roomBox, roomSize, toScreen } from '../web/src/iso.js';
 import { entryPath, ISLAND, seatCell, type Island } from '../web/src/view.js';
 
 test('toScreen 等角投影', () => {
@@ -52,4 +52,11 @@ test('fitCamera', () => {
   for (const px of [b.x, b.x + b.w]) expect(Math.abs((px - c.cx) * c.zoom)).toBeLessThanOrEqual((1280 - 24) / 2 + 1e-9);
   for (const py of [b.y, b.y + b.h]) expect(Math.abs((py - c.cy) * c.zoom)).toBeLessThanOrEqual((720 - 24) / 2 + 1e-9);
   expect(fitCamera({ x: 0, y: 0, w: 100, h: 100 }, 1280, 720, 2).zoom).toBe(2);
+});
+
+test('plateAt：置中在桌子中心 x，倍率小時下緣夾在 cell.y + 90', () => {
+  const cell = { x: 100, y: 40 }; // toScreen(cell) = (60, 70)
+  expect(plateAt(cell, 1)).toEqual({ x: 60, y: 70 + 67.5 }); // 15 / 1 = 15 < 22.5：照桌子正面下緣
+  expect(plateAt(cell, 0.5)).toEqual({ x: 60, y: 70 + 90 - 30 }); // 下緣 = 70 + 90
+  expect(plateAt(cell, 15 / 22.5).y).toBeCloseTo(70 + 67.5); // 剛好相接
 });

@@ -1,7 +1,7 @@
-// 扁平向量美術：素材資料在 flat.ts（圖形清單），這裡用 Phaser Graphics 烘成貼圖（PIXEL_RATIO 倍解析度，顯示時縮回 1/PIXEL_RATIO）。
+// 扁平向量美術：素材資料在 flat.ts（圖形清單），這裡用 Canvas 2D（clay.ts）烘成貼圖（PIXEL_RATIO 倍解析度，顯示時縮回 1/PIXEL_RATIO）。
 import Phaser from 'phaser';
 import {
-  character, extent, HAIR_COLORS, isoDesk, SHIRT_COLORS,
+  character, extent, HAIR_COLORS, isoChair, isoDesk, SHIRT_COLORS,
   type DeskState, type FlatSprite, type Outfit, type Pose, type Shape,
 } from './flat.js';
 import { drawClay, softShadow } from './clay.js';
@@ -49,11 +49,11 @@ export function bakeSprite(scene: Phaser.Scene, key: string, sprite: FlatSprite)
   info.set(key, { x0, y0, w: x1 - x0, h: y1 - y0 });
 }
 
-export const charKey = (pose: Pose, look: Look, shirt: number): string =>
-  `char-${pose}-${look.hair}-${look.style}-${look.outfit}-${look.glasses ? 1 : 0}-${shirt.toString(16)}`;
+export const charKey = (pose: Pose, look: Look, shirt: number, chair: boolean): string =>
+  `char-${pose}-${look.hair}-${look.style}-${look.outfit}-${look.glasses ? 1 : 0}-${shirt.toString(16)}-${chair ? 1 : 0}`;
 
-export function ensureChar(scene: Phaser.Scene, pose: Pose, look: Look, shirt: number): string {
-  const key = charKey(pose, look, shirt);
+export function ensureChar(scene: Phaser.Scene, pose: Pose, look: Look, shirt: number, chair: boolean): string {
+  const key = charKey(pose, look, shirt, chair);
   bakeSprite(
     scene,
     key,
@@ -64,15 +64,21 @@ export function ensureChar(scene: Phaser.Scene, pose: Pose, look: Look, shirt: n
       glasses: look.glasses,
       hair: HAIR_COLORS[look.hair],
       shirt: '#' + shirt.toString(16).padStart(6, '0'),
+      chair,
     }),
   );
   return key;
 }
 
 export const deskKey = (st: DeskState): string => `desk-${st}`;
+export const CHAIR_KEY = 'chair';
+export const PERSON_SHADOW_KEY = 'person-shadow'; // 人腳下的接地投影，原點 = 腳下地板點
 
 export function bakeTextures(scene: Phaser.Scene): void {
-  for (const st of ['empty', 'working', 'waiting', 'idle'] as DeskState[]) bakeSprite(scene, deskKey(st), isoDesk(st));}
+  for (const st of ['empty', 'working', 'waiting', 'idle'] as DeskState[]) bakeSprite(scene, deskKey(st), isoDesk(st));
+  bakeSprite(scene, CHAIR_KEY, isoChair());
+  bakeSprite(scene, PERSON_SHADOW_KEY, { w: 0, h: 0, shapes: [], shadow: { fx: 0, fy: 0, r: 11 } });
+}
 
 function applyOrigin(img: Phaser.GameObjects.Image, key: string): void {
   const t = info.get(key);

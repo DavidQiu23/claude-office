@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import type { Employee } from '../../src/state/types.js';
-import { addSprite, bakeSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, setSprite, type DeskState, type Pose } from './art.js';
+import { addSprite, bakeSprite, bakeTextures, CHAIR_KEY, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, PERSON_SHADOW_KEY, setSprite, type DeskState, type Pose } from './art.js';
+import { drawClay } from './clay.js';
 import { character, FLOOR, isoRoom, mix, quad, type Shape } from './flat.js';
 import { planWall } from './furniture.js';
-import { deskDepth, fitCamera, isoDepth, personDepth, roomBox, roomSize, toScreen } from './iso.js';
+import { chairDepth, deskDepth, fitCamera, isoDepth, personDepth, plateAt, roomBox, roomSize, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, projectColor,
+  appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, PLATE_NAME_ONLY_ZOOM, projectColor,
   roomKey, seatCell, signFit, signMaxW, waitingCount, BASE_H, BASE_W, DOOR_X, type Island, type Layout,
 } from './view.js';
 
@@ -23,8 +24,7 @@ const SIGN = { gap: 20, h: 24, r: 6, pad: 9, badge: 0xff4d4d, badgeR: 9 };
 
 // 一格（seatCell 左上角）裡各物件的相對位置
 const PERSON = { x: 48, y: 48 }; // 員工座位（人物所在的地板點）
-// 名牌錨點（上緣、左起 1/4 處）：長名牌主要往右（桌子那側）長，不會蓋到左下方前排的人臉
-const PLATE = { x: 48, y: 100, ox: 0.25 };
+const PLATE_H = 15; // 名牌螢幕高度（字 11px）
 const PLATE_DEPTH = 1000; // 名牌永遠在人與桌之上
 // 角色素材 (0,0) 相對地板點（縮放前）：素材 40×56，底部中心（腳底陰影）對到地板點
 const CHAR = { x: -20, y: -54 };
@@ -33,7 +33,8 @@ const RAISE_Y = -6; // 舉手時身體上移
 
 const hexNum = (h: string): number => parseInt(h.slice(1), 16) || 0;
 
-interface DeskObj { img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Text }
+// 名牌 = container（位置、縮放、深度、顯示）裡的圓角底色 bg + 文字 text
+interface DeskObj { cell: Pt; img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; emp?: Employee }
 interface SignObj {
   isl: Island;
   badge: Phaser.GameObjects.Container;
@@ -67,7 +68,6 @@ const STATUS: Record<Employee['status'], { text: string; color: string; bg: stri
   waiting: { text: '等你處理', color: '#ff6b6b', bg: '#ff4d4d26' },
   idle: { text: '閒置', color: '#f2b83d', bg: '#f2b83d22' },
 };
-const SVG_NS = 'http://www.w3.org/2000/svg';
 const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim();
 const clampCss = (n: number): string => `display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;overflow:hidden;word-break:break-all`;
 
@@ -79,37 +79,22 @@ const el = (tag: string, css = '', text = ''): HTMLElement => {
   return n;
 };
 
-/** 圖形清單畫成 SVG（資訊卡的頭像用） */
-function shapesSvg(shapes: Shape[], viewBox: string, size: number): SVGSVGElement {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', viewBox);
-  svg.setAttribute('width', String(size));
-  svg.setAttribute('height', String(size));
-  svg.style.display = 'block';
-  for (const s of shapes) {
-    const n =
-      s.t === 'r' ? document.createElementNS(SVG_NS, 'rect')
-      : s.t === 'c' ? document.createElementNS(SVG_NS, 'circle')
-      : s.t === 'e' ? document.createElementNS(SVG_NS, 'ellipse')
-      : document.createElementNS(SVG_NS, 'polygon');
-    const set = (k: string, v: number | string) => n.setAttribute(k, String(v));
-    if (s.t === 'r') { set('x', s.x); set('y', s.y); set('width', s.w); set('height', s.h); set('rx', s.r ?? 0); }
-    else if (s.t === 'c') { set('cx', s.x); set('cy', s.y); set('r', s.r); }
-    else if (s.t === 'e') { set('cx', s.x); set('cy', s.y); set('rx', s.rx); set('ry', s.ry); }
-    else set('points', s.pts.join(' '));
-    set('fill', s.c);
-    if (s.a != null && s.a !== 1) set('fill-opacity', s.a);
-    svg.append(n);
-  }
-  return svg;
-}
-
 /** 這位員工的頭與肩膀（和桌上的人同一個外觀） */
-function avatarSvg(e: Employee): SVGSVGElement {
+function avatarCanvas(e: Employee): HTMLCanvasElement {
   const look = appearance(e.sessionId);
   const shirt = '#' + (PALETTE[look.shirt] ?? PALETTE[0]!).toString(16).padStart(6, '0');
   const sprite = character({ pose: 'sit0', style: look.style, outfit: OUTFITS[look.outfit], glasses: look.glasses, hair: HAIR_COLORS[look.hair], shirt });
-  return shapesSvg(sprite.shapes, '0 8 40 36', 56);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 56 * 2; // 2 倍解析度，顯示 56px
+  cv.style.cssText = 'display:block;width:56px;height:56px';
+  const ctx = cv.getContext('2d');
+  if (ctx) {
+    // 素材 x 0–40、y 8–44 放大 1.4 倍置中到 56×56
+    ctx.scale(2.8, 2.8);
+    ctx.translate(0, -6);
+    drawClay(ctx, sprite.shapes, 'figure');
+  }
+  return cv;
 }
 
 class InfoCard {
@@ -148,7 +133,7 @@ class InfoCard {
 
     // 頭像 + 標題 + 狀態標籤 + 專案資料夾
     const avatar = el('div', `width:56px;height:56px;border-radius:16px;background:${color}33;border:1px solid ${color}88;overflow:hidden;flex:none`);
-    avatar.append(avatarSvg(e));
+    avatar.append(avatarCanvas(e));
     const chip = el('span', `display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${st.bg};color:${st.color};font-size:12px;font-weight:700`);
     chip.append(el('span', `width:7px;height:7px;border-radius:50%;background:${st.color}`), document.createTextNode(st.text));
     const folder = el('span', 'font-size:12px;color:#8d95bd');
@@ -407,14 +392,28 @@ export class OfficeScene extends Phaser.Scene {
     this.emptyText.setPosition(mid.x, mid.y);
     const cam = this.cameras.main;
     const to = { zoom: this.z * zoom, x: cx, y: cy };
-    const apply = (v: typeof to): void => {
+    // 名牌每幀跟著縮放與移位；文字（寬度上限、只顯示名字）在倍率定下來時才重算
+    const apply = (v: typeof to, relabel: boolean): void => {
       cam.setZoom(v.zoom).centerOn(v.x, v.y);
       this.emptyText.setScale(this.z / v.zoom); // 提示字維持 14px 畫面字級
+      this.placePlates(relabel);
     };
     this.tweens.killTweensOf(this.view);
-    if (this.view.zoom === 0) apply(Object.assign(this.view, to));
+    if (this.view.zoom === 0) apply(Object.assign(this.view, to), true);
     else if (this.view.zoom !== to.zoom || this.view.x !== to.x || this.view.y !== to.y) {
-      this.tweens.add({ targets: this.view, ...to, duration: 300, ease: 'Sine.easeInOut', onUpdate: () => apply(this.view), onComplete: () => apply(this.view) });
+      this.placePlates(false); // 新畫的名牌先放好，不會在 (0,0) 出現一幀
+      this.tweens.add({ targets: this.view, ...to, duration: 300, ease: 'Sine.easeInOut', onUpdate: () => apply(this.view, false), onComplete: () => apply(this.view, true) });
+    } else this.placePlates(true); // 鏡頭沒變，但重畫後的名牌還沒放好
+  }
+
+  /** 名牌固定 11px 螢幕字級：縮放抵銷鏡頭，位置照規格 §11 */
+  private placePlates(relabel: boolean): void {
+    const zoom = this.view.zoom / this.z;
+    for (const d of this.desks.values()) {
+      if (!d.plate.active) continue;
+      const p = plateAt(d.cell, zoom, PLATE_H);
+      d.plate.setPosition(p.x, p.y).setScale(1 / zoom);
+      if (relabel && d.emp) this.label(d, d.emp);
     }
   }
 
@@ -482,16 +481,14 @@ export class OfficeScene extends Phaser.Scene {
     for (let i = 0; i < isl.desks; i++) {
       const c = seatCell(isl, i);
       const s = toScreen(c.x, c.y);
-      const p = toScreen(c.x + PLATE.x, c.y + PLATE.y);
-      const d: DeskObj = {
-        img: this.keep(addSprite(this, deskKey('empty'), s.x, s.y).setDepth(deskDepth(c))),
-        plate: this.keep(
-          this.add
-            .text(p.x, p.y, '', { fontFamily: FONT, resolution: R, fontSize: '9px', color: '#f4efe6', padding: { x: 6, y: 2 } })
-            .setOrigin(PLATE.ox, 0)
-            .setDepth(isoDepth(c.x + PLATE.x, c.y + PLATE.y) + PLATE_DEPTH),
-        ),
-      };
+      this.keep(addSprite(this, CHAIR_KEY, s.x, s.y).setDepth(chairDepth(c)));
+      const img = this.keep(addSprite(this, deskKey('empty'), s.x, s.y).setDepth(deskDepth(c)));
+      // 位置與縮放由 placePlates 設定；先 keep 容器再加子物件，中途出錯也會隨重畫銷毀
+      const plate = this.keep(this.add.container(0, 0).setVisible(false).setDepth(isoDepth(c.x + 67.5, c.y + 67.5) + PLATE_DEPTH));
+      const bg = this.add.graphics();
+      const text = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '11px', padding: { x: 6, y: 1 }, fixedHeight: PLATE_H }).setOrigin(0.5, 0);
+      plate.add([bg, text]);
+      const d: DeskObj = { cell: c, img, plate, bg, text };
       this.desks.set(`${isl.key}#${i}`, d);
     }
   }
@@ -673,13 +670,13 @@ export class OfficeScene extends Phaser.Scene {
 
   private charTexture(e: Employee, pose: Pose): string {
     const look = appearance(e.sessionId);
-    return ensureChar(this, pose, look, PALETTE[look.shirt] ?? PALETTE[0]!);
+    return ensureChar(this, pose, look, PALETTE[look.shirt] ?? PALETTE[0]!, false); // 椅背由等角椅子提供
   }
 
   private createSlot(e: Employee): Slot {
     const sprite = addSprite(this, this.charTexture(e, 'sit0'), CHAR.x, CHAR.y);
     const figure = this.add.container(0, 0, [sprite]).setScale(CHAR_SCALE);
-    const person = this.add.container(0, 0, [figure]); // 陰影已畫在角色素材裡
+    const person = this.add.container(0, 0, [addSprite(this, PERSON_SHADOW_KEY, 0, 0), figure]); // 接地投影在最底層，不跟著站起或浮動
     const S = CHAR_SCALE;
     person.setInteractive(new Phaser.Geom.Rectangle(CHAR.x * S, CHAR.y * S, 40 * S, 56 * S), Phaser.Geom.Rectangle.Contains);
     const id = e.sessionId;
@@ -737,11 +734,17 @@ export class OfficeScene extends Phaser.Scene {
     const d = this.desks.get(`${roomKey(t)}#${t.seat}`);
     if (!d || !d.img.active || !d.plate.active) return;
     setSprite(d.img, deskKey(deskState(e)));
-    const plate = d.plate;
-    plate.setVisible(!!e); // 空桌不顯示名牌
-    if (!e) return;
-    // 一行「名字 · 動作」，依實際寬度截斷，相鄰名牌不會疊在一起
-    const { text, waiting } = plateLabel(e, (s) => (plate.setText(s), plate.width <= plateMaxW(1)));
-    plate.setText(text).setBackgroundColor(waiting ? 'rgba(214,52,52,0.92)' : 'rgba(20,23,42,0.78)');
+    d.emp = e;
+    d.plate.setVisible(!!e); // 空桌不顯示名牌
+    if (e) this.label(d, e);
+  }
+
+  /** 一行「名字 · 動作」，依螢幕寬度上限截斷（相鄰名牌不會疊在一起）；鏡頭 < 0.8 倍只顯示名字 */
+  private label(d: DeskObj, e: Employee): void {
+    const zoom = this.view.zoom / this.z;
+    const t = d.text;
+    const { text, waiting } = plateLabel(e, (s) => (t.setText(s), t.width <= plateMaxW(zoom)), zoom < PLATE_NAME_ONLY_ZOOM);
+    t.setText(text).setColor(waiting ? '#ffffff' : '#f4efe6');
+    d.bg.clear().fillStyle(waiting ? 0xd63434 : 0x14172a, waiting ? 0.92 : 0.85).fillRoundedRect(-t.width / 2, 0, t.width, PLATE_H, 2);
   }
 }

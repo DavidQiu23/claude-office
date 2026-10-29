@@ -21,6 +21,13 @@ export const FLOOR_DEPTH_Z = -10; // 地板厚度
 // 椅子的深度（cell = seatCell 左上角）：在坐著的人之前、桌子之後
 export const chairDepth = (cell: Pt): number => cell.x + cell.y + 88;
 
+// 名牌上緣中點（規格 §11）：x 對齊桌子中心；上緣在桌子正面下緣 (67.5, 67.5)，但下緣不超過 toScreen(cell).y + 90。
+// h = 名牌螢幕高度，zoom = 畫面倍率（不含內部渲染倍率）
+export const plateAt = (cell: Pt, zoom: number, h = 15): Pt => {
+  const top = toScreen(cell.x + 67.5, cell.y + 67.5);
+  return { x: top.x, y: Math.min(top.y, toScreen(cell.x, cell.y).y + 90 - h / zoom) };
+};
+
 // 畫面用房間的地板大小：裝得下所有島（右 +40、下 +50），不小於家具排寬度與 420
 export function roomSize(islands: Island[]): { w: number; h: number } {
   return {
