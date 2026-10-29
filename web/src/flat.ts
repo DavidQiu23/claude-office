@@ -212,7 +212,7 @@ export const WALL_Z = 110;
 const GRID = 64;
 
 /** 等角房間外殼（規格 §3）：深藍地板、棋盤、格線、牆腳陰影、地板厚度、後牆（fy = 0）、左牆（fx = 0）、牆頂、端面。門與窗在 furniture.ts。 */
-export function isoRoom(w: number, h: number, _doorX = 40): FlatSprite {
+export function isoRoom(w: number, h: number): FlatSprite {
   const flat = (x0: number, y0: number, x1: number, y1: number, col: string, a?: number): Shape => p(quad([[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]]), col, a);
   const back = (z0: number, z1: number, col: string): Shape => p(quad([[0, 0, z0], [w, 0, z0], [w, 0, z1], [0, 0, z1]]), col);
   const left = (z0: number, z1: number, col: string): Shape => p(quad([[0, h, z0], [0, 0, z0], [0, 0, z1], [0, h, z1]]), col);

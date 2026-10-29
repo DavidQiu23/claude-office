@@ -133,7 +133,7 @@ export function plateLabel(e: Employee, fits: (s: string) => boolean, nameOnly =
   const chars = [...act];
   const minAct = chars.length > 4 ? chars.slice(0, 4).join('') + '…' : act;
   const cut = fitText(act, (a) => fits(pre + name + ' · ' + a));
-  // fitMiddle 找不到時回 '…'；比最小動作短就不採用，改截名字
+  // fitText 找不到時回 '…'；比最小動作短就不採用，改截名字
   if ([...cut].length >= [...minAct].length && fits(pre + name + ' · ' + cut)) return { text: pre + name + ' · ' + cut, waiting };
   const n = fitMiddle(name, (s) => fits(pre + s + ' · ' + minAct));
   return { text: pre + n + ' · ' + minAct, waiting };

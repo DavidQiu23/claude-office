@@ -14,7 +14,7 @@ import {
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
-const MAX_ZOOM = 2; // 鏡頭最多放大 2 倍（人少時）
+const MAX_ZOOM = 2; // 鏡頭放大上限（最小房間 1006×420 約 0.83 倍，實際不會碰到）
 
 type Pt = { x: number; y: number };
 
@@ -85,12 +85,13 @@ function avatarCanvas(e: Employee): HTMLCanvasElement {
   const shirt = '#' + (PALETTE[look.shirt] ?? PALETTE[0]!).toString(16).padStart(6, '0');
   const sprite = character({ pose: 'sit0', style: look.style, outfit: OUTFITS[look.outfit], glasses: look.glasses, hair: HAIR_COLORS[look.hair], shirt });
   const cv = document.createElement('canvas');
-  cv.width = cv.height = 56 * 2; // 2 倍解析度，顯示 56px
+  const dpr = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
+  cv.width = cv.height = 56 * dpr; // 依螢幕解析度，顯示 56px
   cv.style.cssText = 'display:block;width:56px;height:56px';
   const ctx = cv.getContext('2d');
   if (ctx) {
     // 素材 x 0–40、y 8–44 放大 1.4 倍置中到 56×56
-    ctx.scale(2.8, 2.8);
+    ctx.scale(1.4 * dpr, 1.4 * dpr);
     ctx.translate(0, -6);
     drawClay(ctx, sprite.shapes, 'figure');
   }
@@ -401,6 +402,7 @@ export class OfficeScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.view);
     if (this.view.zoom === 0) apply(Object.assign(this.view, to), true);
     else if (this.view.zoom !== to.zoom || this.view.x !== to.x || this.view.y !== to.y) {
+      this.card.hide(); // 平移期間卡片會錯位
       this.placePlates(false); // 新畫的名牌先放好，不會在 (0,0) 出現一幀
       this.tweens.add({ targets: this.view, ...to, duration: 300, ease: 'Sine.easeInOut', onUpdate: () => apply(this.view, false), onComplete: () => apply(this.view, true) });
     } else this.placePlates(true); // 鏡頭沒變，但重畫後的名牌還沒放好
@@ -431,7 +433,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private drawFloor(l: Layout): void {
     const { w, h } = roomSize(l.islands);
-    this.drawRoom(isoRoom(w, h, DOOR_X).shapes, -100);
+    this.drawRoom(isoRoom(w, h).shapes, -100);
     // 牆面與靠牆家具：每種物件烘一次貼圖；地墊、門墊屬房間類，直接畫
     let poster = 0;
     for (const it of planWall(w, h, [...new Set(l.islands.map((i) => i.y))], DOOR_X)) {
@@ -447,7 +449,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private drawIsland(isl: Island): void {
-    const R = this.z * MAX_ZOOM; // 文字以鏡頭最大倍率繪製，放大時才不會糊
+    const R = this.z; // 實際最大倍率約 0.83（ceil 為 1），以 1 倍繪製即清晰
     const rect = (x0: number, y0: number, x1: number, y1: number, c: string): Shape => ({ t: 'p', c, pts: quad([[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]]) });
     this.drawRoom([
       rect(isl.x, isl.y, isl.x + isl.w, isl.y + isl.h, mix(FLOOR, isl.color, 0.5)),

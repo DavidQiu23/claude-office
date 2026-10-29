@@ -72,7 +72,7 @@ describe('iso art', () => {
   });
 
   it('isoRoom 深藍地板與牆色', () => {
-    const cs = isoRoom(1006, 420, 40).shapes.map((sh) => sh.c);
+    const cs = isoRoom(1006, 420).shapes.map((sh) => sh.c);
     expect(cs[0]).toBe('#2d3558');
     expect(cs).toContain('#46507a');
     expect(cs).toContain('#3c4570');
