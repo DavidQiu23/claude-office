@@ -131,12 +131,10 @@ export function character(opts: Partial<CharOpts> = {}): FlatSprite {
 export const LED: Record<DeskState, string> = { empty: '#6b7288', working: '#46d983', waiting: '#ff4d4d', idle: '#f2b83d' };
 
 
-export const ISO_FLOOR = '#e8dcc6'; // 等角地板色（島的色塊也以它混色）
-
 export interface Void { x: number; y: number; w: number; h: number }
 
 // ---------- 等角素材（世界畫面座標：toScreen(fx, fy, z)） ----------
-const quad = (pts: [number, number, number][]): number[] => pts.flatMap(([x, y, z]) => { const s = toScreen(x, y, z); return [s.x, s.y]; });
+export const quad = (pts: [number, number, number][]): number[] => pts.flatMap(([x, y, z]) => { const s = toScreen(x, y, z); return [s.x, s.y]; });
 
 /** 轉 45° 座標（規格 §8）：c 為地板點，u 沿 (1,−1)/√2、v 沿 (1,1)/√2；回傳 [fx, fy, z]。 */
 export const rpt = (c: Pt, u: number, v: number, z: number): [number, number, number] =>
@@ -198,30 +196,42 @@ export function isoDesk(state: DeskState): FlatSprite {
   return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out, clay: 'box', shadow: { fx: 62, fy: 62, r: 30 } };
 }
 
+/** 軸對齊等角方塊（規格 §1）：先畫左面（fy = y1）、右面（fx = x1），最後上面。 */
+export function isoBox(x0: number, y0: number, x1: number, y1: number, z0: number, z1: number, top: string, left: string, right: string, a?: number): Shape[] {
+  return [
+    p(quad([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]), left, a),
+    p(quad([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]]), right, a),
+    p(quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]), top, a),
+  ];
+}
+/** 基色 → [上, 左, 右]（規格 §1）。 */
+export const baseCols = (b: string): [string, string, string] => [lighter(b, 0.18), b, darker(b, 0.2)];
+
+export const FLOOR = '#2d3558'; // 房間地板色（島地毯、地墊以它混色）
 export const WALL_Z = 110;
 const GRID = 64;
 
-/** 等角房間：菱形地板加格線、左牆（fx = 0）與後牆（fy = 0）、門、窗。doorX 對應 view.ts 的 DOOR_X（直接 import 會成環，由呼叫端傳入）。 */
-export function isoRoom(w: number, h: number, doorX = 40): FlatSprite {
-  const out: Shape[] = [p(quad([[0, 0, 0], [w, 0, 0], [w, h, 0], [0, h, 0]]), ISO_FLOOR)];
-  const line = (x0: number, y0: number, x1: number, y1: number): Shape => p(quad([[x0, y0, 0], [x1, y1, 0], [x1, y1, -1], [x0, y0, -1]]), '#b9a88c', 0.3);
-  for (let x = GRID; x < w; x += GRID) out.push(line(x, 0, x, h));
-  for (let y = GRID; y < h; y += GRID) out.push(line(0, y, w, y));
-  out.push(
-    p(quad([[0, h, 0], [0, 0, 0], [0, 0, WALL_Z], [0, h, WALL_Z]]), '#d9cdb2'),
-    p(quad([[0, 0, 0], [w, 0, 0], [w, 0, WALL_Z], [0, 0, WALL_Z]]), '#f4ecd6'),
-    p(quad([[0, h, 0], [0, 0, 0], [0, 0, 6], [0, h, 6]]), '#b8aa8c'),
-    p(quad([[0, 0, 0], [w, 0, 0], [w, 0, 6], [0, 0, 6]]), '#cfc2a4'),
-    p(quad([[0, h, WALL_Z], [0, 0, WALL_Z], [w, 0, WALL_Z], [w, -8, WALL_Z], [-8, -8, WALL_Z], [-8, h, WALL_Z]]), '#a89b7e'), // 牆頂
-    p(quad([[doorX - 22, 0, 0], [doorX + 22, 0, 0], [doorX + 22, 0, 81], [doorX - 22, 0, 81]]), '#8a5a34'),
-    p(quad([[doorX - 18, 0, 0], [doorX + 18, 0, 0], [doorX + 18, 0, 77], [doorX - 18, 0, 77]]), '#a1673a'),
-  );
-  for (let wx = 300; wx + 140 <= w; wx += 220) {
-    out.push(
-      p(quad([[wx, 0, 40], [wx + 140, 0, 40], [wx + 140, 0, 90], [wx, 0, 90]]), '#c7b994'),
-      p(quad([[wx + 6, 0, 44], [wx + 134, 0, 44], [wx + 134, 0, 86], [wx + 6, 0, 86]]), '#9fd3f0'),
-    );
+/** 等角房間外殼（規格 §3）：深藍地板、棋盤、格線、牆腳陰影、地板厚度、後牆（fy = 0）、左牆（fx = 0）、牆頂、端面。門與窗在 furniture.ts。 */
+export function isoRoom(w: number, h: number, _doorX = 40): FlatSprite {
+  const flat = (x0: number, y0: number, x1: number, y1: number, col: string, a?: number): Shape => p(quad([[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]]), col, a);
+  const back = (z0: number, z1: number, col: string): Shape => p(quad([[0, 0, z0], [w, 0, z0], [w, 0, z1], [0, 0, z1]]), col);
+  const left = (z0: number, z1: number, col: string): Shape => p(quad([[0, h, z0], [0, 0, z0], [0, 0, z1], [0, h, z1]]), col);
+  const out: Shape[] = [flat(0, 0, w, h, FLOOR)];
+  for (let ix = 0; ix * GRID < w; ix++) for (let iy = 0; iy * GRID < h; iy++) {
+    if ((ix + iy) % 2 === 0) out.push(flat(ix * GRID, iy * GRID, Math.min(w, (ix + 1) * GRID), Math.min(h, (iy + 1) * GRID), '#ffffff', 0.025));
   }
+  for (let x = GRID; x < w; x += GRID) out.push(flat(x, 0, x + 1, h, '#ffffff', 0.05));
+  for (let y = GRID; y < h; y += GRID) out.push(flat(0, y, w, y + 1, '#ffffff', 0.05));
+  out.push(
+    flat(0, 0, w, 14, '#000000', 0.16), flat(0, 0, 10, h, '#000000', 0.12),
+    p(quad([[0, h, -10], [w, h, -10], [w, h, 0], [0, h, 0]]), '#1f2440'),
+    p(quad([[w, 0, -10], [w, h, -10], [w, h, 0], [w, 0, 0]]), '#181c33'),
+    back(0, WALL_Z, '#46507a'), back(0, 44, '#3b4468'), back(44, 47, '#5a6590'), back(0, 6, '#252b48'),
+    left(0, WALL_Z, '#3c4570'), left(0, 44, '#323a5c'), left(44, 47, '#4d5782'), left(0, 6, '#1f2440'),
+    p(quad([[0, h, WALL_Z], [0, 0, WALL_Z], [w, 0, WALL_Z], [w, -8, WALL_Z], [-8, -8, WALL_Z], [-8, h, WALL_Z]]), '#5f6a98'), // 牆頂（L 形，厚 8）
+    p(quad([[w, -8, 0], [w, 0, 0], [w, 0, WALL_Z], [w, -8, WALL_Z]]), '#2a3150'),
+    p(quad([[-8, h, 0], [0, h, 0], [0, h, WALL_Z], [-8, h, WALL_Z]]), '#343c62'),
+  );
   const x = extent({ w: 0, h: 0, shapes: out });
   return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out };
 }

@@ -68,7 +68,14 @@ describe('iso art', () => {
     expect(Math.abs(x.x0 + 720)).toBeLessThan(10);
     expect(Math.abs(x.x1 - 1280)).toBeLessThan(10);
     expect(Math.abs(x.y0 + WALL_Z)).toBeLessThan(10);
-    expect(Math.abs(x.y1 - 1000)).toBeLessThan(10);
+    expect(Math.abs(x.y1 - 1010)).toBeLessThan(10); // 含地板厚度 10
+  });
+
+  it('isoRoom 深藍地板與牆色', () => {
+    const cs = isoRoom(1006, 420, 40).shapes.map((sh) => sh.c);
+    expect(cs[0]).toBe('#2d3558');
+    expect(cs).toContain('#46507a');
+    expect(cs).toContain('#3c4570');
   });
 });
 
