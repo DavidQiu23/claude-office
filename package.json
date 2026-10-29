@@ -19,6 +19,6 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
-    "phaser": "3.90"
+    "phaser": "4.2.1"
   }
 }

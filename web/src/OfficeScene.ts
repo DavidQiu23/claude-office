@@ -418,7 +418,7 @@ export class OfficeScene extends Phaser.Scene {
   private drawIsland(isl: Island): void {
     const R = this.z * MAX_ZOOM; // 文字以鏡頭最大倍率繪製，放大時才不會糊
     const corners = [toScreen(isl.x, isl.y), toScreen(isl.x + isl.w, isl.y), toScreen(isl.x + isl.w, isl.y + isl.h), toScreen(isl.x, isl.y + isl.h)];
-    this.keep(this.add.graphics().setDepth(-90)).fillStyle(mixColor(ISO_FLOOR, isl.color, 0.3), 1).fillPoints(corners, true);
+    this.keep(this.add.graphics().setDepth(-90)).fillStyle(mixColor(ISO_FLOOR, isl.color, 0.3), 1).fillPoints(corners.map((p) => new Phaser.Math.Vector2(p.x, p.y)), true);
 
     // 招牌：平面色帶畫好後貼到地板上。地板的 fx、fy 單位向量是 (1, 0.5)、(-1, 0.5)，
     // 等於先轉 45° 再把 x 放大 √2、y 縮成 √2/2，所以用兩層 Container（內層轉、外層縮放）做出斜切。

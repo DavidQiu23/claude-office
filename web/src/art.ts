@@ -25,8 +25,8 @@ export function drawShapes(g: Phaser.GameObjects.Graphics, shapes: Shape[], k: n
     } else if (s.t === 'e') {
       g.fillEllipse((s.x + dx) * k, (s.y + dy) * k, s.rx * 2 * k, s.ry * 2 * k);
     } else {
-      const pts: Phaser.Types.Math.Vector2Like[] = [];
-      for (let i = 0; i + 1 < s.pts.length; i += 2) pts.push({ x: (s.pts[i]! + dx) * k, y: (s.pts[i + 1]! + dy) * k });
+      const pts: Phaser.Math.Vector2[] = [];
+      for (let i = 0; i + 1 < s.pts.length; i += 2) pts.push(new Phaser.Math.Vector2((s.pts[i]! + dx) * k, (s.pts[i + 1]! + dy) * k));
       g.fillPoints(pts, true);
     }
   }
