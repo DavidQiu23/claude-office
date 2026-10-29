@@ -1,15 +1,20 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer, type AddressInfo } from 'node:net';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import { createApp } from '../src/server/app.js';
 
 const script = resolve('dist/hook/send.js');
 
+// 本檔建立的暫存資料夾，每個測試結束後刪除（子行程已 close）
+const tmps: string[] = [];
+afterEach(() => { for (const d of tmps.splice(0)) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
+
 function homeWithPort(port: number): string {
   const home = mkdtempSync(join(tmpdir(), 'hook-home-'));
+  tmps.push(home);
   mkdirSync(join(home, '.claude-office'));
   writeFileSync(join(home, '.claude-office', 'config.json'), JSON.stringify({ port }));
   return home;
@@ -89,7 +94,9 @@ test('伺服器開著時事件送達並帶有 sentAt', async () => {
 });
 
 test('--record 模式仍寫出錄製檔', async () => {
-  const dir = join(mkdtempSync(join(tmpdir(), 'rec-')), 'out');
+  const root = mkdtempSync(join(tmpdir(), 'rec-'));
+  tmps.push(root);
+  const dir = join(root, 'out');
   const r = await run(homeWithPort(1), JSON.stringify({ hook_event_name: 'Stop' }), [`--record=${dir}`]);
   expect(r.status).toBe(0);
   const files = readdirSync(dir);

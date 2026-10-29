@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import { addHooks, HOOK_EVENTS, hookCommand, MARKER, removeHooks } from '../src/installer/settings.js';
 
 const CMD = hookCommand('C:\\x\\send.js');
@@ -53,8 +53,13 @@ test('hookCommand 把反斜線換成正斜線並加引號', () => {
   expect(hookCommand('C:\\My Apps\\x.js')).toBe('node "C:/My Apps/x.js" --tag=claude-office');
 });
 
+// 本檔建立的暫存 home，每個測試結束後刪除
+const homes: string[] = [];
+afterEach(() => { for (const h of homes.splice(0)) rmSync(h, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
+
 function main(action: string, initial?: string) {
   const home = mkdtempSync(join(tmpdir(), 'inst-home-'));
+  homes.push(home);
   const file = join(home, '.claude', 'settings.json');
   if (initial !== undefined) {
     mkdirSync(join(home, '.claude'));

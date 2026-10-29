@@ -1,13 +1,14 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { afterAll, expect, test } from 'vitest';
 import { readAiTitle } from '../src/server/title.js';
 import { setTitle } from '../src/state/maintenance.js';
 import { reduce } from '../src/state/reduce.js';
 import { emptyState } from '../src/state/types.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'title-'));
+afterAll(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
 const rec = (o: object) => JSON.stringify(o) + '\n';
 const write = (name: string, body: string) => (writeFileSync(join(dir, name), body), join(dir, name));
 

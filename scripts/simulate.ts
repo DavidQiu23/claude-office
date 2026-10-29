@@ -1,5 +1,5 @@
 // 模擬 4 個 session 對本機伺服器送事件。用法：npx tsx scripts/simulate.ts [--loop]
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadConfig } from '../src/config.js';
@@ -14,6 +14,9 @@ const CWD: Record<string, string> = { a: 'C:/work/api', b: 'C:/work/blog', c: 'C
 // 假 transcript：只放 ai-title，Stop 之後伺服器會讀到並顯示在名牌上
 const TITLES: Record<string, string> = { a: '登入流程重構', b: '部落格標題修正', c: '結帳頁面實作', d: '商品資料表整理' };
 const tdir = mkdtempSync(join(tmpdir(), 'office-sim-'));
+// 結束時（含 Ctrl+C / 被終止）刪除暫存資料夾
+process.on('exit', () => rmSync(tdir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(130));
 const transcript = (n: string) => {
   const p = join(tdir, `${sid(n)}.jsonl`);
   writeFileSync(p, JSON.stringify({ type: 'ai-title', aiTitle: TITLES[n], sessionId: sid(n) }) + '\n');

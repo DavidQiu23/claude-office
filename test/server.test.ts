@@ -1,9 +1,9 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterAll, afterEach, beforeEach, expect, test } from 'vitest';
 import { createApp, portInUseMessage } from '../src/server/app.js';
 
 let app: ReturnType<typeof createApp>;
@@ -12,6 +12,8 @@ let clock = 1000;
 const dir = mkdtempSync(join(tmpdir(), 'office-'));
 writeFileSync(join(dir, 'index.html'), '<h1>hi</h1>');
 writeFileSync(join(dir, 'a.js'), '1');
+
+afterAll(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
 
 beforeEach(async () => {
   clock = 1000;
