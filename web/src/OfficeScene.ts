@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Employee } from '../../src/state/types.js';
 import { addSprite, bakeTextures, deskKey, drawShapes, ensureChar, HAIR_COLORS, OUTFITS, setSprite, type DeskState, type Pose } from './art.js';
 import { character, ISO_FLOOR, isoRoom, type Shape } from './flat.js';
-import { deskDepth, fitCamera, islandsBounds, isoDepth, personDepth, toScreen } from './iso.js';
+import { deskDepth, fitCamera, isoDepth, personDepth, roomBox, roomSize, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
   appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, projectColor,
@@ -404,9 +404,10 @@ export class OfficeScene extends Phaser.Scene {
     return o;
   }
 
-  /** 鏡頭縮放並對準所有島（含招牌與頭頂空間）；畫布大小固定 */
+  /** 鏡頭縮放並框住整個房間；畫布大小固定 */
   private fitView(): void {
-    const { zoom, cx, cy } = fitCamera(islandsBounds(this.lay.islands), BASE_W, BASE_H, MAX_ZOOM);
+    const { w, h } = roomSize(this.lay.islands);
+    const { zoom, cx, cy } = fitCamera(roomBox(w, h), BASE_W, BASE_H, MAX_ZOOM);
     this.cameras.main.setZoom(this.z * zoom).centerOn(cx, cy);
   }
 

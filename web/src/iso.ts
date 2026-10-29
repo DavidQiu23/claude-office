@@ -1,5 +1,5 @@
 import type { Pt } from './flat.js';
-import { BASE_H, BASE_W, type Island } from './view.js';
+import type { Island } from './view.js';
 
 export type Box = { x: number; y: number; w: number; h: number };
 
@@ -14,26 +14,35 @@ export const personDepth = (at: Pt): number => isoDepth(at.x, at.y) + 30;
 // 桌子的深度（cell = seatCell 左上角）：以桌面前緣附近的點排序，坐在桌後的人在它後面
 export const deskDepth = (cell: Pt): number => isoDepth(cell.x + 48, cell.y + 90);
 
-// 人頭頂的高度（世界座標）
-export const HEAD_Z = 110;
+export const FURN_END = 1006;
+export const WALL_TOP_Z = 118; // 牆頂（含厚度）
+export const FLOOR_DEPTH_Z = -10; // 地板厚度
 
-// 所有島（含名牌、招牌與人頭）投影後的外框；沒有島回傳 null
-export function islandsBounds(islands: Island[]): Box | null {
-  if (!islands.length) return null;
-  const pts = islands.flatMap(i => {
-    const l = i.x - 40, r = i.x + i.w + 40, back = i.y - 60, front = i.y + i.h + 70;
-    return [toScreen(l, back, HEAD_Z), toScreen(r, back, HEAD_Z), toScreen(l, front), toScreen(r, front)];
-  });
+// 椅子的深度（cell = seatCell 左上角）：在坐著的人之前、桌子之後
+export const chairDepth = (cell: Pt): number => cell.x + cell.y + 88;
+
+// 畫面用房間的地板大小：裝得下所有島（右 +40、下 +50），不小於家具排寬度與 420
+export function roomSize(islands: Island[]): { w: number; h: number } {
+  return {
+    w: Math.max(FURN_END, ...islands.map(i => i.x + i.w + 40)),
+    h: Math.max(420, ...islands.map(i => i.y + i.h + 50)),
+  };
+}
+
+// 房間含牆頂投影後的外框
+export function roomBox(w: number, h: number): Box {
+  const pts = [toScreen(0, 0, WALL_TOP_Z), toScreen(w, 0, WALL_TOP_Z), toScreen(w, 0, FLOOR_DEPTH_Z),
+    toScreen(0, h, WALL_TOP_Z), toScreen(0, h, FLOOR_DEPTH_Z), toScreen(w, h, FLOOR_DEPTH_Z)];
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   const x = Math.min(...xs), y = Math.min(...ys);
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 }
 
-// 讓外框剛好放進視窗；沒有外框時對準預設畫布中央
-export function fitCamera(b: Box | null, viewW: number, viewH: number, maxZoom: number): { zoom: number; cx: number; cy: number } {
-  if (!b) {
-    const c = toScreen(BASE_W / 2, BASE_H / 2);
-    return { zoom: 1, cx: c.x, cy: c.y };
-  }
-  return { zoom: Math.min(maxZoom, viewW / b.w, viewH / b.h), cx: b.x + b.w / 2, cy: b.y + b.h / 2 };
+// 讓外框剛好放進視窗，四邊各留 margin
+export function fitCamera(b: Box, viewW: number, viewH: number, maxZoom: number, margin = 12): { zoom: number; cx: number; cy: number } {
+  return {
+    zoom: Math.min(maxZoom, (viewW - 2 * margin) / b.w, (viewH - 2 * margin) / b.h),
+    cx: b.x + b.w / 2,
+    cy: b.y + b.h / 2,
+  };
 }

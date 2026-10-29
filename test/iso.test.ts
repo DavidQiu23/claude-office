@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { deskDepth, fitCamera, HEAD_Z, isoDepth, islandsBounds, personDepth, toScreen } from '../web/src/iso.js';
+import { chairDepth, deskDepth, fitCamera, isoDepth, personDepth, roomBox, roomSize, toScreen } from '../web/src/iso.js';
 import { entryPath, ISLAND, seatCell, type Island } from '../web/src/view.js';
 
 test('toScreen 等角投影', () => {
@@ -10,15 +10,25 @@ test('toScreen 等角投影', () => {
 
 test('isoDepth', () => expect(isoDepth(3, 4)).toBe(7));
 
-test('islandsBounds', () => {
-  expect(islandsBounds([])).toBeNull();
-  const b = islandsBounds([{ x: 40, y: 96, w: 316, h: 160 } as Island])!;
-  for (const p of [toScreen(40, 96, HEAD_Z), toScreen(356 + 40, 256 + 70)]) {
-    expect(p.x).toBeGreaterThanOrEqual(b.x);
-    expect(p.x).toBeLessThanOrEqual(b.x + b.w);
-    expect(p.y).toBeGreaterThanOrEqual(b.y);
-    expect(p.y).toBeLessThanOrEqual(b.y + b.h);
-  }
+test('roomSize', () => {
+  expect(roomSize([])).toEqual({ w: 1006, h: 420 });
+  expect(roomSize([{ x: 40, y: 96, w: 316, h: 160 } as Island])).toEqual({ w: 1006, h: 420 });
+  expect(roomSize([{ x: 900, y: 96, w: 400, h: 500 } as Island])).toEqual({ w: 1340, h: 646 });
+});
+
+test('roomBox', () => {
+  const b = roomBox(1006, 420);
+  expect(b.x).toBe(toScreen(0, 420).x);
+  expect(b.x + b.w).toBe(toScreen(1006, 0).x);
+  expect(b.y).toBe(toScreen(0, 0, 118).y);
+  expect(b.y + b.h).toBe(toScreen(1006, 420, -10).y);
+});
+
+test('chairDepth 在桌子與人之間', () => {
+  expect(chairDepth({ x: 0, y: 0 })).toBe(88);
+  const c = { x: 120, y: 200 };
+  expect(chairDepth(c)).toBeLessThan(personDepth({ x: c.x + 48, y: c.y + 48 }));
+  expect(personDepth({ x: c.x + 48, y: c.y + 48 })).toBeLessThan(deskDepth(c));
 });
 
 test('深度：人與桌子前後', () => {
@@ -36,9 +46,10 @@ test('深度：人與桌子前後', () => {
 });
 
 test('fitCamera', () => {
-  const c = fitCamera(null, 1280, 720, 2.5);
-  expect(c.zoom).toBe(1);
-  expect(Number.isFinite(c.cx) && Number.isFinite(c.cy)).toBe(true);
-  expect(fitCamera({ x: 0, y: 0, w: 640, h: 360 }, 1280, 720, 2.5).zoom).toBe(2);
-  expect(fitCamera({ x: 0, y: 0, w: 100, h: 100 }, 1280, 720, 2.5).zoom).toBe(2.5);
+  const b = roomBox(1006, 420);
+  const c = fitCamera(b, 1280, 720, 2);
+  expect(Number.isFinite(c.zoom) && c.zoom > 0 && c.zoom <= 2).toBe(true);
+  for (const px of [b.x, b.x + b.w]) expect(Math.abs((px - c.cx) * c.zoom)).toBeLessThanOrEqual((1280 - 24) / 2 + 1e-9);
+  for (const py of [b.y, b.y + b.h]) expect(Math.abs((py - c.cy) * c.zoom)).toBeLessThanOrEqual((720 - 24) / 2 + 1e-9);
+  expect(fitCamera({ x: 0, y: 0, w: 100, h: 100 }, 1280, 720, 2).zoom).toBe(2);
 });
