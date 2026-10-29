@@ -65,30 +65,6 @@ export const formatTime = (ms: number): string => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-export const DONE_MS = 3000;
-
-// 助理「完成」後 3 秒淡出：由前端自己計時，不依賴伺服器何時移除
-export class DoneClock {
-  private since = new Map<string, number>();
-  /** 第一次看到完成的時間（之後重複呼叫不會重置） */
-  mark(key: string, now: number): number {
-    if (!this.since.has(key)) this.since.set(key, now);
-    return this.since.get(key)!;
-  }
-  /** 距離淡出還剩幾毫秒（尚未標記回傳 DONE_MS） */
-  remaining(key: string, now: number): number {
-    const s = this.since.get(key);
-    return s === undefined ? DONE_MS : Math.max(0, DONE_MS - (now - s));
-  }
-  forget(key: string): void {
-    this.since.delete(key);
-  }
-  /** 清掉以 prefix 開頭、但不在 keep 內的紀錄（助理離開清單、員工離開時用） */
-  prune(prefix: string, keep: Set<string>): void {
-    for (const k of this.since.keys()) if (k.startsWith(prefix) && !keep.has(k)) this.since.delete(k);
-  }
-}
-
 /** 文字太寬時，取最長的前綴加「…」使 fits 為真；原本就放得下則原樣回傳。 */
 export const fitText = (text: string, fits: (s: string) => boolean): string => {
   const base = text.endsWith('…') ? text.slice(0, -1) : text;
@@ -264,22 +240,6 @@ export const entryPath = (island: Island, seat: number): { x: number; y: number 
   const py = island.y - 16 - 28;
   const sy = c.y + 48;
   return [{ x: DOOR_X, y: py }, { x: c.x, y: py }, { x: c.x, y: sy }, { x: c.x + 48, y: sy }];
-};
-
-// ---- 助理：主人桌邊的小幫手（不佔座位） ----
-
-export const HELPER_MAX = 2; // 最多畫 2 位，其餘合併成「+N」
-
-/** 要畫的小幫手（依出現順序前 HELPER_MAX 位，完成的也佔位）與其餘人數 */
-export const helperSlots = (assistants: readonly Assistant[]): { shown: Assistant[]; extra: number } => ({
-  shown: assistants.slice(0, HELPER_MAX),
-  extra: Math.max(0, assistants.length - HELPER_MAX),
-});
-
-/** 小幫手中心點：人物兩側的空位（格內 x 3–27、69–93），第 0 位在左、第 1 位在右 */
-export const helperHome = (island: Island, seat: number, slot: number): { x: number; y: number } => {
-  const c = seatCell(island, seat);
-  return { x: c.x + (slot === 0 ? 15 : 81), y: c.y + 46 };
 };
 
 /** 版面是否需要重畫（島的位置、大小、桌數有變才重畫） */

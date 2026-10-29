@@ -9,6 +9,11 @@ export const toScreen = (fx: number, fy: number, z = 0): Pt => ({ x: fx - fy, y:
 // 越大越靠前，畫的時候排後面
 export const isoDepth = (fx: number, fy: number): number => fx + fy;
 
+// 人的深度（at = 腳下地板點）；+30 讓人蓋過同一點的地板物件
+export const personDepth = (at: Pt): number => isoDepth(at.x, at.y) + 30;
+// 桌子的深度（cell = seatCell 左上角）：以桌面前緣附近的點排序，坐在桌後的人在它後面
+export const deskDepth = (cell: Pt): number => isoDepth(cell.x + 48, cell.y + 90);
+
 // 人頭頂的高度（世界座標）
 export const HEAD_Z = 110;
 

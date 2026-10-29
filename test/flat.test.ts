@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  character, isoDesk, isoRoom, WALL_Z, exclamation, extent, LED,
+  character, isoDesk, isoRoom, WALL_Z, extent, LED,
   type FlatSprite, type Pose, type Outfit, type DeskState,
 } from '../web/src/flat.js';
 
@@ -41,11 +41,6 @@ describe('flat', () => {
 
   it('所有圖形的數字有限、顏色是 #rrggbb、透明度在 0–1', () => {
     checkSprite(character({}));
-    checkSprite(exclamation());
-  });
-
-  it('素材名義尺寸固定', () => {
-    expect([exclamation().w, exclamation().h]).toEqual([20, 28]);
   });
 
   it('桌子四種狀態的燈色不同', () => {

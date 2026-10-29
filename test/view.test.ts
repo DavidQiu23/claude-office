@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, columnsFor, DOOR_X, entryPath, helperHome, helperSlots, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, DoneClock, DONE_MS, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, PLATE_MAX, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
+import { appearance, assistantList, columnsFor, DOOR_X, entryPath, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, PLATE_MAX, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
 import type { Island } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
@@ -161,31 +161,6 @@ test('formatTime：HH:mm 補零', () => {
   expect(formatTime(new Date(2026, 0, 2, 3, 4).getTime())).toBe('03:04');
 });
 
-test('DoneClock：只記第一次完成時間，3 秒後剩餘為 0', () => {
-  const c = new DoneClock();
-  expect(c.remaining('x', 100)).toBe(DONE_MS);
-  c.mark('x', 1000);
-  c.mark('x', 2500);
-  expect(c.remaining('x', 2500)).toBe(DONE_MS - 1500);
-  expect(c.remaining('x', 9999)).toBe(0);
-  c.forget('x');
-  expect(c.remaining('x', 9999)).toBe(DONE_MS);
-});
-
-test('DoneClock：forget 後再 mark 會有全新的 3 秒；prune 只清沒保留的前綴', () => {
-  const c = new DoneClock();
-  c.mark('s/a', 0);
-  c.forget('s/a');
-  c.mark('s/a', 10_000);
-  expect(c.remaining('s/a', 11_000)).toBe(DONE_MS - 1000);
-  c.mark('s/b', 0);
-  c.mark('t/a', 0);
-  c.prune('s/', new Set(['s/a']));
-  expect(c.remaining('s/b', 9999)).toBe(DONE_MS);
-  expect(c.remaining('s/a', 11_000)).toBe(DONE_MS - 1000);
-  expect(c.remaining('t/a', 9999)).toBe(0);
-});
-
 test('fitText：放得下原樣；放不下以「…」結尾；已有「…」仍保留', () => {
   const fits = (n: number) => (s: string) => [...s].length <= n;
   expect(fitText('abc', fits(5))).toBe('abc');
@@ -229,22 +204,6 @@ test('columnsFor：桌數越多欄越多，高度不會一直往上長', () => {
   const l = layout([emp('a', 'idle', { seat: 11 })]);
   expect(l.islands[0].cols).toBe(4);
   expect(l.islands[0].rows).toBe(3);
-});
-
-test('helperSlots：最多畫 2 位，其餘算進 +N；完成的也佔位', () => {
-  const a = (id: string, status: 'working' | 'done' = 'working') => ({ id, description: id, status, startedAt: 0 });
-  expect(helperSlots([])).toEqual({ shown: [], extra: 0 });
-  expect(helperSlots([a('1'), a('2')]).shown.map((x) => x.id)).toEqual(['1', '2']);
-  const five = helperSlots([a('1'), a('2', 'done'), a('3'), a('4'), a('5')]);
-  expect(five.shown.map((x) => x.id)).toEqual(['1', '2']);
-  expect(five.extra).toBe(3);
-});
-
-test('helperHome：小幫手站在人物左／右側的空位', () => {
-  const [i] = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 4 })]).islands;
-  const c = seatCell(i, 4);
-  expect(helperHome(i, 4, 0).x).toBeLessThan(c.x + 28);
-  expect(helperHome(i, 4, 1).x).toBeGreaterThan(c.x + 68);
 });
 
 const lim = (n: number) => (s: string) => [...s].length <= n;

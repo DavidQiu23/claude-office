@@ -120,27 +120,6 @@ export function character(opts: Partial<CharOpts> = {}): FlatSprite {
 // 桌子狀態燈
 export const LED: Record<DeskState, string> = { empty: '#6b7288', working: '#46d983', waiting: '#ff4d4d', idle: '#f2b83d' };
 
-// ---------- 驚嘆號 20×28 ----------
-export function exclamation(): FlatSprite {
-  return { w: 20, h: 28, shapes: [
-    c(10, 10, 10, '#ff4d4d', 0.25), r(2, 1, 16, 21, 8, '#ff4d4d'), p([7, 21, 13, 21, 10, 27], '#ff4d4d'),
-    r(8.5, 5, 3, 9, 1.5, '#ffffff'), c(10, 17.5, 1.9, '#ffffff'),
-  ] };
-}
-
-// ---------- 助理小幫手 24×24（工作中灰藍、天線紅燈；完成綠色、天線黃燈） ----------
-export function bot(done: boolean): FlatSprite {
-  const B = done ? '#5fd38a' : '#9fb2c4', BD = darker(B, 0.2);
-  return { w: 24, h: 24, shapes: [
-    e(12, 22.5, 8, 1.6, '#000000', 0.22),
-    r(11, 0, 2, 5, 1, '#6b7288'), c(12, 1.5, 2.2, done ? '#ffd24a' : '#ff7a7a'),
-    r(3, 4, 18, 13, 6, B), r(3, 12, 18, 5, 3, BD, 0.5),
-    c(8.5, 10, 2.6, '#ffffff'), c(15.5, 10, 2.6, '#ffffff'),
-    c(8.8, 10.2, 1.4, INK), c(15.8, 10.2, 1.4, INK),
-    done ? e(12, 14.6, 3.2, 1.8, '#ffffff') : r(9.5, 14, 5, 1.4, 0.7, INK),
-    r(6, 17, 12, 4, 2, BD), r(7, 20, 3.5, 3, 1.5, '#2c3042'), r(13.5, 20, 3.5, 3, 1.5, '#2c3042'),
-  ] };
-}
 
 export const ISO_FLOOR = '#e8dcc6'; // 等角地板色（島的色塊也以它混色）
 
