@@ -28,6 +28,7 @@ export interface CharOpts {
   glasses: boolean;
   hair: string;
   shirt: string;
+  chair: boolean; // false：不畫看板椅背與腳底陰影（2.5D 場景由等角椅子與接地投影提供）
 }
 
 const toRgb = (h: string): number[] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -95,13 +96,13 @@ const FACES: Record<'work' | 'idle' | 'alert', (ink: string) => Shape[]> = {
 };
 
 export function character(opts: Partial<CharOpts> = {}): FlatSprite {
-  const o: CharOpts = { pose: 'sit0', style: 0, outfit: 'tee', glasses: false, hair: HAIR_COLORS[0]!, shirt: SHIRT_COLORS[3]!, ...opts };
+  const o: CharOpts = { pose: 'sit0', style: 0, outfit: 'tee', glasses: false, hair: HAIR_COLORS[0]!, shirt: SHIRT_COLORS[3]!, chair: true, ...opts };
   const sit = o.pose === 'sit0' || o.pose === 'sit1' || o.pose === 'idle';
   const S = o.shirt, SD = darker(S, 0.22);
   const face = o.pose === 'up' ? 'alert' : o.pose === 'idle' ? 'idle' : 'work';
   const out: Shape[] = [];
-  out.push(e(20, 54, 15, 2.6, '#000000', 0.22));
-  if (sit) out.push(r(3, 24, 34, 28, 9, '#3b4770'), r(3, 24, 34, 5, 3, '#56649a'));
+  if (o.chair) out.push(e(20, 54, 15, 2.6, '#000000', 0.22));
+  if (sit && o.chair) out.push(r(3, 24, 34, 28, 9, '#3b4770'), r(3, 24, 34, 5, 3, '#56649a'));
   // 腿
   const step = o.pose === 'walk0' ? 2 : o.pose === 'walk1' ? -2 : 0;
   out.push(r(11 + step, 42, 7, 12, 3, '#3b4a7a'), r(22 - step, 42, 7, 12, 3, '#3b4a7a'), r(10 + step, 51, 9, 4, 2, '#6b4636'), r(21 - step, 51, 9, 4, 2, '#6b4636'));
@@ -123,7 +124,7 @@ export function character(opts: Partial<CharOpts> = {}): FlatSprite {
   out.push(...FACES[face](INK));
   if (o.glasses) out.push(c(14.5, 18, 5.4, CORAL), c(14.5, 18, 3.9, '#ffffff', 0.35), c(25.5, 18, 5.4, CORAL), c(25.5, 18, 3.9, '#ffffff', 0.35), r(19, 17, 2, 1.6, 0.8, CORAL), ...FACES[face](INK).slice(0, 4));
   out.push(...hairFront(o.style, o.hair));
-  return { w: 40, h: 56, shapes: out };
+  return { w: 40, h: 56, shapes: out, clay: 'figure' };
 }
 
 // 桌子狀態燈
@@ -137,31 +138,64 @@ export interface Void { x: number; y: number; w: number; h: number }
 // ---------- 等角素材（世界畫面座標：toScreen(fx, fy, z)） ----------
 const quad = (pts: [number, number, number][]): number[] => pts.flatMap(([x, y, z]) => { const s = toScreen(x, y, z); return [s.x, s.y]; });
 
-// 方塊三面：上面最亮、左面（y 最大那面）中間、右面（x 最大那面）最暗。
-function isoBox(x0: number, y0: number, x1: number, y1: number, z0: number, z1: number, top: string, left: string, right: string): Shape[] {
-  return [
-    p(quad([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]), left),
-    p(quad([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]]), right),
-    p(quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]), top),
+/** 轉 45° 座標（規格 §8）：c 為地板點，u 沿 (1,−1)/√2、v 沿 (1,1)/√2；回傳 [fx, fy, z]。 */
+export const rpt = (c: Pt, u: number, v: number, z: number): [number, number, number] =>
+  [c.x + (u + v) / Math.SQRT2, c.y + (v - u) / Math.SQRT2, z];
+
+const D: Pt = { x: 59, y: 59 }; // 桌子與椅子的中心（人 + 11·(1,1)）
+
+// 轉 45° 方塊只看得到上面與正面（+v），兩面在畫面上都是水平矩形。
+// 單一平面：z0 = z1 為水平面（v0…v1），v0 = v1 為正面（z0…z1）。
+const rquad = (u0: number, u1: number, v0: number, v1: number, z0: number, z1: number): number[] =>
+  quad([rpt(D, u0, v0, z0), rpt(D, u1, v0, z0), rpt(D, u1, v1, z1), rpt(D, u0, v1, z1)]);
+const rbox = (u0: number, u1: number, v0: number, v1: number, z0: number, z1: number, top: string, front: string): Shape[] =>
+  [p(rquad(u0, u1, v1, v1, z0, z1), front), p(rquad(u0, u1, v0, v1, z1, z1), top)];
+
+/** 等角椅，原點是座位格左上角 toScreen(cell.x, cell.y)。 */
+export function isoChair(): FlatSprite {
+  const out: Shape[] = [
+    ...rbox(-10, 10, -27, -9, 0, 3, '#3f4670', '#2a3150'),
+    ...rbox(-2, 2, -19, -16, 3, 14, '#2a3150', '#20253f'),
+    ...rbox(-11, 11, -28, -24, 16, 48, '#56649a', '#3b4770'),
+    p(rquad(-11, 11, -24, -24, 44, 48), '#4a5788'), // 椅背上緣亮邊
+    ...rbox(-12, 12, -26, -8, 14, 19, '#56649a', '#3b4770'),
   ];
+  const x = extent({ w: 0, h: 0, shapes: out });
+  return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out, clay: 'box', shadow: { fx: 44, fy: 44, r: 16 } };
 }
 
-/** 等角桌，原點是座位格左上角 toScreen(cell.x, cell.y)；格內桌面 x 12–84、y 60–90。 */
+/** 等角桌，原點同 isoChair；桌子中心 D = cell + (59, 59)。 */
 export function isoDesk(state: DeskState): FlatSprite {
   const led = LED[state];
-  const top = state === 'waiting' ? mix('#e0a96d', '#ff4d4d', 0.3) : '#e0a96d';
-  const out: Shape[] = [p(quad([[10, 58, 0], [86, 58, 0], [86, 92, 0], [10, 92, 0]]), '#000000', 0.14)];
-  for (const [lx, ly] of [[14, 62], [80, 62], [14, 86], [80, 86]] as const) out.push(...isoBox(lx, ly, lx + 3, ly + 3, 0, 19, '#8a5a34', '#8a5a34', '#6e4628'));
-  out.push(...isoBox(12, 60, 84, 90, 19, 25, top, '#b87a45', '#a1673a'));
-  out.push(p(quad([[18, 64, 25], [34, 64, 25], [34, 80, 25], [18, 80, 25]]), '#f4efe6')); // 桌上的紙
-  out.push(...isoBox(70, 72, 76, 78, 25, 34, '#6f4e37', '#ffffff', '#e6e1d8'));
-  out.push(...isoBox(44, 74, 52, 79, 25, 28, '#2c3042', '#2c3042', '#23263a'));
-  out.push(...isoBox(34, 72, 62, 75, 28, 50, '#4a5068', '#3a3f52', '#2c3042'));
-  const l = toScreen(48, 75, 39); // 螢幕背面中央
-  if (state !== 'empty') out.push(c(l.x, l.y, state === 'waiting' ? 7 : 5, led, 0.25));
-  out.push(c(l.x, l.y, 2, led));
+  const top = state === 'waiting' ? '#e98d63' : '#e0a96d';
+  const out: Shape[] = [];
+  if (state === 'waiting') { const g = toScreen(69, 69); out.push(e(g.x, g.y, 20 * Math.SQRT2, 20 / Math.SQRT2, '#ff4d4d', 0.22)); }
+  out.push(
+    ...rbox(-24, -21, -10, -7, 0, 16, '#8a5a34', '#8a5a34'), ...rbox(-24, -21, 7, 10, 0, 16, '#8a5a34', '#8a5a34'),
+    ...rbox(10, 24, -10, 11, 0, 16, '#b87a45', '#a1673a'),
+    p(rquad(12, 22, 11, 11, 10, 11.5), '#e0a96d'), p(rquad(12, 22, 11, 11, 4, 5.5), '#e0a96d'), // 抽屜把手
+    ...rbox(-21, 10, -8, -6, 4, 16, '#a1673a', '#9a6838'),
+    ...rbox(-26, 26, -12, 12, 16, 21, top, '#b87a45'),
+    p(rquad(-26, 26, -12, -10, 21, 21), mix(top, '#ffffff', 0.3)), // 桌面後緣亮邊
+    p(rquad(-22, -10, -4, 8, 21.2, 21.2), '#f4efe6'),
+    p(rquad(-20, -12, -2, 5, 21.3, 21.3), '#a7a3b3', 0.5), // 紙上的字
+    p(rquad(-22, -17, 8.5, 11, 21.2, 21.2), '#ffd166'),
+    ...rbox(-9, 9, -10, -5, 21, 22.5, '#c8cde0', '#a7aec8'), // 鍵盤
+    ...rbox(11, 14, -9, -6, 21, 22.5, '#c8cde0', '#a7aec8'), // 滑鼠
+    ...rbox(15, 21, -1, 5, 21, 29, '#6f4e37', '#ffffff'), ...rbox(21, 23, 1, 3, 23, 27, '#ffffff', '#ffffff'), // 馬克杯與杯耳
+    ...rbox(-6, 6, 0, 5, 21, 22.5, '#3a3f52', '#2c3042'), ...rbox(-1.5, 1.5, 1.5, 3, 22.5, 25, '#3a3f52', '#2c3042'),
+    ...rbox(-14, 14, 3, 5, 24, 37, '#4a5068', '#3a3f52'),
+    p(rquad(-10, 10, 5, 5, 33.5, 35), '#5b6179'), // 散熱條
+  );
+  const l = toScreen(...rpt(D, 0, 5, 29));
+  if (state !== 'empty') out.push(c(l.x, l.y, state === 'waiting' ? 6 : 4.5, led, 0.25));
+  out.push(c(l.x, l.y, 1.8, led));
+  if (state === 'idle') {
+    const m = toScreen(...rpt(D, 18, 2, 31));
+    out.push(e(m.x, m.y, 1.5, 2.8, '#ffffff', 0.7), e(m.x + 1, m.y - 6, 1.3, 2.4, '#ffffff', 0.5));
+  }
   const x = extent({ w: 0, h: 0, shapes: out });
-  return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out };
+  return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out, clay: 'box', shadow: { fx: 62, fy: 62, r: 30 } };
 }
 
 export const WALL_Z = 110;
