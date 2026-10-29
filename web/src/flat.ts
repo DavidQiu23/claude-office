@@ -2,6 +2,8 @@
 // 純資料、不依賴 Phaser；遊戲用 Graphics 的 fillRoundedRect / fillCircle / fillEllipse / fillPoints 逐一畫出。
 // 移植自 docs/superpowers/specs/assets/flat-shapes.js，行為相同。a 省略為 1。
 
+import { toScreen } from './iso.js';
+
 export type Shape =
   | { t: 'r'; x: number; y: number; w: number; h: number; r?: number; c: string; a?: number }
   | { t: 'c'; x: number; y: number; r: number; c: string; a?: number }
@@ -362,4 +364,62 @@ export function officeShell(w: number, h: number, voids: Void[] = []): FlatSprit
   put(plant(), side + 2, h - side - 44);
   put(plant(), w - side - 30, h - side - 44);
   return { w, h, shapes: out };
+}
+
+// ---------- 等角素材（世界畫面座標：toScreen(fx, fy, z)） ----------
+const quad = (pts: [number, number, number][]): number[] => pts.flatMap(([x, y, z]) => { const s = toScreen(x, y, z); return [s.x, s.y]; });
+
+// 方塊三面：上面最亮、左面（y 最大那面）中間、右面（x 最大那面）最暗。
+function isoBox(x0: number, y0: number, x1: number, y1: number, z0: number, z1: number, top: string, left: string, right: string): Shape[] {
+  return [
+    p(quad([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]), left),
+    p(quad([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]]), right),
+    p(quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]), top),
+  ];
+}
+
+/** 等角桌，原點是座位格左上角 toScreen(cell.x, cell.y)；格內桌面 x 12–84、y 60–90。 */
+export function isoDesk(state: DeskState): FlatSprite {
+  const led = LED[state];
+  const top = state === 'waiting' ? mix('#e0a96d', '#ff4d4d', 0.3) : '#e0a96d';
+  const out: Shape[] = [p(quad([[10, 58, 0], [86, 58, 0], [86, 92, 0], [10, 92, 0]]), '#000000', 0.14)];
+  for (const [lx, ly] of [[14, 62], [80, 62], [14, 86], [80, 86]] as const) out.push(...isoBox(lx, ly, lx + 3, ly + 3, 0, 19, '#8a5a34', '#8a5a34', '#6e4628'));
+  out.push(...isoBox(12, 60, 84, 90, 19, 25, top, '#b87a45', '#a1673a'));
+  out.push(p(quad([[18, 64, 25], [34, 64, 25], [34, 80, 25], [18, 80, 25]]), '#f4efe6')); // 桌上的紙
+  out.push(...isoBox(70, 72, 76, 78, 25, 34, '#6f4e37', '#ffffff', '#e6e1d8'));
+  out.push(...isoBox(44, 74, 52, 79, 25, 28, '#2c3042', '#2c3042', '#23263a'));
+  out.push(...isoBox(34, 72, 62, 75, 28, 50, '#4a5068', '#3a3f52', '#2c3042'));
+  const l = toScreen(48, 75, 39); // 螢幕背面中央
+  if (state !== 'empty') out.push(c(l.x, l.y, state === 'waiting' ? 7 : 5, led, 0.25));
+  out.push(c(l.x, l.y, 2, led));
+  const x = extent({ w: 0, h: 0, shapes: out });
+  return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out };
+}
+
+export const WALL_Z = 110;
+const GRID = 64;
+
+/** 等角房間：菱形地板加格線、左牆（fx = 0）與後牆（fy = 0）、門、窗。doorX 對應 view.ts 的 DOOR_X（直接 import 會成環，由呼叫端傳入）。 */
+export function isoRoom(w: number, h: number, doorX = 40): FlatSprite {
+  const out: Shape[] = [p(quad([[0, 0, 0], [w, 0, 0], [w, h, 0], [0, h, 0]]), '#e8dcc6')];
+  const line = (x0: number, y0: number, x1: number, y1: number): Shape => p(quad([[x0, y0, 0], [x1, y1, 0], [x1, y1, -1], [x0, y0, -1]]), '#b9a88c', 0.3);
+  for (let x = GRID; x < w; x += GRID) out.push(line(x, 0, x, h));
+  for (let y = GRID; y < h; y += GRID) out.push(line(0, y, w, y));
+  out.push(
+    p(quad([[0, h, 0], [0, 0, 0], [0, 0, WALL_Z], [0, h, WALL_Z]]), '#d9cdb2'),
+    p(quad([[0, 0, 0], [w, 0, 0], [w, 0, WALL_Z], [0, 0, WALL_Z]]), '#f4ecd6'),
+    p(quad([[0, h, 0], [0, 0, 0], [0, 0, 6], [0, h, 6]]), '#b8aa8c'),
+    p(quad([[0, 0, 0], [w, 0, 0], [w, 0, 6], [0, 0, 6]]), '#cfc2a4'),
+    p(quad([[0, h, WALL_Z], [0, 0, WALL_Z], [w, 0, WALL_Z], [w, -8, WALL_Z], [-8, -8, WALL_Z], [-8, h, WALL_Z]]), '#a89b7e'), // 牆頂
+    p(quad([[doorX - 22, 0, 0], [doorX + 22, 0, 0], [doorX + 22, 0, 81], [doorX - 22, 0, 81]]), '#8a5a34'),
+    p(quad([[doorX - 18, 0, 0], [doorX + 18, 0, 0], [doorX + 18, 0, 77], [doorX - 18, 0, 77]]), '#a1673a'),
+  );
+  for (let wx = 300; wx + 140 <= w; wx += 220) {
+    out.push(
+      p(quad([[wx, 0, 40], [wx + 140, 0, 40], [wx + 140, 0, 90], [wx, 0, 90]]), '#c7b994'),
+      p(quad([[wx + 6, 0, 44], [wx + 134, 0, 44], [wx + 134, 0, 86], [wx + 6, 0, 86]]), '#9fd3f0'),
+    );
+  }
+  const x = extent({ w: 0, h: 0, shapes: out });
+  return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out };
 }

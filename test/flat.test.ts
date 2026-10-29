@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  character, desk, exclamation, extent, LED, officeShell, windowNight, clock, door, whiteboard, bookcase, poster, plant, cooler, bin,
+  character, desk, isoDesk, isoRoom, WALL_Z, exclamation, extent, LED, officeShell, windowNight, clock, door, whiteboard, bookcase, poster, plant, cooler, bin,
   banner, calendar, sofa, table, vending, fridge, lamp, beanbag, cat, counter, station, planterRow,
   type FlatSprite, type Pose, type Outfit, type DeskState,
 } from '../web/src/flat.js';
@@ -103,5 +103,26 @@ describe('office shell', () => {
   it('背景物件格式合法、尺寸固定', () => {
     for (const sp of [windowNight(), clock(), door(), whiteboard(), bookcase(), poster(0), poster(1), poster(2), plant(), cooler(), bin(), banner(), calendar(),
       sofa(), table(), vending(), fridge(), lamp(), beanbag(), cat(), counter(), station(), planterRow(90)]) checkSprite(sp);
+  });
+
+  it('等角桌：燈色、光暈、螢幕高度', () => {
+    expect(isoDesk('waiting').shapes.some((sh) => sh.c === LED.waiting)).toBe(true);
+    expect(isoDesk('empty').shapes.some((sh) => sh.c === LED.empty && (sh.a ?? 1) < 1)).toBe(false);
+    expect(isoDesk('working').shapes.some((sh) => sh.c === LED.working && (sh.a ?? 1) < 1)).toBe(true);
+    const x = extent(isoDesk('working'));
+    expect(x.y0).toBeLessThan(11); // 螢幕頂 (34,72,50)→y=3，高過桌面最高點 (12,60,25)→y=11（原稿 -40 與格內座標不符）
+    expect(x.x0).toBeLessThan(0);
+    expect(x.x1).toBeGreaterThan(0);
+    checkSprite(isoDesk('idle'));
+  });
+
+  it('等角房間：範圍與格式', () => {
+    const sp = isoRoom(1280, 720);
+    checkSprite(sp);
+    const x = extent(sp);
+    expect(Math.abs(x.x0 + 720)).toBeLessThan(10);
+    expect(Math.abs(x.x1 - 1280)).toBeLessThan(10);
+    expect(Math.abs(x.y0 + WALL_Z)).toBeLessThan(10);
+    expect(Math.abs(x.y1 - 1000)).toBeLessThan(10);
   });
 });
