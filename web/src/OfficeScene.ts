@@ -5,7 +5,7 @@ import { character, ISO_FLOOR, isoRoom, type Shape } from './flat.js';
 import { deskDepth, fitCamera, islandsBounds, isoDepth, personDepth, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, PLATE_MAX, projectColor,
+  appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, projectColor,
   roomKey, seatCell, signFit, signMaxW, waitingCount, BASE_H, BASE_W, DOOR_X, type Island, type Layout,
 } from './view.js';
 
@@ -706,7 +706,7 @@ export class OfficeScene extends Phaser.Scene {
     plate.setVisible(!!e); // 空桌不顯示名牌
     if (!e) return;
     // 一行「名字 · 動作」，依實際寬度截斷，相鄰名牌不會疊在一起
-    const { text, waiting } = plateLabel(e, (s) => (plate.setText(s), plate.width <= PLATE_MAX));
+    const { text, waiting } = plateLabel(e, (s) => (plate.setText(s), plate.width <= plateMaxW(1)));
     plate.setText(text).setBackgroundColor(waiting ? 'rgba(214,52,52,0.92)' : 'rgba(20,23,42,0.78)');
   }
 }

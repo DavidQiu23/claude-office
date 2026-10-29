@@ -116,21 +116,23 @@ export interface Island {
   desks: number;
   color: string;
 }
-/** 名牌整條最大寬度（世界單位，含左右內距） */
-export const PLATE_MAX = ISLAND.cellW + ISLAND.cellH - 20;
+/** 鏡頭倍率低於此值時名牌只顯示名字 */
+export const PLATE_NAME_ONLY_ZOOM = 0.8;
+/** 名牌整條（含左右內距 6+6）在螢幕上的最大寬度 */
+export const plateMaxW = (zoom: number): number => (zoom >= PLATE_NAME_ONLY_ZOOM ? Math.min(170, 180 * zoom - 8) : Math.min(200, 160 * zoom));
 
-/** 一行名牌「名字 · 動作」：先截動作（至少留 4 字加「…」），再截名字；等你處理時前綴「! 」 */
-export function plateLabel(e: Employee, fits: (s: string) => boolean): { text: string; waiting: boolean } {
+/** 一行名牌「名字 · 動作」：先從尾端截動作（至少留 4 字加「…」），再截名字；等你處理時前綴「! 」 */
+export function plateLabel(e: Employee, fits: (s: string) => boolean, nameOnly = false): { text: string; waiting: boolean } {
   const waiting = e.status === 'waiting';
   const pre = waiting ? '! ' : '';
   const name = nameplate(e);
-  const act = oneLine(e.activity ?? '');
+  const act = nameOnly ? '' : oneLine(e.activity ?? '');
   const full = pre + name + (act ? ' · ' + act : '');
   if (fits(full)) return { text: full, waiting };
   if (!act) return { text: pre + fitMiddle(name, (s) => fits(pre + s)), waiting };
   const chars = [...act];
   const minAct = chars.length > 4 ? chars.slice(0, 4).join('') + '…' : act;
-  const cut = fitMiddle(act, (a) => fits(pre + name + ' · ' + a));
+  const cut = fitText(act, (a) => fits(pre + name + ' · ' + a));
   // fitMiddle 找不到時回 '…'；比最小動作短就不採用，改截名字
   if ([...cut].length >= [...minAct].length && fits(pre + name + ' · ' + cut)) return { text: pre + name + ' · ' + cut, waiting };
   const n = fitMiddle(name, (s) => fits(pre + s + ' · ' + minAct));
