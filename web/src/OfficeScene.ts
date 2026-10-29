@@ -4,7 +4,7 @@ import { addSprite, bakeSprite, bakeTextures, CHAIR_KEY, deskKey, drawShapes, en
 import { drawClay } from './clay.js';
 import { character, FLOOR, isoRoom, mix, quad, type Shape } from './flat.js';
 import { planWall } from './furniture.js';
-import { chairDepth, deskDepth, fitCamera, isoDepth, personDepth, plateAt, roomBox, roomSize, toScreen } from './iso.js';
+import { chairDepth, deskDepth, fitCamera, personDepth, plateAt, roomBox, roomSize, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
   appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, PLATE_NAME_ONLY_ZOOM, projectColor,
@@ -486,7 +486,7 @@ export class OfficeScene extends Phaser.Scene {
       this.keep(addSprite(this, CHAIR_KEY, s.x, s.y).setDepth(chairDepth(c)));
       const img = this.keep(addSprite(this, deskKey('empty'), s.x, s.y).setDepth(deskDepth(c)));
       // 位置與縮放由 placePlates 設定；先 keep 容器再加子物件，中途出錯也會隨重畫銷毀
-      const plate = this.keep(this.add.container(0, 0).setVisible(false).setDepth(isoDepth(c.x + 67.5, c.y + 67.5) + PLATE_DEPTH));
+      const plate = this.keep(this.add.container(0, 0).setVisible(false).setDepth(deskDepth(c) + PLATE_DEPTH));
       const bg = this.add.graphics();
       const text = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '11px', padding: { x: 6, y: 1 }, fixedHeight: PLATE_H }).setOrigin(0.5, 0);
       plate.add([bg, text]);

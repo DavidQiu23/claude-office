@@ -11,20 +11,20 @@ export const isoDepth = (fx: number, fy: number): number => fx + fy;
 
 // 人的深度（at = 腳下地板點）；+30 讓人蓋過同一點的地板物件
 export const personDepth = (at: Pt): number => isoDepth(at.x, at.y) + 30;
-// 桌子的深度（cell = seatCell 左上角）：以桌面前緣附近的點排序，坐在桌後的人在它後面
-export const deskDepth = (cell: Pt): number => isoDepth(cell.x + 48, cell.y + 90);
+// 桌子的深度（cell = seatCell 左上角）：以桌子前緣中點 (62, 72) 排序，坐在桌後的人在它後面
+export const deskDepth = (cell: Pt): number => isoDepth(cell.x + 62, cell.y + 72);
 
 export const FURN_END = 1006;
 export const WALL_TOP_Z = 118; // 牆頂（含厚度）
 export const FLOOR_DEPTH_Z = -10; // 地板厚度
 
-// 椅子的深度（cell = seatCell 左上角）：在坐著的人之前、桌子之後
-export const chairDepth = (cell: Pt): number => cell.x + cell.y + 88;
+// 椅子的深度（cell = seatCell 左上角）：以椅子中心 (42, 42) 排序，在坐著的人與桌子之前畫
+export const chairDepth = (cell: Pt): number => isoDepth(cell.x + 42, cell.y + 42);
 
-// 名牌上緣中點（規格 §11）：x 對齊桌子中心；上緣在桌子正面下緣 (67.5, 67.5)，但下緣不超過 toScreen(cell).y + 90。
+// 名牌上緣中點（斜桌規格 §5）：錨點 (75, 75) 在人的視線上、桌子前緣前方；下緣不超過 toScreen(cell).y + 90（避開右下斜鄰座的額頭）。
 // h = 名牌螢幕高度，zoom = 畫面倍率（不含內部渲染倍率）
 export const plateAt = (cell: Pt, zoom: number, h = 15): Pt => {
-  const top = toScreen(cell.x + 67.5, cell.y + 67.5);
+  const top = toScreen(cell.x + 75, cell.y + 75);
   return { x: top.x, y: Math.min(top.y, toScreen(cell.x, cell.y).y + 90 - h / zoom) };
 };
 

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { toScreen } from '../web/src/iso.js';
 import {
-  character, isoDesk, isoChair, rpt, isoRoom, WALL_Z, extent, LED,
-  type FlatSprite, type Pose, type Outfit, type DeskState,
+  character, isoDesk, isoChair, isoRoom, WALL_Z, extent, LED,
+  type FlatSprite, type Shape, type Pose, type Outfit, type DeskState,
 } from '../web/src/flat.js';
 
 const POSES: Pose[] = ['sit0', 'sit1', 'up', 'idle', 'walk0', 'walk1'];
@@ -55,7 +55,7 @@ describe('iso art', () => {
     expect(isoDesk('empty').shapes.some((sh) => sh.c === LED.empty && (sh.a ?? 1) < 1)).toBe(false);
     expect(isoDesk('working').shapes.some((sh) => sh.c === LED.working && (sh.a ?? 1) < 1)).toBe(true);
     const x = extent(isoDesk('working'));
-    expect(x.y0).toBeLessThan(toScreen(...rpt({ x: 59, y: 59 }, 0, -12, 21)).y); // 螢幕頂高過桌面後緣
+    expect(x.y0).toBeLessThan(toScreen(38, 52, 16).y); // 螢幕頂高過桌面後緣
     expect(x.x0).toBeLessThan(0);
     expect(x.x1).toBeGreaterThan(0);
     checkSprite(isoDesk('idle'));
@@ -80,21 +80,32 @@ describe('iso art', () => {
 });
 
 describe('座位素材', () => {
-  const D = { x: 59, y: 59 };
+  const xs = (s: Shape): number[] => (s.t === 'p' ? s.pts.filter((_, i) => i % 2 === 0) : []);
+  const ys = (s: Shape): number[] => (s.t === 'p' ? s.pts.filter((_, i) => i % 2 === 1) : []);
   it('人、螢幕、桌子垂直對齊', () => {
     const led = isoDesk('working').shapes.find((sh) => sh.t === 'c' && sh.c === LED.working && (sh.a ?? 1) === 1);
-    expect(led && led.t === 'c' && led.x).toBeCloseTo(toScreen(48, 48).x, 5);
+    const lx = led && led.t === 'c' ? led.x : NaN;
+    expect(lx).toBeCloseTo(toScreen(61, 62).x, 5);
+    expect(Math.abs(lx - toScreen(48, 48).x)).toBeLessThanOrEqual(1);
+  });
+  it('桌面中心在視線上', () => {
+    // 桌面上面 = 顏色 #e0a96d 中最寬的一塊（抽屜把手也是這個顏色，但窄）
+    const w = (s: Shape): number => Math.max(...xs(s)) - Math.min(...xs(s));
+    const top = isoDesk('working').shapes.filter((s) => s.t === 'p' && s.c === '#e0a96d').sort((a, b) => w(b) - w(a))[0]!;
+    const px = xs(top);
+    expect(px.reduce((a, b) => a + b, 0) / px.length).toBeCloseTo(toScreen(62, 62).x, 5);
   });
   it('螢幕頂端低於下巴', () => {
-    const top = toScreen(...(rpt(D, 0, 4, 37).slice(0, 2) as [number, number]), 37).y;
+    const top = Math.min(...isoDesk('working').shapes.filter((s) => s.c === '#4a5068').flatMap(ys));
     expect(top).toBeGreaterThan(toScreen(48, 48).y + (30 - 54) * 1.2);
   });
   it('等你處理有紅光、桌面偏紅', () => {
     const sh = isoDesk('waiting').shapes;
-    expect(sh.some((s) => s.t === 'e' && s.c === '#ff4d4d' && s.a === 0.22)).toBe(true);
+    const g = sh.find((s) => s.t === 'e' && s.c === '#ff4d4d' && s.a === 0.22);
+    const o = toScreen(68, 74);
+    expect(g && g.t === 'e' && { x: g.x, y: g.y }).toEqual({ x: o.x, y: o.y });
     expect(sh.some((s) => s.c === '#e98d63')).toBe(true);
-  });
-  it('閒置有蒸氣', () => {
+  });  it('閒置有蒸氣', () => {
     const steam = (st: DeskState): boolean => isoDesk(st).shapes.some((s) => s.t === 'e' && s.c === '#ffffff' && s.a === 0.7);
     expect(steam('idle')).toBe(true);
     expect(steam('working')).toBe(false);
@@ -103,13 +114,13 @@ describe('座位素材', () => {
     const c = isoChair();
     checkSprite(c);
     expect(c.clay).toBe('box');
-    expect(c.shadow).toEqual({ fx: 44, fy: 44, r: 16 });
+    expect(c.shadow).toEqual({ fx: 42, fy: 42, r: 15 });
     expect(c.shapes.some((s) => s.c === '#56649a')).toBe(true);
     expect(c.shapes.some((s) => s.c === '#3b4770')).toBe(true);
   });
   it('isoDesk 是 box、有投影', () => {
     expect(isoDesk('idle').clay).toBe('box');
-    expect(isoDesk('idle').shadow).toEqual({ fx: 62, fy: 62, r: 30 });
+    expect(isoDesk('idle').shadow).toEqual({ fx: 63, fy: 63, r: 28 });
   });
   it('character({ chair: false }) 沒有椅背與腳底陰影', () => {
     const has = (s: FlatSprite): { back: boolean; shadow: boolean } => ({

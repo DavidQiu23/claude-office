@@ -25,7 +25,9 @@ test('roomBox', () => {
 });
 
 test('chairDepth 在桌子與人之間', () => {
-  expect(chairDepth({ x: 0, y: 0 })).toBe(88);
+  expect(chairDepth({ x: 0, y: 0 })).toBe(84);
+  expect(personDepth({ x: 48, y: 48 })).toBe(126);
+  expect(deskDepth({ x: 0, y: 0 })).toBe(134);
   const c = { x: 120, y: 200 };
   expect(chairDepth(c)).toBeLessThan(personDepth({ x: c.x + 48, y: c.y + 48 }));
   expect(personDepth({ x: c.x + 48, y: c.y + 48 })).toBeLessThan(deskDepth(c));
@@ -54,9 +56,9 @@ test('fitCamera', () => {
   expect(fitCamera({ x: 0, y: 0, w: 100, h: 100 }, 1280, 720, 2).zoom).toBe(2);
 });
 
-test('plateAt：置中在桌子中心 x，倍率小時下緣夾在 cell.y + 90', () => {
+test('plateAt：置中在錨點 (75, 75)，下緣夾在 cell.y + 90', () => {
   const cell = { x: 100, y: 40 }; // toScreen(cell) = (60, 70)
-  expect(plateAt(cell, 1)).toEqual({ x: 60, y: 70 + 67.5 }); // 15 / 1 = 15 < 22.5：照桌子正面下緣
-  expect(plateAt(cell, 0.5)).toEqual({ x: 60, y: 70 + 90 - 30 }); // 下緣 = 70 + 90
-  expect(plateAt(cell, 15 / 22.5).y).toBeCloseTo(70 + 67.5); // 剛好相接
+  const a = toScreen(cell.x + 75, cell.y + 75);
+  expect(plateAt(cell, 1)).toEqual({ x: a.x, y: Math.min(a.y, 70 + 90 - 15) });
+  expect(plateAt(cell, 0.5)).toEqual({ x: a.x, y: Math.min(a.y, 70 + 90 - 30) });
 });
