@@ -203,3 +203,31 @@
 - [ ] **Step 2: 執行** `npx vitest run`、`npm run build`。
 - [ ] **Step 3: 截圖驗證**（同 Task 6 的作法與清理規則）：模擬器 4 人坐定時截圖、滑鼠移到一位員工上截圖。自己看過並確認：人坐在桌子正後方、椅背在頭後、螢幕不擋臉；名牌字清楚、互不重疊、不蓋臉；資訊卡頭像是黏土畫法；走路的人經過桌間時前後遮擋正確。再用瀏覽器縮小視窗讓鏡頭 < 0.8，確認名牌只剩名字。和設計稿第 4、5 張比對，差異列在 commit 前回報。清理並列出確認。
 - [ ] **Step 4: Commit** `feat: 新座位、黏土人物與固定字級名牌`
+
+### Task 8: 斜桌子（使用者在第一版實作後追加）
+
+規格：`docs/superpowers/specs/2026-10-29-iso-office-slanted-desk.md`（下稱「斜桌規格」），取代主規格 §8、§9、§2 的椅子／桌子深度與 §11 名牌位置。設計稿第 58 版第 2–5 張。
+
+**Files:**
+- Modify: `web/src/flat.ts`（`isoChair`、`isoDesk` 改用現有 `isoBox`；`rpt` 沒有其他呼叫端就刪掉）
+- Modify: `web/src/iso.ts`（`deskDepth`、`chairDepth`、`plateAt`）
+- Modify: `web/src/OfficeScene.ts`（名牌錨點）
+- Test: `test/flat.test.ts`、`test/iso.test.ts`
+
+**Interfaces:**
+- Produces（簽名不變，只改數值）：`deskDepth(cell)` = `isoDepth(cell.x + 62, cell.y + 72)`；`chairDepth(cell)` = `isoDepth(cell.x + 42, cell.y + 42)`；`plateAt(cell, zoom, h = 15)` 用錨點格內 (75, 75)、下緣不超過 `toScreen(cell).y + 90`（斜桌規格 §5）。
+- `isoChair()`／`isoDesk(state)`：部件、色碼照斜桌規格 §2；`shadow` 照 §3（椅 {42,42,15}、桌 {63,63,28}）；等你處理紅光改成中心 (68,74)、r 22。
+
+- [ ] **Step 1: 改測試**
+  - 深度：同一格 `chairDepth(c) < personDepth({x:c.x+48,y:c.y+48}) < deskDepth(c)`，且數值為 cell+84、cell+126、cell+134。
+  - `人、螢幕、桌子垂直對齊`：`isoDesk('working')` 不透明狀態燈圓的 x 等於 `toScreen(61, 62).x`，且與 `toScreen(48, 48).x` 相差 ≤ 1。
+  - 桌面中心在視線上：桌面上面的四角平均 x 等於 `toScreen(62, 62).x`（`toBeCloseTo`）。
+  - 螢幕不擋臉：螢幕部件最高點的 y（取 `isoDesk` 中顏色 `#4a5068` 的上面）大於 `toScreen(48, 48).y + (30 − 54)·1.2`。
+  - 等你處理紅光：`isoDesk('waiting')` 有 `#ff4d4d` α 0.22 的圖形，其中心等於 `toScreen(68, 74)`。
+  - `plateAt`：zoom 1 時 x 等於 `toScreen(cell.x+75, cell.y+75).x`；y 取 `min(toScreen(cell.x+75,cell.y+75).y, toScreen(cell).y + 90 − 15/zoom)`，用 zoom 1 與 0.5 各測一次。
+  - 刪掉只對轉 45° 幾何成立的舊斷言。
+- [ ] **Step 2: 執行** `npx vitest run test/flat.test.ts test/iso.test.ts`，預期 FAIL。
+- [ ] **Step 3: 實作**。
+- [ ] **Step 4: 執行** `npx vitest run`、`npm run build`。
+- [ ] **Step 5: 截圖驗證**（照 Task 6 的作法與清理規則）：4 人坐定、滑鼠移到一位員工、28 人以上（鏡頭 < 0.8）三張。自己看過並確認：桌子沿後牆方向斜放、人在桌子正後方中央、椅背在頭後、螢幕不擋臉、名牌不疊不蓋臉、走路的人經過桌間時遮擋正確。
+- [ ] **Step 6: Commit** `feat: 桌子椅子改成沿後牆斜放`
