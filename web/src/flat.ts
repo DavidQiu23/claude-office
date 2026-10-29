@@ -11,7 +11,11 @@ export type Shape =
   | { t: 'p'; pts: number[]; c: string; a?: number };
 
 export type Pt = { x: number; y: number };
-export interface FlatSprite { w: number; h: number; shapes: Shape[] }
+export interface FlatSprite {
+  w: number; h: number; shapes: Shape[];
+  clay?: 'box' | 'figure'; // 省略為 box
+  shadow?: { fx: number; fy: number; r: number }; // 接地投影，地板座標（素材自己的座標系）
+}
 
 export type Pose = 'sit0' | 'sit1' | 'up' | 'idle' | 'walk0' | 'walk1';
 export type Outfit = 'tee' | 'hoodie' | 'shirt';
@@ -28,7 +32,7 @@ export interface CharOpts {
 
 const toRgb = (h: string): number[] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const toHex = (c: number[]): string => '#' + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
-const mix = (a: string, b: string, t: number): string => {
+export const mix = (a: string, b: string, t: number): string => {
   const A = toRgb(a), B = toRgb(b);
   return toHex(A.map((v, i) => v + (B[i]! - v) * t));
 };
@@ -56,6 +60,11 @@ export function extent(s: FlatSprite): { x0: number; y0: number; x1: number; y1:
     else {
       for (let i = 0; i + 1 < sh.pts.length; i += 2) add(sh.pts[i]!, sh.pts[i + 1]!, sh.pts[i]!, sh.pts[i + 1]!);
     }
+  }
+  if (s.shadow) {
+    const o = toScreen(s.shadow.fx, s.shadow.fy);
+    const rx = s.shadow.r * Math.SQRT2, ry = s.shadow.r / Math.SQRT2;
+    add(o.x - rx, o.y - ry, o.x + rx, o.y + ry);
   }
   return { x0, y0, x1, y1 };
 }

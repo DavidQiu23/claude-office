@@ -4,6 +4,7 @@ import {
   character, extent, HAIR_COLORS, isoDesk, SHIRT_COLORS,
   type DeskState, type FlatSprite, type Outfit, type Pose, type Shape,
 } from './flat.js';
+import { drawClay, softShadow } from './clay.js';
 import type { Look } from './view.js';
 
 export const PIXEL_RATIO = 3; // 貼圖解析度倍率（內部渲染倍率）
@@ -37,10 +38,14 @@ function bakeSprite(scene: Phaser.Scene, key: string, sprite: FlatSprite): void 
   const e = extent(sprite);
   const x0 = Math.floor(e.x0), y0 = Math.floor(e.y0);
   const x1 = Math.ceil(e.x1), y1 = Math.ceil(e.y1);
-  const g = scene.make.graphics({}, false);
-  drawShapes(g, sprite.shapes, PIXEL_RATIO, -x0, -y0);
-  g.generateTexture(key, Math.ceil((x1 - x0) * PIXEL_RATIO), Math.ceil((y1 - y0) * PIXEL_RATIO));
-  g.destroy();
+  const tex = scene.textures.createCanvas(key, (x1 - x0) * PIXEL_RATIO, (y1 - y0) * PIXEL_RATIO);
+  if (!tex) return;
+  const ctx = tex.getContext();
+  ctx.scale(PIXEL_RATIO, PIXEL_RATIO);
+  ctx.translate(-x0, -y0);
+  if (sprite.shadow) softShadow(ctx, sprite.shadow.fx, sprite.shadow.fy, sprite.shadow.r);
+  drawClay(ctx, sprite.shapes, sprite.clay ?? 'box');
+  tex.refresh();
   info.set(key, { x0, y0, w: x1 - x0, h: y1 - y0 });
 }
 
