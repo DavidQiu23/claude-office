@@ -27,7 +27,7 @@ const TURN = { fill: 0xf2b83d, ink: '#2b1d00' };
 const BUBBLE = { x: 6, y: -61 };
 
 // 一格（seatCell 左上角）裡各物件的相對位置：座位點見 view.ts 的 SEAT
-const PLATE_H = 15; // 名牌螢幕高度（字 11px）
+const PLATE_H = 18; // 名牌螢幕高度（字 13px）
 const PLATE_DEPTH = 1000; // 名牌永遠在人與桌之上
 // 角色素材 (0,0) 相對地板點（縮放前）：素材 40×56，底部中心（腳底陰影）對到地板點
 const CHAR = { x: -20, y: -54 };
@@ -427,7 +427,7 @@ export class OfficeScene extends Phaser.Scene {
     } else this.placePlates(true); // 鏡頭沒變，但重畫後的名牌還沒放好
   }
 
-  /** 名牌固定 11px 螢幕字級：縮放抵銷鏡頭，位置照規格 §11 */
+  /** 名牌固定 13px 螢幕字級：縮放抵銷鏡頭，位置照規格 §11 */
   private placePlates(relabel: boolean): void {
     const zoom = this.view.zoom / this.z;
     for (const d of this.desks.values()) {
@@ -513,7 +513,7 @@ export class OfficeScene extends Phaser.Scene {
       // 位置與縮放由 placePlates 設定；先 keep 容器再加子物件，中途出錯也會隨重畫銷毀
       const plate = this.keep(this.add.container(0, 0).setVisible(false).setDepth(deskDepth(c) + PLATE_DEPTH));
       const bg = this.add.graphics();
-      const text = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '11px', padding: { x: 6, y: 1 }, fixedHeight: PLATE_H }).setOrigin(0.5, 0);
+      const text = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '13px', padding: { x: 6, y: 1 }, fixedHeight: PLATE_H }).setOrigin(0.5, 0);
       plate.add([bg, text]);
       const d: DeskObj = { cell: c, img, plate, bg, text };
       this.desks.set(`${isl.key}#${i}`, d);
