@@ -8,7 +8,7 @@ import { chairDepth, deskDepth, focusCamera, islandsBox, personDepth, plateAt, r
 import type { OfficeStore } from './sync.js';
 import {
   appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, PLATE_NAME_ONLY_ZOOM, projectColor,
-  roomKey, seatCell, signFit, signMaxW, waitingCount, BASE_H, BASE_W, DOOR_X, SEAT, type Island, type Layout,
+  roomKey, seatCell, signFit, signMaxW, statusCount, BASE_H, BASE_W, DOOR_X, SEAT, type Island, type Layout,
 } from './view.js';
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
@@ -21,6 +21,10 @@ type Pt = { x: number; y: number };
 const FAILED_SIG = '\u0000failed'; // 不會等於任何版面簽名：強制下次重畫
 // 地上招牌：色帶在島前緣外 20–44 的地板上（避開前排名牌）；等待人數圓章直立在色帶尾端外側
 const SIGN = { gap: 20, h: 24, r: 6, pad: 9, badge: 0xff4d4d, badgeR: 9 };
+// 輪到你（status idle）：琥珀色，比等你處理的紅色安靜一階（不脈動）
+const TURN = { fill: 0xf2b83d, ink: '#2b1d00' };
+// 頭上的泡泡：尾巴尖端在腳底點 (+6, −61)，頭頂右上；固定螢幕大小（同名牌，每幀抵銷鏡頭縮放）
+const BUBBLE = { x: 6, y: -61 };
 
 // 一格（seatCell 左上角）裡各物件的相對位置：座位點見 view.ts 的 SEAT
 const PLATE_H = 15; // 名牌螢幕高度（字 11px）
@@ -33,6 +37,16 @@ const RAISE_Y = -6; // 舉手時再上移
 
 const hexNum = (h: string): number => parseInt(h.slice(1), 16) || 0;
 
+/** 輪到你的泡泡（螢幕 px，尾巴尖端在原點）：琥珀圓角框 22×17、白邊，裡面一個深色勾 */
+const drawBubble = (g: Phaser.GameObjects.Graphics): Phaser.GameObjects.Graphics => {
+  g.fillStyle(TURN.fill, 1).lineStyle(1.5, 0xffffff, 1);
+  g.fillTriangle(0, 0, 1, -6, 7, -6).strokeTriangle(0, 0, 1, -6, 7, -6);
+  g.fillRoundedRect(-3, -22, 22, 17, 6).strokeRoundedRect(-3, -22, 22, 17, 6);
+  g.fillRect(1.8, -6.6, 4.4, 2.2); // 蓋掉框與尾巴接縫的白邊
+  g.lineStyle(2.4, hexNum(TURN.ink), 1).beginPath().moveTo(3, -13.3).lineTo(6.5, -9.9).lineTo(13.2, -17.1).strokePath();
+  return g;
+};
+
 // 名牌 = container（位置、縮放、深度、顯示）裡的圓角底色 bg + 文字 text
 interface DeskObj { cell: Pt; img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; emp?: Employee }
 interface SignObj {
@@ -41,6 +55,10 @@ interface SignObj {
   text: Phaser.GameObjects.Text;
   tween?: Phaser.Tweens.Tween;
   count: number; // 上次畫的等待人數（-1 = 還沒畫過）
+  turn: Phaser.GameObjects.Container; // 輪到你人數的琥珀圓章，接在紅圓章後面
+  turnText: Phaser.GameObjects.Text;
+  turnCount: number;
+  at: (dx: number) => Pt; // 圓章位置：色帶尾端外側再往後 dx
 }
 interface Leaver { emp: Employee; sprite: Phaser.GameObjects.Image; at: Pt }
 interface Slot {
@@ -49,6 +67,7 @@ interface Slot {
   person: Phaser.GameObjects.Container;
   figure: Phaser.GameObjects.Container; // 角色圖；站起來只動它
   sprite: Phaser.GameObjects.Image;
+  bubble: Phaser.GameObjects.Graphics; // 輪到你時頭上的泡泡，放在 figure 裡跟著浮動
   shown: Employee['status'] | null; // 目前套用的動作對應的狀態
   walking: boolean;
   anim?: Phaser.Time.TimerEvent; // 打字換幀
@@ -66,7 +85,7 @@ const place = (obj: Phaser.GameObjects.Container, at: Pt): void => {
 const STATUS: Record<Employee['status'], { text: string; color: string; bg: string }> = {
   working: { text: '工作中', color: '#46d983', bg: '#46d98322' },
   waiting: { text: '等你處理', color: '#ff6b6b', bg: '#ff4d4d26' },
-  idle: { text: '閒置', color: '#f2b83d', bg: '#f2b83d22' },
+  idle: { text: '輪到你', color: '#f2b83d', bg: '#f2b83d22' },
 };
 const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim();
 const clampCss = (n: number): string => `display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;overflow:hidden;word-break:break-all`;
@@ -417,6 +436,7 @@ export class OfficeScene extends Phaser.Scene {
       d.plate.setPosition(p.x, p.y).setScale(1 / zoom);
       if (relabel && d.emp) this.label(d, d.emp);
     }
+    for (const s of this.slots.values()) s.bubble.setScale(1 / zoom);
   }
 
   /** 房間類圖形（地板、牆、地墊、地毯）：用 Graphics 填色，不透明多邊形描一條 1px 邊（規格 §16.2） */
@@ -472,13 +492,18 @@ export class OfficeScene extends Phaser.Scene {
     const bandW = measure(fit.text, fit.size);
     inner.addAt(this.add.graphics().fillStyle(hexNum(isl.color), 0.9).fillRoundedRect(0, 0, bandW, SIGN.h, SIGN.r), 0);
 
-    // 等待人數圓章：直立在色帶中線、尾端外側，數字由 updateSigns 填
-    const b = toScreen(isl.x + bandW + 9, gy + SIGN.h / 2);
-    const badge = this.keep(this.add.container(b.x, b.y).setDepth(-79).setVisible(false));
-    badge.add(this.add.graphics().fillStyle(SIGN.badge, 1).fillCircle(0, 0, SIGN.badgeR).lineStyle(2, 0xffffff, 1).strokeCircle(0, 0, SIGN.badgeR));
-    const text = this.add.text(0, 0, '', { ...font, fontSize: '11px' }).setOrigin(0.5);
-    badge.add(text);
-    this.signs.set(isl.key, { isl, badge, text, count: -1 });
+    // 人數圓章：直立在色帶中線、尾端外側（紅 = 等你處理、琥珀 = 輪到你），數字與位置由 updateSigns 填
+    const at = (dx: number): Pt => toScreen(isl.x + bandW + 9 + dx, gy + SIGN.h / 2);
+    const mkBadge = (fill: number, color: string) => {
+      const c = this.keep(this.add.container(at(0).x, at(0).y).setDepth(-79).setVisible(false));
+      c.add(this.add.graphics().fillStyle(fill, 1).fillCircle(0, 0, SIGN.badgeR).lineStyle(2, 0xffffff, 1).strokeCircle(0, 0, SIGN.badgeR));
+      const t = this.add.text(0, 0, '', { ...font, fontSize: '11px', color }).setOrigin(0.5);
+      c.add(t);
+      return { c, t };
+    };
+    const red = mkBadge(SIGN.badge, '#ffffff');
+    const amber = mkBadge(TURN.fill, TURN.ink);
+    this.signs.set(isl.key, { isl, badge: red.c, text: red.t, count: -1, turn: amber.c, turnText: amber.t, turnCount: -1, at });
 
     for (let i = 0; i < isl.desks; i++) {
       const c = seatCell(isl, i);
@@ -495,13 +520,18 @@ export class OfficeScene extends Phaser.Scene {
     }
   }
 
-  /** 招牌：依各專案等你回覆的人數更新圓章（數量 > 0 才顯示並放大縮小） */
+  /** 招牌：依各專案等你處理（紅，放大縮小）與輪到你（琥珀，不動）的人數更新圓章；數量 > 0 才顯示 */
   private updateSigns(): void {
     for (const s of this.signs.values()) {
       if (!s.badge.active) continue;
-      const n = waitingCount(this.store.employees.values(), s.isl.key);
-      if (n === s.count) continue;
+      const n = statusCount(this.store.employees.values(), s.isl.key, 'waiting');
+      const t = statusCount(this.store.employees.values(), s.isl.key, 'idle');
+      if (n === s.count && t === s.turnCount) continue;
       s.count = n;
+      s.turnCount = t;
+      const p = s.at(n > 0 ? 22 : 0);
+      s.turn.setPosition(p.x, p.y).setVisible(t > 0);
+      s.turnText.setText(String(t));
       const show = n > 0;
       s.badge.setVisible(show);
       if (show) {
@@ -618,6 +648,7 @@ export class OfficeScene extends Phaser.Scene {
     s.anim = undefined;
     this.tweens.killTweensOf(s.figure);
     s.figure.y = 0;
+    s.bubble.setVisible(false);
     this.walkPath(
       { at: s.at, obj: s.person },
       path,
@@ -642,6 +673,7 @@ export class OfficeScene extends Phaser.Scene {
     if (this.card.id === id) this.card.hide();
     this.tweens.killTweensOf(s.figure);
     s.figure.y = 0;
+    s.bubble.setVisible(false);
     person.disableInteractive();
     const l: Leaver = { emp: s.emp, sprite: s.sprite, at: s.at };
     this.leaving.set(person, l); // 走出辦公室之前，這座島先保留
@@ -677,7 +709,9 @@ export class OfficeScene extends Phaser.Scene {
 
   private createSlot(e: Employee): Slot {
     const sprite = addSprite(this, this.charTexture(e, 'sit0'), CHAR.x, CHAR.y);
-    const figure = this.add.container(0, 0, [sprite]).setScale(CHAR_SCALE);
+    const bubble = drawBubble(this.add.graphics()).setPosition(BUBBLE.x, BUBBLE.y - SIT_Y).setVisible(false); // figure 坐著時在 SIT_Y
+    if (this.view.zoom) bubble.setScale(this.z / this.view.zoom);
+    const figure = this.add.container(0, 0, [sprite, bubble]).setScale(CHAR_SCALE);
     const person = this.add.container(0, 0, [addSprite(this, PERSON_SHADOW_KEY, 0, 0), figure]); // 接地投影在最底層，不跟著站起或浮動
     const S = CHAR_SCALE;
     person.setInteractive(new Phaser.Geom.Rectangle(CHAR.x * S, CHAR.y * S, 40 * S, 56 * S), Phaser.Geom.Rectangle.Contains);
@@ -694,7 +728,7 @@ export class OfficeScene extends Phaser.Scene {
       this.card.show(cur.emp, left, top);
     });
     person.on('pointerout', () => this.card.scheduleHide());
-    return { emp: e, at: { x: 0, y: 0 }, person, figure, sprite, shown: null, walking: false };
+    return { emp: e, at: { x: 0, y: 0 }, person, figure, sprite, bubble, shown: null, walking: false };
   }
 
   // ---- 繪製 ----
@@ -724,6 +758,7 @@ export class OfficeScene extends Phaser.Scene {
     s.shown = e.status;
     this.tweens.killTweensOf(s.figure);
     s.figure.y = SIT_Y + (e.status === 'waiting' ? RAISE_Y : 0);
+    s.bubble.setVisible(e.status === 'idle');
     this.applyPose(s, e);
     if (e.status === 'idle') this.tweens.add({ targets: s.figure, y: SIT_Y + 1, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
@@ -744,8 +779,8 @@ export class OfficeScene extends Phaser.Scene {
   private label(d: DeskObj, e: Employee): void {
     const zoom = this.view.zoom / this.z;
     const t = d.text;
-    const { text, waiting } = plateLabel(e, (s) => (t.setText(s), t.width <= plateMaxW(zoom)), zoom < PLATE_NAME_ONLY_ZOOM);
-    t.setText(text).setColor(waiting ? '#ffffff' : '#f4efe6');
-    d.bg.clear().fillStyle(waiting ? 0xd63434 : 0x14172a, waiting ? 0.92 : 0.85).fillRoundedRect(-t.width / 2, 0, t.width, PLATE_H, 2);
+    const { text, waiting, turn } = plateLabel(e, (s) => (t.setText(s), t.width <= plateMaxW(zoom)), zoom < PLATE_NAME_ONLY_ZOOM);
+    t.setText(text).setColor(waiting ? '#ffffff' : turn ? TURN.ink : '#f4efe6');
+    d.bg.clear().fillStyle(waiting ? 0xd63434 : turn ? TURN.fill : 0x14172a, waiting || turn ? 0.92 : 0.85).fillRoundedRect(-t.width / 2, 0, t.width, PLATE_H, 2);
   }
 }

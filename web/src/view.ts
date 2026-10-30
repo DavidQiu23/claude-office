@@ -53,10 +53,18 @@ export const assistantList = (list: readonly Assistant[], max = 4) => {
   };
 };
 
-export function summary(employees: Employee[]): { text: string; alert: boolean } {
+// status 'idle' 在畫面上叫「輪到你」：Claude 做完這一輪、等你下一個指示
+export function summary(employees: Employee[]): { text: string; alert: boolean; turn: boolean; title: string } {
   const n = (s: Employee['status']) => employees.filter((e) => e.status === s).length;
   const waiting = n('waiting');
-  return { text: `工作中 ${n('working')} · 等你處理 ${waiting} · 閒置 ${n('idle')}`, alert: waiting > 0 };
+  const turn = n('idle');
+  const badge = [waiting ? `!${waiting}` : '', turn ? `✓${turn}` : ''].filter(Boolean).join(' ');
+  return {
+    text: `工作中 ${n('working')} · 等你處理 ${waiting} · 輪到你 ${turn}`,
+    alert: waiting > 0,
+    turn: waiting === 0 && turn > 0,
+    title: (badge ? `(${badge}) ` : '') + 'Claude 辦公室',
+  };
 }
 
 // 到班時間 HH:mm（本地時區）
@@ -122,21 +130,22 @@ export const PLATE_NAME_ONLY_ZOOM = 0.8;
 export const plateMaxW = (zoom: number): number => (zoom >= PLATE_NAME_ONLY_ZOOM ? Math.min(170, 180 * zoom - 8) : Math.min(200, 160 * zoom));
 
 /** 一行名牌「名字 · 動作」：先從尾端截動作（至少留 4 字加「…」），再截名字；等你處理時前綴「! 」 */
-export function plateLabel(e: Employee, fits: (s: string) => boolean, nameOnly = false): { text: string; waiting: boolean } {
+export function plateLabel(e: Employee, fits: (s: string) => boolean, nameOnly = false): { text: string; waiting: boolean; turn: boolean } {
   const waiting = e.status === 'waiting';
-  const pre = waiting ? '! ' : '';
+  const turn = e.status === 'idle';
+  const pre = waiting ? '! ' : turn ? '✓ ' : '';
   const name = nameplate(e);
   const act = nameOnly ? '' : oneLine(e.activity ?? '');
   const full = pre + name + (act ? ' · ' + act : '');
-  if (fits(full)) return { text: full, waiting };
-  if (!act) return { text: pre + fitMiddle(name, (s) => fits(pre + s)), waiting };
+  if (fits(full)) return { text: full, waiting, turn };
+  if (!act) return { text: pre + fitMiddle(name, (s) => fits(pre + s)), waiting, turn };
   const chars = [...act];
   const minAct = chars.length > 4 ? chars.slice(0, 4).join('') + '…' : act;
   const cut = fitText(act, (a) => fits(pre + name + ' · ' + a));
   // fitText 找不到時回 '…'；比最小動作短就不採用，改截名字
-  if ([...cut].length >= [...minAct].length && fits(pre + name + ' · ' + cut)) return { text: pre + name + ' · ' + cut, waiting };
+  if ([...cut].length >= [...minAct].length && fits(pre + name + ' · ' + cut)) return { text: pre + name + ' · ' + cut, waiting, turn };
   const n = fitMiddle(name, (s) => fits(pre + s + ' · ' + minAct));
-  return { text: pre + n + ' · ' + minAct, waiting };
+  return { text: pre + n + ' · ' + minAct, waiting, turn };
 }
 
 // ---- 地上招牌 ----
@@ -226,10 +235,10 @@ export const seatCell = (island: Island, seat: number): { x: number; y: number }
   y: island.y + ISLAND.top + Math.floor(seat / island.cols) * ISLAND.cellH,
 });
 
-/** 該專案底下等你回覆（waiting）的人數 */
-export const waitingCount = (employees: Iterable<Employee>, key: string): number => {
+/** 該專案底下某狀態的人數（招牌圓章：waiting 紅、idle 琥珀） */
+export const statusCount = (employees: Iterable<Employee>, key: string, status: Employee['status']): number => {
   let n = 0;
-  for (const e of employees) if (roomKey(e) === key && e.status === 'waiting') n++;
+  for (const e of employees) if (roomKey(e) === key && e.status === status) n++;
   return n;
 };
 

@@ -10,6 +10,8 @@ const render = () => {
   const s = summary([...store.employees.values()]);
   el.textContent = s.text;
   el.classList.toggle('alert', s.alert);
+  el.classList.toggle('turn', s.turn);
+  document.title = s.title;
 };
 store.on(render);
 render();

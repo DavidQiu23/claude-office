@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, columnsFor, DOOR_X, entryPath, SEAT, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, plateMaxW, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
+import { appearance, assistantList, columnsFor, DOOR_X, entryPath, SEAT, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, statusCount, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, plateMaxW, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
 import type { Island } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
@@ -33,10 +33,12 @@ test('nameplate 換行壓成單行', () => {
   expect(nameplate(emp('abcd', 'idle', { title: 'a\n\n  b\r\nc ' }))).toBe('a b c');
 });
 
-test('summary 文字與 alert', () => {
+test('summary 文字、底色與分頁標題', () => {
   const s = summary([emp('a', 'working'), emp('b', 'working'), emp('c', 'idle')]);
-  expect(s).toEqual({ text: '工作中 2 · 等你處理 0 · 閒置 1', alert: false });
-  expect(summary([emp('a', 'waiting')]).alert).toBe(true);
+  expect(s).toEqual({ text: '工作中 2 · 等你處理 0 · 輪到你 1', alert: false, turn: true, title: '(✓1) Claude 辦公室' });
+  // 有等你處理時紅底優先，標題兩項都列
+  expect(summary([emp('a', 'waiting'), emp('b', 'idle'), emp('c', 'idle')])).toMatchObject({ alert: true, turn: false, title: '(!1 ✓2) Claude 辦公室' });
+  expect(summary([emp('a', 'working')])).toMatchObject({ alert: false, turn: false, title: 'Claude 辦公室' });
 });
 
 test('OfficeStore 套用 upsert 與 leave 並通知監聽者', () => {
@@ -123,10 +125,11 @@ test('projectColor：同一個 key 永遠同色', () => {
   expect(PROJECT_COLORS.length).toBe(8);
 });
 
-test('waitingCount 只算該專案 status 為 waiting 的人', () => {
-  const es = [emp('a', 'waiting'), emp('b', 'working'), emp('c', 'waiting', { cwd: '/other' }), emp('d', 'waiting')];
-  expect(waitingCount(es, '/x/proj')).toBe(2);
-  expect(waitingCount(new Map(es.map((e) => [e.sessionId, e])).values(), '/other')).toBe(1);
+test('statusCount 只算該專案指定狀態的人', () => {
+  const es = [emp('a', 'waiting'), emp('b', 'working'), emp('c', 'waiting', { cwd: '/other' }), emp('d', 'waiting'), emp('e', 'idle')];
+  expect(statusCount(es, '/x/proj', 'waiting')).toBe(2);
+  expect(statusCount(new Map(es.map((e) => [e.sessionId, e])).values(), '/other', 'waiting')).toBe(1);
+  expect(statusCount(es, '/x/proj', 'idle')).toBe(1);
 });
 
 test('seatCell 在島內，entryPath 從門口經走道到座位', () => {
@@ -219,7 +222,7 @@ test('plateMaxW', () => {
 });
 
 test('plateLabel：放得下就完整顯示', () => {
-  expect(plateLabel(plateEmp('working', '編輯 view.ts'), lim(40))).toEqual({ text: '登入流程重構 · 編輯 view.ts', waiting: false });
+  expect(plateLabel(plateEmp('working', '編輯 view.ts'), lim(40))).toEqual({ text: '登入流程重構 · 編輯 view.ts', waiting: false, turn: false });
 });
 
 test('plateLabel：等你處理加「! 」', () => {
@@ -237,8 +240,8 @@ test('plateLabel：等你處理又要截字，「! 」也算在寬度內', () =>
   expect([...p.text].length).toBeLessThanOrEqual(16);
 });
 
-test('plateLabel：沒有動作只有名字', () => {
-  expect(plateLabel(plateEmp('idle', null), lim(40)).text).toBe('登入流程重構');
+test('plateLabel：輪到你加「✓ 」，沒有動作只有名字', () => {
+  expect(plateLabel(plateEmp('idle', null), lim(40))).toEqual({ text: '✓ 登入流程重構', waiting: false, turn: true });
 });
 
 test('plateLabel：長動作先截動作，名字完整', () => {
@@ -250,8 +253,8 @@ test('plateLabel：長動作先截動作，名字完整', () => {
 });
 
 test('plateLabel：nameOnly 只顯示名字', () => {
-  expect(plateLabel(plateEmp('working', '編輯 view.ts'), lim(40), true)).toEqual({ text: '登入流程重構', waiting: false });
-  expect(plateLabel(plateEmp('waiting', '編輯 view.ts'), lim(40), true)).toEqual({ text: '! 登入流程重構', waiting: true });
+  expect(plateLabel(plateEmp('working', '編輯 view.ts'), lim(40), true)).toEqual({ text: '登入流程重構', waiting: false, turn: false });
+  expect(plateLabel(plateEmp('waiting', '編輯 view.ts'), lim(40), true)).toEqual({ text: '! 登入流程重構', waiting: true, turn: false });
 });
 
 test('plateLabel：動作至少 4 字加…，其餘截名字', () => {
