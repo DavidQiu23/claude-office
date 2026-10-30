@@ -54,13 +54,21 @@ export const assistantList = (list: readonly Assistant[], max = 4) => {
 };
 
 // status 'idle' 在畫面上叫「輪到你」：Claude 做完這一輪、等你下一個指示
-export function summary(employees: Employee[]): { text: string; alert: boolean; turn: boolean; title: string } {
+export interface SummaryItem { key: Employee['status']; sym: string; label: string; n: number }
+
+/** 狀態列：items 依緊急程度排序（等你處理 → 輪到你 → 工作中），同時是圖例與比例條的順序 */
+export function summary(employees: Employee[]): { items: SummaryItem[]; total: number; alert: boolean; turn: boolean; title: string } {
   const n = (s: Employee['status']) => employees.filter((e) => e.status === s).length;
   const waiting = n('waiting');
   const turn = n('idle');
   const badge = [waiting ? `!${waiting}` : '', turn ? `✓${turn}` : ''].filter(Boolean).join(' ');
   return {
-    text: `工作中 ${n('working')} · 等你處理 ${waiting} · 輪到你 ${turn}`,
+    items: [
+      { key: 'waiting', sym: '!', label: '等你處理', n: waiting },
+      { key: 'idle', sym: '✓', label: '輪到你', n: turn },
+      { key: 'working', sym: '●', label: '工作中', n: n('working') },
+    ],
+    total: employees.length,
     alert: waiting > 0,
     turn: waiting === 0 && turn > 0,
     title: (badge ? `(${badge}) ` : '') + 'Claude 辦公室',

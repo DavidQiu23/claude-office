@@ -33,9 +33,11 @@ test('nameplate 換行壓成單行', () => {
   expect(nameplate(emp('abcd', 'idle', { title: 'a\n\n  b\r\nc ' }))).toBe('a b c');
 });
 
-test('summary 文字、底色與分頁標題', () => {
+test('summary 人數、底色與分頁標題', () => {
   const s = summary([emp('a', 'working'), emp('b', 'working'), emp('c', 'idle')]);
-  expect(s).toEqual({ text: '工作中 2 · 等你處理 0 · 輪到你 1', alert: false, turn: true, title: '(✓1) Claude 辦公室' });
+  expect(s).toMatchObject({ total: 3, alert: false, turn: true, title: '(✓1) Claude 辦公室' });
+  // 依緊急程度排序：等你處理 → 輪到你 → 工作中
+  expect(s.items.map((i) => [i.key, i.n])).toEqual([['waiting', 0], ['idle', 1], ['working', 2]]);
   // 有等你處理時紅底優先，標題兩項都列
   expect(summary([emp('a', 'waiting'), emp('b', 'idle'), emp('c', 'idle')])).toMatchObject({ alert: true, turn: false, title: '(!1 ✓2) Claude 辦公室' });
   expect(summary([emp('a', 'working')])).toMatchObject({ alert: false, turn: false, title: 'Claude 辦公室' });
