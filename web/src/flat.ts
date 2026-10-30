@@ -150,46 +150,51 @@ export const baseCols = (b: string): [string, string, string] => [lighter(b, 0.1
 const faceY = (x0: number, x1: number, y: number, z0: number, z1: number, col: string): Shape => p(quad([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]]), col);
 const flatZ = (x0: number, y0: number, x1: number, y1: number, z: number, col: string): Shape => p(quad([[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]]), col);
 
-/** 等角椅（斜桌規格 §2），原點是座位格左上角 toScreen(cell.x, cell.y)；椅背中心 (34, 32) 在人的視線 fx = fy 附近。 */
+/** 等角椅（現代桌規格 §2），原點是座位格左上角 toScreen(cell.x, cell.y)；對齊桌子長邊中點 fx 62，人坐在 (62, 40)。 */
 export function isoChair(): FlatSprite {
   const out: Shape[] = [
-    ...isoBox(32, 32, 52, 52, 0, 3, '#3f4670', '#2a3150', '#20253f'),
-    ...isoBox(40, 40, 44, 44, 3, 14, '#2a3150', '#2a3150', '#20253f'),
-    ...isoBox(20, 30, 48, 34, 19, 50, '#56649a', '#3b4770', '#2f3a5e'),
-    faceY(20, 48, 34, 46, 50, '#4a5788'), // 椅背上緣亮邊
-    ...isoBox(32, 34, 54, 52, 14, 19, '#56649a', '#3b4770', '#2f3a5e'),
+    ...isoBox(52, 24, 72, 44, 0, 3, '#3f4670', '#2a3150', '#20253f'),
+    ...isoBox(60, 32, 64, 36, 3, 14, '#2a3150', '#2a3150', '#20253f'),
+    ...isoBox(48, 22, 76, 26, 19, 42, '#56649a', '#3b4770', '#2f3a5e'),
+    faceY(48, 76, 26, 38, 42, '#4a5788'), // 椅背上緣亮邊
+    ...isoBox(51, 26, 73, 44, 14, 19, '#56649a', '#3b4770', '#2f3a5e'),
   ];
   const x = extent({ w: 0, h: 0, shapes: out });
-  return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out, clay: 'box', shadow: { fx: 42, fy: 42, r: 15 } };
+  return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out, clay: 'box', shadow: { fx: 62, fy: 34, r: 15 } };
 }
 
-/** 等角桌（斜桌規格 §2），原點同 isoChair；長邊沿 fx、正面朝 +fy，桌面中心 (62, 62) 在人的視線上。 */
+// 現代桌配色：淺橡木桌面、霧黑金屬框、銀色螢幕支架、白色配件
+const DESK_TOP = '#e6c9a0';
+const METAL: [string, string, string] = ['#2e3242', '#262a38', '#1c1f2b'];
+const SILVER: [string, string, string] = ['#d4d9e4', '#b8bfcf', '#9aa2b6'];
+const WHITE: [string, string, string] = ['#f6f7fb', '#e3e6ee', '#c8cdda'];
+
+/** 現代電腦桌（現代桌規格 §3），原點同 isoChair；薄桌面 fx 38–86、fy 52–72、z 22–24，螢幕與鍵盤在長邊中點 fx 62。 */
 export function isoDesk(state: DeskState): FlatSprite {
   const led = LED[state];
-  const top = state === 'waiting' ? '#e98d63' : '#e0a96d';
+  const top = state === 'waiting' ? mix(DESK_TOP, '#ff4d4d', 0.3) : DESK_TOP;
   const out: Shape[] = [];
-  if (state === 'waiting') { const g = toScreen(68, 74); out.push(e(g.x, g.y, 22 * Math.SQRT2, 22 / Math.SQRT2, '#ff4d4d', 0.22)); }
+  if (state === 'waiting') { const g = toScreen(64, 74); out.push(e(g.x, g.y, 22 * Math.SQRT2, 22 / Math.SQRT2, '#ff4d4d', 0.22)); }
+  for (const lx of [40, 82]) { // 兩端的雪橇腳：底桿＋兩支立柱
+    out.push(...isoBox(lx, 53, lx + 2, 71, 0, 2, ...METAL), ...isoBox(lx, 54, lx + 2, 56, 2, 22, ...METAL), ...isoBox(lx, 68, lx + 2, 70, 2, 22, ...METAL));
+  }
   out.push(
-    ...isoBox(42, 54, 70, 56, 3, 12, '#a1673a', '#a1673a', '#8a5a34'), // 擋板
-    ...isoBox(39, 53, 42, 56, 0, 12, '#8a5a34', '#8a5a34', '#6e4628'), ...isoBox(39, 68, 42, 71, 0, 12, '#8a5a34', '#8a5a34', '#6e4628'),
-    ...isoBox(70, 53, 85, 71, 0, 12, '#b87a45', '#a1673a', '#8a5a34'),
-    faceY(72, 83, 71, 8, 9.5, '#e0a96d'), faceY(72, 83, 71, 3, 4.5, '#e0a96d'), // 抽屜把手
-    ...isoBox(38, 52, 86, 72, 12, 16, top, '#b87a45', '#a1673a'),
-    flatZ(38, 52, 86, 54, 16.1, lighter(top, 0.3)), // 桌面後緣亮邊
-    ...isoBox(46, 53, 62, 57, 16, 17.5, '#c8cde0', '#a7aec8', '#8a91ab'), // 鍵盤
-    ...isoBox(64, 54, 67, 57, 16, 17.5, '#c8cde0', '#a7aec8', '#8a91ab'), // 滑鼠
-    ...isoBox(74, 56, 80, 62, 16, 25, '#6f4e37', '#ffffff', '#e6e1d8'), ...isoBox(80, 58, 82, 60, 19, 23, '#ffffff', '#ffffff', '#e6e1d8'), // 馬克杯與杯耳
-    ...isoBox(57, 61, 65, 65, 16, 17.5, '#3a3f52', '#2c3042', '#23263a'), ...isoBox(60, 61.5, 62, 63, 17.5, 19.5, '#2c3042', '#2c3042', '#23263a'),
-    ...isoBox(52, 60, 70, 62, 19, 33, '#4a5068', '#3a3f52', '#2c3042'), // 螢幕（左面是背面，朝觀看者）
-    faceY(55, 67, 62, 29, 30.5, '#5b6179'), // 散熱條
-    flatZ(40, 62, 52, 70, 16.2, '#f4efe6'), flatZ(42, 64, 50, 65, 16.2, '#a7a3b3'), flatZ(42, 67, 48, 68, 16.2, '#a7a3b3'), // 紙與字條
-    flatZ(78, 64, 83, 69, 16.2, '#ffd166'), // 便利貼
+    ...isoBox(42, 54, 82, 55.5, 19, 22, ...METAL), // 後側橫樑
+    ...isoBox(38, 52, 86, 72, 22, 24, top, '#c9a77a', '#b08f66'), // 薄桌面
+    flatZ(38, 52, 86, 53.5, 24.1, lighter(top, 0.3)), // 桌面後緣亮邊
+    ...isoBox(40, 54, 49, 61, 24, 25, '#4a90d9', '#3b7cc0', '#2f68a6'), // 筆記本
+    ...isoBox(52, 53, 72, 57.5, 24, 25, ...WHITE), // 薄鍵盤（人與螢幕之間，置中）
+    ...isoBox(75, 54, 78, 57, 24, 25.2, ...WHITE), // 滑鼠
+    ...isoBox(78, 58, 83, 63, 24, 31, '#5a3d2e', WHITE[1], WHITE[2]), ...isoBox(83, 59.5, 84.5, 61.5, 26, 29, ...WHITE), // 白杯與杯耳
+    ...isoBox(57, 58, 67, 64, 24, 25, ...SILVER), ...isoBox(61, 61.5, 63, 63, 25, 36, ...SILVER), // 螢幕支架底座與立柱
+    ...isoBox(49, 60, 75, 61.5, 30, 48, '#454b63', '#30354a', '#242838'), // 細邊框螢幕（左面是背面，朝觀看者）
   );
-  const l = toScreen(61, 62, 26);
+  const l = toScreen(62, 61.5, 39);
   if (state !== 'empty') out.push(c(l.x, l.y, state === 'waiting' ? 6 : 4.5, led, 0.25));
   out.push(c(l.x, l.y, 1.8, led));
+  out.push(...isoBox(40, 63, 46, 69, 24, 30, ...WHITE), ...isoBox(41, 64, 45, 68, 30, 36, '#5cc487', '#4fb477', '#3f9a5b')); // 小盆栽
   if (state === 'idle') {
-    const m = toScreen(77, 59, 27);
+    const m = toScreen(80.5, 60.5, 33);
     out.push(e(m.x - 1, m.y - 2, 1.5, 2.8, '#ffffff', 0.7), e(m.x + 2, m.y - 7, 1.3, 2.4, '#ffffff', 0.5));
   }
   const x = extent({ w: 0, h: 0, shapes: out });

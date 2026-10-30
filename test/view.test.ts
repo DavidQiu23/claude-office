@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, columnsFor, DOOR_X, entryPath, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, plateMaxW, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
+import { appearance, assistantList, columnsFor, DOOR_X, entryPath, SEAT, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, waitingCount, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, plateMaxW, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
 import type { Island } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import { truncate } from '../src/state/describe.js';
@@ -144,8 +144,8 @@ test('seatCell 在島內，entryPath 從門口經走道到座位', () => {
   expect(p[1].x).toBe(p[2].x);
   expect(p[2].x).toBeLessThan(c.x + 12);
   expect(p[2].x).toBeGreaterThanOrEqual(i.x);
-  expect(p[2].y).toBe(c.y + 48);
-  expect(p[3]).toEqual({ x: c.x + 48, y: c.y + 48 });
+  expect(p[2].y).toBe(c.y + SEAT.y);
+  expect(p[3]).toEqual({ x: c.x + SEAT.x, y: c.y + SEAT.y });
 });
 
 test('layoutSig：島的位置或大小改變時簽名不同', () => {

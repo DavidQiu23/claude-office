@@ -236,12 +236,15 @@ export const waitingCount = (employees: Iterable<Employee>, key: string): number
 /** 後牆左上角的門：員工從這裡進出（人物中心 x） */
 export const DOOR_X = 40;
 
+/** 座位點（人坐下時腳下的地板點，格內座標）：桌子長邊中點 fx 62 的正後方 */
+export const SEAT = { x: 62, y: 40 };
+
 /** 員工地板點（腳下）的上班路線：門口 → 島上緣外的走道 → 沿該欄左側兩欄桌子之間的空隙往下 → 橫向走進座位（下班走反向） */
 export const entryPath = (island: Island, seat: number): { x: number; y: number }[] => {
   const c = seatCell(island, seat);
   const py = island.y - 16 - 28;
-  const sy = c.y + 48;
-  return [{ x: DOOR_X, y: py }, { x: c.x, y: py }, { x: c.x, y: sy }, { x: c.x + 48, y: sy }];
+  const sy = c.y + SEAT.y;
+  return [{ x: DOOR_X, y: py }, { x: c.x, y: py }, { x: c.x, y: sy }, { x: c.x + SEAT.x, y: sy }];
 };
 
 /** 版面是否需要重畫（島的位置、大小、桌數有變才重畫） */

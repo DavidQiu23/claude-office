@@ -4,17 +4,17 @@ import { addSprite, bakeSprite, bakeTextures, CHAIR_KEY, deskKey, drawShapes, en
 import { drawClay } from './clay.js';
 import { character, FLOOR, isoRoom, mix, quad, type Shape } from './flat.js';
 import { planWall } from './furniture.js';
-import { chairDepth, deskDepth, fitCamera, personDepth, plateAt, roomBox, roomSize, toScreen } from './iso.js';
+import { chairDepth, deskDepth, focusCamera, islandsBox, personDepth, plateAt, roomBox, roomSize, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
   appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, PLATE_NAME_ONLY_ZOOM, projectColor,
-  roomKey, seatCell, signFit, signMaxW, waitingCount, BASE_H, BASE_W, DOOR_X, type Island, type Layout,
+  roomKey, seatCell, signFit, signMaxW, waitingCount, BASE_H, BASE_W, DOOR_X, SEAT, type Island, type Layout,
 } from './view.js';
 
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
-const MAX_ZOOM = 2; // 鏡頭放大上限（最小房間 1006×420 約 0.83 倍，實際不會碰到）
+const MAX_ZOOM = 2; // 鏡頭放大上限（人少時對準島放大，最多 2 倍）
 
 type Pt = { x: number; y: number };
 
@@ -22,14 +22,14 @@ const FAILED_SIG = '\u0000failed'; // 不會等於任何版面簽名：強制下
 // 地上招牌：色帶在島前緣外 20–44 的地板上（避開前排名牌）；等待人數圓章直立在色帶尾端外側
 const SIGN = { gap: 20, h: 24, r: 6, pad: 9, badge: 0xff4d4d, badgeR: 9 };
 
-// 一格（seatCell 左上角）裡各物件的相對位置
-const PERSON = { x: 48, y: 48 }; // 員工座位（人物所在的地板點）
+// 一格（seatCell 左上角）裡各物件的相對位置：座位點見 view.ts 的 SEAT
 const PLATE_H = 15; // 名牌螢幕高度（字 11px）
 const PLATE_DEPTH = 1000; // 名牌永遠在人與桌之上
 // 角色素材 (0,0) 相對地板點（縮放前）：素材 40×56，底部中心（腳底陰影）對到地板點
 const CHAR = { x: -20, y: -54 };
-const CHAR_SCALE = 1.2; // 套在 figure 容器上
-const RAISE_Y = -6; // 舉手時身體上移
+const CHAR_SCALE = 1; // 套在 figure 容器上
+const SIT_Y = -6; // 坐著時身體上移，臀部落在椅墊上（走路時 0）
+const RAISE_Y = -6; // 舉手時再上移
 
 const hexNum = (h: string): number => parseInt(h.slice(1), 16) || 0;
 
@@ -305,7 +305,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private homeOf(e: Employee): Pt {
     const c = this.cellOf(e);
-    return { x: c.x + PERSON.x, y: c.y + PERSON.y };
+    return { x: c.x + SEAT.x, y: c.y + SEAT.y };
   }
 
   /** 上班路線：最左緣 → 島上方走道 → 座位（找不到島時直接到座位） */
@@ -385,10 +385,10 @@ export class OfficeScene extends Phaser.Scene {
     return o;
   }
 
-  /** 鏡頭縮放並框住整個房間；畫布大小固定。第一次直接設定，之後倍率或中心有變就 300ms 平移縮放 */
+  /** 鏡頭對準有人的島（人少放大、人多拉遠，不露出房間外；沒人時框整個房間）；畫布大小固定。第一次直接設定，之後倍率或中心有變就 300ms 平移縮放 */
   private fitView(): void {
     const { w, h } = roomSize(this.lay.islands);
-    const { zoom, cx, cy } = fitCamera(roomBox(w, h), BASE_W, BASE_H, MAX_ZOOM);
+    const { zoom, cx, cy } = focusCamera(islandsBox(this.lay.islands), roomBox(w, h), BASE_W, BASE_H, MAX_ZOOM);
     const mid = toScreen(w / 2, h / 2 + 40);
     this.emptyText.setPosition(mid.x, mid.y);
     const cam = this.cameras.main;
@@ -723,10 +723,9 @@ export class OfficeScene extends Phaser.Scene {
     if (s.shown === e.status) return; // 只有狀態改變才重設動作，重複 upsert 不會疊加 tween
     s.shown = e.status;
     this.tweens.killTweensOf(s.figure);
-    s.figure.y = 0;
+    s.figure.y = SIT_Y + (e.status === 'waiting' ? RAISE_Y : 0);
     this.applyPose(s, e);
-    if (e.status === 'idle') this.tweens.add({ targets: s.figure, y: 1, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    if (e.status === 'waiting') s.figure.y = RAISE_Y;
+    if (e.status === 'idle') this.tweens.add({ targets: s.figure, y: SIT_Y + 1, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
   /** e 有值：畫出該員工的桌子；e 為 undefined：把 at 那一桌清成空桌 */
