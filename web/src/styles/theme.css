@@ -77,12 +77,12 @@
 
 /* 共用線條 class：紙張風墨線、漫畫風輪廓與細節、網點填色 */
 .ink,
-.fig,
-.fig-thin {
+.mk,
+.mk-thin {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .ink { stroke: var(--ink); stroke-width: 1.6; }
-.fig { stroke: var(--fig-ink); stroke-width: 1.5; }
-.fig-thin { stroke: var(--fig-ink); stroke-width: 1.1; }
+.mk { stroke: var(--fig-ink); stroke-width: 1.5; }
+.mk-thin { stroke: var(--fig-ink); stroke-width: 1.1; }
 .tone { fill: url(#tone); }

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, PROJECT_COLORS, projectColor, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
+import { appearance, assistantList, HAIR_COLORS, PROJECT_COLORS, projectColor, formatTime, nameplate, SHIRT_COLORS, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
@@ -10,9 +10,20 @@ const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Empl
 
 test('appearance 對同一個 sessionId 永遠相同', () => {
   expect(appearance('abc')).toEqual(appearance('abc'));
-  const a = appearance('abc');
-  expect(a.hair).toBeLessThan(PALETTE.length);
-  expect(a.shirt).toBeLessThan(PALETTE.length);
+  for (const id of ['abc', 'sim-a', 'sim-b', 'x', '']) {
+    const a = appearance(id);
+    expect(a.hair).toBeLessThan(8);
+    expect(a.shirt).toBeLessThan(8);
+    expect(a.style).toBeLessThan(6);
+    expect(a.outfit).toBeLessThan(3);
+  }
+});
+
+test('衣服色與髮色各 8 種', () => {
+  for (const list of [SHIRT_COLORS, HAIR_COLORS]) {
+    expect(list.length).toBe(8);
+    for (const c of list) expect(c).toMatch(/^#[0-9a-f]{6}$/);
+  }
 });
 
 test('nameplate 優先順序：標題 > 第一個 prompt > 最近的 prompt', () => {

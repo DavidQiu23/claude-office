@@ -59,7 +59,7 @@
   /** 有覆寫就固定；否則立刻 apply 一次，之後每 THEME_CHECK_MS 檢查，有變才再 apply。回傳停止函式 */
   export function startTheme(apply: (t: TimeOfDay) => void, now?: () => Date, search?: string): () => void;
   ```
-  CSS 變數（`theme.css`）：spec「主題變數」表的全部變數，`:root[data-time="day"]` 與 `:root[data-time="night"]` 各一組；另加 `--day`（白天 1、夜晚 0）與 `--night`（白天 0、夜晚 1）。三種狀態色與螢幕光也在這裡。共用 class：`.ink`（`stroke: var(--ink); stroke-width: 1.6`）、`.fig`（`stroke: var(--fig-ink); stroke-width: 1.5`）、`.fig-thin`（1.1）、`.tone`（`fill: url(#tone)`），全部 `stroke-linecap/linejoin: round`。
+  CSS 變數（`theme.css`）：spec「主題變數」表的全部變數，`:root[data-time="day"]` 與 `:root[data-time="night"]` 各一組；另加 `--day`（白天 1、夜晚 0）與 `--night`（白天 0、夜晚 1）。三種狀態色與螢幕光也在這裡。共用 class：`.ink`（`stroke: var(--ink); stroke-width: 1.6`）、`.mk`（`stroke: var(--fig-ink); stroke-width: 1.5`）、`.mk-thin`（1.1）、`.tone`（`fill: url(#tone)`），全部 `stroke-linecap/linejoin: round`。
 
 - [ ] **Step 1: 寫失敗測試** `test/theme.test.ts`：
   - `timeOfDay`：`new Date(2026, 10, 1, 5, 59)` → `night`、`6:00` → `day`、`17:59` → `day`、`18:00` → `night`、`0:00` → `night`。
@@ -98,7 +98,7 @@
   export function figureSvg(look: Look): string;  // <svg class="figure" viewBox="0 0 60 84" overflow="visible">…
   export function avatarSvg(look: Look): string;  // 資訊卡頭像：頭與肩膀、睜眼，viewBox 只框頭肩
   ```
-  `figureSvg` 的群組（class）：`chair`、`fig`（底下 `leg-l`、`leg-r`、`hair-back`、`arm-l`、`body`、`arm-r`、`head`）、`fx-work`、`fx-wait`、`fx-turn`。`head` 裡三種表情各一個群組：`face-work`、`face-wait`、`face-turn`（由 CSS 依 `data-act` 顯示一個）。座標、髮型 6 種、衣服 3 種、眼鏡、網點位置、漫符內容照 spec「人物」；示意圖的 `seat()` 是可參考的寫法。衣服色 `SHIRT_COLORS[look.shirt]`、髮色 `HAIR_COLORS[look.hair]` 直接寫在 `style` 裡；墨線用 class `fig`／`fig-thin`，網點用 class `tone`，膚色 `style="fill:var(--skin)"`，漫符顏色 `var(--fx)`。
+  `figureSvg` 的群組（class）：`chair`、`fig`（底下 `leg-l`、`leg-r`、`hair-back`、`arm-l`、`body`、`arm-r`、`head`）、`fx-work`、`fx-wait`、`fx-turn`。`head` 裡三種表情各一個群組：`face-work`、`face-wait`、`face-turn`（由 CSS 依 `data-act` 顯示一個）。座標、髮型 6 種、衣服 3 種、眼鏡、網點位置、漫符內容照 spec「人物」；示意圖的 `seat()` 是可參考的寫法。衣服色 `SHIRT_COLORS[look.shirt]`、髮色 `HAIR_COLORS[look.hair]` 直接寫在 `style` 裡；墨線用 class `mk`／`mk-thin`，網點用 class `tone`，膚色 `style="fill:var(--skin)"`，漫符顏色 `var(--fx)`。
 
 - [ ] **Step 1: 寫失敗測試** `test/figure.test.ts`：
   - `test('所有外觀組合都畫得出來')`：`style` 0–5 × `outfit` 0–2 × `glasses` 兩種 × `hair`、`shirt` 取 0 與 7，`figureSvg` 含 `viewBox="0 0 60 84"`。
@@ -143,7 +143,7 @@
   - `test('顏色不寫在屬性上')`：`defsSvg()` 不符合 `/\s(fill|stroke)="(?!none")/`。
   - `test('日夜群組用變數控制')`：`window` 的 symbol 同時含 `opacity:var(--day)` 與 `opacity:var(--night)`；`desk-empty` 不含 `var(--night)`，其他三種桌子含。
 - [ ] **Step 2: 執行** `npx vitest run test/objects.test.ts`，預期 FAIL。
-- [ ] **Step 3: 實作 `objects.ts`**：畫法照 spec「物件」與示意圖（`furnish()`、`seat()` 的桌子部分），漫畫墨線用 class `fig`／`fig-thin`、暗面 class `tone`；木頭、桌面、螢幕等主題色用 `style="fill:var(--desk)"` 這類寫法；物件自己的固定色（販賣機紅、書背、盆栽綠）直接寫在 `style`。
+- [ ] **Step 3: 實作 `objects.ts`**：畫法照 spec「物件」與示意圖（`furnish()`、`seat()` 的桌子部分），漫畫墨線用 class `mk`／`mk-thin`、暗面 class `tone`；木頭、桌面、螢幕等主題色用 `style="fill:var(--desk)"` 這類寫法；物件自己的固定色（販賣機紅、書背、盆栽綠）直接寫在 `style`。
 - [ ] **Step 4: 執行** `npx vitest run` 全綠、`npm run build` 成功。
 - [ ] **Step 5: Commit** `feat: 漫畫物件的 SVG symbol 與物件表`
 
@@ -200,7 +200,7 @@
     placeAt(x: number): void; walkTo(x: number, done?: () => void, standMs?: number): void; destroy(): void;
   }
   ```
-  `person.ts` 拿掉 `TYPE_MS`、`WALK_MS`、`loop`、`pose`、`timer`、`drawBubble`、`bubbleCanvas`、`BUBBLE`、`TURN`、`charImg`／`placeImg`；`.fig` 子元素（`div`）換成 `innerHTML = figureSvg(look)` 的 SVG。走路、`walkTo`、`placeAt`、計時器邏輯不動。`building.ts` 建立助理的 `Person` 時加 `p.el.dataset.kind = 'assistant'`。
+  `person.ts` 拿掉 `TYPE_MS`、`WALK_MS`、`loop`、`pose`、`timer`、`drawBubble`、`bubbleCanvas`、`BUBBLE`、`TURN`、`charImg`／`placeImg`；原本的 `.fig` 包裝 `div` 拿掉，`.person` 直接放 `innerHTML = figureSvg(look)` 的 SVG（否則 `.person .fig` 會同時選到包裝 div 與 SVG 裡的 `<g class="fig">`，位移變兩倍）。走路、`walkTo`、`placeAt`、計時器邏輯不動。`building.ts` 建立助理的 `Person` 時加 `p.el.dataset.kind = 'assistant'`。
 
 - [ ] **Step 1: 實作 `person.ts` 與 `building.ts` 的改動**。
 - [ ] **Step 2: 寫 `figure.css`**（取代 Task 1 搬來的舊 `.person` 規則；`.person` 的位置與大小不變）：

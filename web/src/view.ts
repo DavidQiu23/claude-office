@@ -2,6 +2,10 @@ import type { Assistant, Employee } from '../../src/state/types.js';
 
 export const PALETTE = [0xd9534f, 0xe98f3f, 0xe6c34a, 0x4fb477, 0x38a8a0, 0x4a90d9, 0x8e6fc9, 0xd9669a];
 
+/** 漫畫人物的衣服色與髮色（日夜相同），各 8 種 */
+export const SHIRT_COLORS: string[] = ['#c9d8e8', '#f1d0c4', '#d8e4cf', '#e8dcc0', '#d9c9e6', '#f3c9d2', '#bfe0dc', '#e9c9a8'];
+export const HAIR_COLORS: string[] = ['#2a2a2a', '#5a4030', '#3a3a4a', '#8a6a4a', '#a0522d', '#c99a4a', '#8d8a86', '#4a3560'];
+
 const hash = (s: string): number => {
   let h = 0;
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -11,7 +15,7 @@ const hash = (s: string): number => {
   return (h ^ (h >>> 15)) >>> 0;
 };
 
-/** 角色外觀（皆由 sessionId 雜湊決定）：hair/shirt 為 PALETTE 索引，style 為髮型 0–5，outfit 為衣服款式 0–2 */
+/** 角色外觀（皆由 sessionId 雜湊決定）：hair/shirt 為 HAIR_COLORS/SHIRT_COLORS 索引（0–7），style 為髮型 0–5，outfit 為衣服款式 0–2 */
 export interface Look { hair: number; shirt: number; style: number; outfit: number; glasses: boolean }
 
 export const HAIR_STYLES = 6;
@@ -19,7 +23,7 @@ export const OUTFIT_COUNT = 3;
 
 export const appearance = (sessionId: string): Look => {
   const h = hash(sessionId);
-  const n = PALETTE.length;
+  const n = SHIRT_COLORS.length;
   return {
     hair: h % n,
     shirt: Math.floor(h / n) % n,
