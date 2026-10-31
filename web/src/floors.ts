@@ -120,3 +120,12 @@ export function edgeHints(f: Floor, view: { left: number; right: number }): { le
     right: side(emps.filter((i) => seatCenter(i) > view.right), (xs) => Math.min(...xs)),
   };
 }
+
+/** 電梯面板的框：看得到的樓層按鈕（flags 依面板上到下）從第一顆到最後一顆；一顆都沒有回 null */
+export function visibleSpan(flags: readonly boolean[]): { from: number; to: number } | null {
+  const from = flags.indexOf(true);
+  return from < 0 ? null : { from, to: flags.lastIndexOf(true) };
+}
+
+/** 頁面是否已在最底（含完全沒有捲軸）：加蓋樓層時要維持貼底，不是貼著某一層 */
+export const atBottom = (scrollY: number, scrollHeight: number, viewH: number): boolean => scrollY >= scrollHeight - viewH - 1;

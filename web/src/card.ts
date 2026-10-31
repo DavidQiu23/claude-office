@@ -47,7 +47,7 @@ export class InfoCard {
 
   constructor() {
     this.box.style.cssText =
-      'position:fixed;display:none;z-index:10;width:300px;box-sizing:border-box;background:#1e2542;color:#eef0ff;border:1px solid #3a4470;' +
+      'position:fixed;display:none;z-index:30;width:300px;box-sizing:border-box;background:#1e2542;color:#eef0ff;border:1px solid #3a4470;' +
       'border-radius:16px;box-shadow:0 12px 28px #0008;overflow:hidden;font:13px/1.5 system-ui,"Microsoft JhengHei",sans-serif';
     this.box.onmouseenter = () => clearTimeout(this.hideTimer);
     this.box.onmouseleave = () => this.scheduleHide();

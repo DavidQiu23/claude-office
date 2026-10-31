@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { assignAssistantSeats, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter } from '../web/src/floors.js';
+import { assignAssistantSeats, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter, visibleSpan, atBottom } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -172,4 +172,20 @@ test('edgeHints：同側多位時 waiting 計人數，target 取離可見範圍�
   expect(edgeHints(f, view)).toEqual({ left: { status: 'waiting', count: 2, target: 2 }, right: { status: 'idle', count: 1, target: 6 } });
   // 全看得到 → 都是 null
   expect(edgeHints(f, { left: 0, right: 99999 })).toEqual({ left: null, right: null });
+});
+
+test('visibleSpan：框住第一顆到最後一顆看得到的按鈕，都看不到是 null', () => {
+  expect(visibleSpan([])).toBeNull();
+  expect(visibleSpan([false, false])).toBeNull();
+  expect(visibleSpan([false, true, true, false])).toEqual({ from: 1, to: 2 });
+  expect(visibleSpan([true, false, false])).toEqual({ from: 0, to: 0 });
+  expect(visibleSpan([false, false, true])).toEqual({ from: 2, to: 2 });
+});
+
+test('atBottom：沒有捲軸或捲到底（容許 1px）算在最底', () => {
+  expect(atBottom(0, 700, 700)).toBe(true); // 沒有捲軸
+  expect(atBottom(0, 1500, 700)).toBe(false); // 在最上
+  expect(atBottom(800, 1500, 700)).toBe(true);
+  expect(atBottom(799.5, 1500, 700)).toBe(true); // 小數捲動位置
+  expect(atBottom(500, 1500, 700)).toBe(false);
 });

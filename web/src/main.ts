@@ -1,4 +1,5 @@
 import { Building } from './building.js';
+import { ElevatorPanel } from './elevator.js';
 import { connect, OfficeStore } from './sync.js';
 import { summary } from './view.js';
 
@@ -18,6 +19,6 @@ const render = () => {
 store.on(render);
 render();
 
-new Building(document.getElementById('building')!, store);
+new Building(document.getElementById('building')!, store, new ElevatorPanel(document.getElementById('elevator')!));
 
 connect(store);

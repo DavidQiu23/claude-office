@@ -6,9 +6,12 @@
   <link rel="icon" href="data:,">
   <title>Claude 辦公室</title>
   <style>
-    html, body { margin: 0; min-height: 100%; background: #1a1726; color: #eee; font-family: system-ui, "Microsoft JhengHei", sans-serif; }
+    html { background: #1a1726; }
+    /* body 是直向 flex：狀態列取自己的高度，大樓 flex:1 補滿剩下的視窗高（不必量狀態列） */
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #1a1726; color: #eee; font-family: system-ui, "Microsoft JhengHei", sans-serif; }
     /* 狀態列：圖例＋比例條，外框跟著最緊急的狀態變色；配色與場景名牌一致 */
-    #summary { margin: 12px 16px 10px 56px; padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 6px;
+    #top { position: sticky; top: 0; z-index: 20; padding: 12px 16px 10px 56px; background: #1a1726; }
+    #summary { padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 6px;
       background: #2b2840; border: 2px solid #8a7fc4; border-radius: 4px; box-shadow: 3px 3px 0 #0007; }
     #summary.turn { border-color: #f2b83d; }
     #summary.alert { background: #3a2233; border-color: #ff6b6b; }
@@ -28,7 +31,7 @@
     #summary .bar span { border-radius: 1px; }
     [hidden] { display: none !important; }
     /* 剖面大樓：上方夜空、樓層（最高樓在上）、下方地面；樓層左邊留 56 給電梯面板、右邊距 16 */
-    #building { display: flex; flex-direction: column; min-height: calc(100vh - 90px); }
+    #building { flex: 1 0 auto; display: flex; flex-direction: column; overflow-anchor: none; } /* 錨定由 building.ts 自己做（瀏覽器在 scrollY 0 不錨定） */
     #building .sky { flex: 1 0 48px; background-color: #120f22;
       background-image: radial-gradient(1px 1px at 18px 22px, #fff9, transparent), radial-gradient(1px 1px at 77px 61px, #fff6, transparent),
         radial-gradient(1.5px 1.5px at 131px 14px, #fffa, transparent), linear-gradient(#0b0a16, #1a1730);
@@ -68,13 +71,24 @@
     .plate.idle > span { background: #f2b83d; border-color: #c9952c; color: #2b1d00; }
     .plate.assistant > span, .plate.done > span { background: #cfe0f7; border-color: #a9c1e4; color: #1f3550; }
     .plate.done > span { opacity: .75; }
+    /* 電梯面板：固定在視窗左側垂直置中，寬 40，疊在狀態列之上（狀態列左邊 56 是空的）、資訊卡之下；樓層多到放不下時自己上下捲。按鈕直徑 28、間距 6；框上下各比按鈕多 3 */
+    #elevator { position: fixed; left: 8px; top: 50%; transform: translateY(-50%); z-index: 25; width: 40px; box-sizing: border-box; max-height: calc(100vh - 24px);
+      overflow-y: auto; scrollbar-width: none; background: #14121fd9; border: 1px solid #3a3850; border-radius: 20px; box-shadow: 0 2px 8px #0008; }
+    .elev-in { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 5px; }
+    .elev-in button { flex: none; width: 28px; height: 28px; padding: 0; border: 2px solid #3a3850; border-radius: 50%; background: #25223a; color: #8f8bb0;
+      font: bold 12px/1 system-ui, "Microsoft JhengHei", sans-serif; cursor: pointer; }
+    .elev-in button:hover { border-color: #8a7fc4; color: #eee; }
+    .elev-in button.waiting { background: #d63434; border-color: #ff8a8a; color: #fff; box-shadow: 0 0 8px #d63434; }
+    .elev-in button.idle { background: #f2b83d; border-color: #ffd97a; color: #2b1d00; box-shadow: 0 0 8px #f2b83d99; }
+    .elev-frame { position: absolute; left: 1px; right: 1px; box-sizing: border-box; border: 2px solid #ffffffaa; border-radius: 17px; background: #ffffff1f; pointer-events: none; }
     /* 沒有人上班：空大廳 */
     .lobby-msg { left: 80px; right: 0; top: 52px; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #aab0d0; font-size: 13px; text-align: center; }
     .lobby-msg b { font-size: 16px; color: #d4d8f0; }
   </style>
 </head>
 <body>
-  <div id="summary"></div>
+  <header id="top"><div id="summary"></div></header>
+  <nav id="elevator" aria-label="電梯"></nav>
   <div id="building"></div>
   <script type="module" src="./src/main.ts"></script>
 </body>

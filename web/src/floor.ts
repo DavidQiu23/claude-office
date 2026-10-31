@@ -16,7 +16,7 @@ export const occKey = (o: Occupant): string => (o.kind === 'employee' ? o.emp.se
 
 interface DeskEl { el: HTMLElement; img: HTMLImageElement; plate: HTMLElement; text: HTMLElement }
 
-const div = (cls: string): HTMLDivElement => {
+export const div = (cls: string): HTMLDivElement => {
   const n = document.createElement('div');
   n.className = cls;
   return n;

@@ -1,19 +1,14 @@
 // 整棟大樓：夜空、樓層（最高樓在上、1F 在下）、地面；沒人時是空大廳。store 每個事件都重算 floorPlan，差異套到既有的樓層與人物
 import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
-import { FloorView, lobby } from './floor.js';
-import { floorPlan, GEO, seatCenter, type Floor } from './floors.js';
+import type { ElevatorPanel } from './elevator.js';
+import { div, FloorView, lobby } from './floor.js';
+import { atBottom, floorAlert, floorPlan, GEO, seatCenter, type Floor } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
 import { appearance } from './view.js';
 
 const ACT: Record<Employee['status'], Act> = { working: 'work', waiting: 'up', idle: 'idle' };
-
-const div = (cls: string): HTMLDivElement => {
-  const n = document.createElement('div');
-  n.className = cls;
-  return n;
-};
 
 export class Building {
   private stack = div('floors');
@@ -21,10 +16,19 @@ export class Building {
   private floors = new Map<string, FloorView>(); // 依 floor key
   private people = new Map<string, { p: Person; floor: string; emp?: Employee }>(); // 依 sessionId；emp = 上次套用的資料
   private card = new InfoCard();
+  private scrolled = false; // 第一次 reset 後是否已捲到底
+  private sig = ''; // 上次的樓層 key 順序
 
-  constructor(root: HTMLElement, private store: OfficeStore) {
+  constructor(root: HTMLElement, private store: OfficeStore, private panel: ElevatorPanel) {
     root.replaceChildren(div('sky'), this.stack, div('ground'));
-    store.on(() => this.render());
+    store.on((c) => {
+      this.render();
+      // 打開頁面（第一次載入完成）捲到最底看 1F；之後重連的 reset 不動使用者的捲動位置
+      if (c.type === 'reset' && !this.scrolled) {
+        this.scrolled = true;
+        window.scrollTo(0, document.documentElement.scrollHeight);
+      }
+    });
     // 視窗變寬變窄、或直向捲軸出現時，樓層寬跟著重算
     let w = -1;
     new ResizeObserver(() => {
@@ -44,8 +48,25 @@ export class Building {
   private render(): void {
     const emps = [...this.store.employees.values()];
     const plan = floorPlan(emps, [], new Map(), new Map());
+    // 樓層增減或換順序才需要穩住畫面（只在這時讀版面）；瀏覽器在 scrollY 0 不會自己錨定，所以全部自己做
+    const sig = plan.map((f) => f.key).join('\n'), changed = sig !== this.sig;
+    this.sig = sig;
+    const root = document.documentElement;
+    const stick = changed && atBottom(window.scrollY, root.scrollHeight, window.innerHeight);
+    // 不在最底：記住第一個看得到的樓層（狀態列之下）的位置
+    let anchor: { el: HTMLElement; top: number } | null = null;
+    if (changed && !stick) {
+      const bar = document.getElementById('top')?.getBoundingClientRect().bottom ?? 0;
+      for (const v of this.floors.values()) {
+        const r = v.el.getBoundingClientRect();
+        if (r.bottom > bar && (!anchor || r.top < anchor.top)) anchor = { el: v.el, top: r.top };
+      }
+    }
     this.layoutFloors(plan);
+    if (stick) window.scrollTo(0, root.scrollHeight);
+    else if (anchor?.el.isConnected) window.scrollBy(0, anchor.el.getBoundingClientRect().top - anchor.top);
     this.placePeople(plan);
+    this.panel.update(plan.map((f) => ({ level: f.level, title: f.title, alert: floorAlert(f), el: this.floors.get(f.key)!.el })));
   }
 
   private layoutFloors(plan: Floor[]): void {
