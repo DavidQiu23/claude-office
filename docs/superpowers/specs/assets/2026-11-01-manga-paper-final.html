@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>畫風定案示意圖</title>
+<style>
+body { margin: 0; padding: 16px; background: #f4f1ea; color: #333; font-family: system-ui, "Microsoft JhengHei", sans-serif; }
+h2 { font-size: 18px; font-weight: 500; margin: 0 0 4px; }
+.subtitle { margin: 0 0 16px; color: #666; font-size: 14px; }
+#wrap { display: grid; gap: 20px; max-width: 680px; }
+.fin .p{transform-box:fill-box}.fin .arm{transform-origin:50% 8%}
+.fin .work .arm-l{animation:ty .42s ease-in-out infinite}.fin .work .arm-r{animation:ty .42s ease-in-out .21s infinite}
+@keyframes ty{50%{transform:translateY(-3px)}}
+.fin .sfx{animation:fx .84s steps(1) infinite}@keyframes fx{50%{opacity:.25}}
+.fin .wait .fig{transform:translateY(-12px)}.fin .wait .arm-r{animation:wave .8s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:rotate(160deg)}50%{transform:rotate(195deg)}}
+.fin .burst{transform-box:fill-box;transform-origin:50% 50%;animation:pop 1.6s ease-in-out infinite}@keyframes pop{50%{transform:scale(1.12)}}
+.fin .lines{animation:fl 1.6s ease-in-out infinite}@keyframes fl{50%{opacity:.35}}
+.fin .drop{animation:dr 1.6s ease-in infinite}@keyframes dr{0%{opacity:0;transform:translateY(-3px)}30%{opacity:1}100%{opacity:0;transform:translateY(5px)}}
+.fin .turn .head{transform-origin:50% 90%;animation:nod 2.6s ease-in-out infinite}@keyframes nod{50%{transform:rotate(-6deg) translateY(1.5px)}}
+.fin .z1{animation:zz 2.6s ease-out infinite}.fin .z2{animation:zz 2.6s ease-out 1.3s infinite}
+@keyframes zz{0%{opacity:0;transform:translate(0,6px)}30%{opacity:1}100%{opacity:0;transform:translate(6px,-12px)}}
+.fin .blink{animation:bl 1.8s steps(1) infinite}@keyframes bl{50%{opacity:.2}}
+@media (prefers-reduced-motion:reduce){.fin *{animation:none!important}}
+</style>
+</head>
+<body>
+<h2>畫風定案：手繪紙張背景＋日式漫畫人物</h2>
+<p class="subtitle">白天（6:00–18:00）與夜晚各一頁。狀態列、電梯面板、資訊卡、牆與天空是紙張風；人物、桌子、家具、電梯門是漫畫風。只決定風格、元素與構圖，確切數值以規格為準。</p>
+<div id="wrap"></div>
+<script>
+const RED='#d63434',AMB='#f2b83d',GRN='#6fae7a';
+const DAY={key:'d',name:'白天 6:00–18:00',page:'#cfe1ee',paper:'#faf5ea',text:'#2d2a26',sub:'#6b5f4f',ink:'#2d2a26',fig:'#1a1a1a',fx:'#1a1a1a',wall:'#efe4cf',stripe:'#e8dbc2',hatch:'#d6c7a8',strip:'#e6d8bd',floor:'#c9b99a',sky:'#a9c6de',city:'#8aa3b8',lit:'#f6e7b0',desk:'#ead6b4',wood:'#c79a6a',mon:'#2a2a2a',on:'#c9f0dc',off:'#6a6a6a',skin:'#fbe6d4',toneOp:.45,elev:'#e9e2d2',door:'#f5f0e4',btn:'#e8dbc2',plate:'#fbf6ea',ground:'#d9d2c2',roof:'#b9a98a',lamp:0,day:1};
+const NIGHT={key:'n',name:'夜晚 18:00–6:00',page:'#1b2140',paper:'#2a3152',text:'#f1e9d8',sub:'#b7b0c8',ink:'#0d1120',fig:'#0d1120',fx:'#f1e9d8',wall:'#2e3a5c',stripe:'#34416a',hatch:'#3d4a74',strip:'#28324f',floor:'#1d2640',sky:'#141c36',city:'#26304f',lit:'#ffd98a',desk:'#c9a578',wood:'#a8805a',mon:'#151515',on:'#a8e6cf',off:'#3a3f55',skin:'#f3d6bd',toneOp:.55,elev:'#46557f',door:'#5d6d99',btn:'#3a4470',plate:'#f3ead6',ground:'#2a3048',roof:'#3a4470',lamp:1};
+const SH=['#c9d8e8','#f1d0c4','#d8e4cf','#e8dcc0','#d9c9e6'],HR=['#2a2a2a','#5a4030','#3a3a4a','#8a6a4a','#a0522d'];
+const SIGN=['#c0583c','#4f86b8','#6f9a5e'];
+const PL={work:['P','#3b3020'],wait:[RED,'#fff'],turn:[AMB,'#4a3000'],sub:['#dfeedd','#2f4a32']};
+function page(s){
+  const k=(w=1.5,c=s.fig)=>`stroke="${c}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+  const pk=(w=1.6)=>k(w,s.day?s.ink:'#0d1120');
+  const tone=`url(#tn-${s.key})`;
+  let o=`<defs><pattern id="tn-${s.key}" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="0.95" fill="${s.fig}" opacity="${s.toneOp}"/></pattern></defs>`;
+  o+=`<rect width="680" height="660" fill="${s.page}"/>`;
+  if(s.day){o+=`<circle cx="612" cy="84" r="16" fill="#f6d77a" ${pk(1.4)}/>`;[[160,86,30,9],[400,74,22,7],[300,98,18,6]].forEach(([x,y,rx,ry])=>o+=`<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#fff" ${pk(1.2)}/>`)}
+  else{o+=`<circle cx="612" cy="84" r="14" fill="#f3e6b8" ${pk(1.4)}/><circle cx="619" cy="79" r="12" fill="${s.page}"/>`;[[90,80],[170,96],[250,74],[330,92],[420,82],[500,100],[540,72]].forEach(([x,y])=>o+=`<path d="M${x-3} ${y} h6 M${x} ${y-3} v6" stroke="#f1e9d8" stroke-width="1.2"/>`)}
+  o+=`<rect x="8" y="8" width="664" height="50" rx="8" fill="${s.paper}" stroke="${RED}" stroke-width="2.6"/>`;
+  o+=`<rect x="20" y="17" width="14" height="14" rx="3" fill="${RED}" ${pk(1.2)}/><text x="27" y="28" font-size="11" font-weight="500" text-anchor="middle" fill="#fff">!</text><text x="40" y="29" font-size="13" font-weight="500" fill="${s.text}">等你處理 2</text>`;
+  o+=`<rect x="124" y="17" width="14" height="14" rx="3" fill="${AMB}" ${pk(1.2)}/><text x="131" y="28" font-size="10" text-anchor="middle" fill="#4a3000">✓</text><text x="144" y="29" font-size="13" font-weight="500" fill="${s.text}">輪到你 2</text>`;
+  o+=`<rect x="216" y="17" width="14" height="14" rx="7" fill="${GRN}" ${pk(1.2)}/><text x="236" y="29" font-size="13" font-weight="500" fill="${s.text}">工作中 5</text><text x="660" y="29" font-size="12" text-anchor="end" fill="${s.sub}">共 9 位</text>`;
+  o+=`<g ${pk(1.2)}><rect x="20" y="38" width="142" height="9" rx="3" fill="${RED}"/><rect x="162" y="38" width="142" height="9" rx="3" fill="${AMB}"/><rect x="304" y="38" width="356" height="9" rx="3" fill="${GRN}"/></g>`;
+  o+=`<rect x="52" y="108" width="620" height="10" fill="${s.roof}" ${pk()}/><rect x="560" y="86" width="40" height="22" rx="3" fill="${s.elev}" ${pk()}/><path d="M572 86 v-8 M588 86 v-8" ${pk()}/><rect x="476" y="96" width="44" height="12" rx="2" fill="${s.elev}" ${pk(1.2)}/><path d="M80 108 v-26" ${pk(1.4)}/><circle class="${s.lamp?'blink':''}" cx="80" cy="80" r="3" fill="${RED}"/>`;
+  const floors=[['3F shop',0,[['work',0],['wait',1],['turn',2],['sub',3]],'library'],['2F blog',1,[['work',3],['turn',4],[null,0]],'pantry'],['1F api',2,[['wait',2],['work',1],['work',0]],'lounge']];
+  floors.forEach(([n,ci,ss,furn],fi)=>{const y=118+fi*164;o+=`<g transform="translate(52 ${y}) scale(.775)">${floor(s,n,SIGN[ci],ss,furn,k,pk,tone)}</g>`});
+  o+=`<rect x="0" y="610" width="680" height="50" fill="${s.ground}"/><path d="M0 610 H680" ${pk()}/>`;for(let x=60;x<680;x+=48)o+=`<path d="M${x} 622 l12 0" stroke="${s.day?'#a89c86':'#4a5272'}" stroke-width="1.2"/>`;
+  o+=`<rect x="6" y="250" width="34" height="122" rx="17" fill="${s.paper}" ${pk()}/>`;
+  [['3',276,RED],['2',310,AMB],['1',344,RED]].forEach(([n,y,c])=>{o+=`<circle cx="23" cy="${y}" r="12" fill="${c}" ${pk(1.4)}/><text x="23" y="${y+4.5}" font-size="12" font-weight="500" text-anchor="middle" fill="${c===AMB?'#4a3000':'#fff'}">${n}</text>`});
+  o+=`<rect x="4" y="292" width="38" height="68" rx="16" fill="none" stroke="${s.text}" stroke-width="1.2" stroke-dasharray="4 3"/>`;
+  o+=card(s,pk,tone);
+  return `<svg class="fin" width="100%" viewBox="0 0 680 660" style="display:block;border-radius:8px"><title>${s.name}</title>${o}</svg>`;
+}
+function card(s,pk,tone){
+  const x=376,y=346;let o=`<g transform="translate(${x} ${y})">`;
+  o+=`<rect width="214" height="126" rx="10" fill="${s.paper}" ${pk()}/><rect x="0" y="0" width="214" height="6" rx="3" fill="${SIGN[1]}"/>`;
+  o+=`<rect x="12" y="16" width="44" height="44" rx="10" fill="${s.day?'#e3ecf5':'#3a4470'}" ${pk(1.2)}/>`;
+  o+=`<g transform="translate(13 14) scale(.7)"><rect x="17" y="41" width="26" height="25" rx="8" fill="${SH[4]}" stroke="${s.fig}" stroke-width="1.6"/><circle cx="30" cy="28" r="14" fill="${s.skin}" stroke="${s.fig}" stroke-width="1.6"/><path d="M21.5 30 q3 3.2 6 0 M32.5 30 q3 3.2 6 0" fill="none" stroke="${s.fig}" stroke-width="1.6" stroke-linecap="round"/><path d="M15 30 A15 15 0 0 1 45 29 Q41 19 31 20 Q24 22 22 26 Q19 22 15 30Z" fill="${HR[4]}" stroke="${s.fig}" stroke-width="1.6"/></g>`;
+  o+=`<text x="66" y="32" font-size="14" font-weight="500" fill="${s.text}">草稿完成</text><rect x="66" y="40" width="54" height="18" rx="9" fill="${AMB}" ${pk(1)}/><text x="93" y="53" font-size="11" text-anchor="middle" fill="#4a3000">✓ 輪到你</text><text x="128" y="53" font-size="11" fill="${s.sub}">blog</text>`;
+  o+=`<path d="M12 70 H202" stroke="${s.hatch}" stroke-width="1"/><text x="12" y="88" font-size="11" fill="${s.sub}">最近的 prompt</text><text x="12" y="104" font-size="12" fill="${s.text}">幫我把首頁草稿寫完</text>`;
+  o+=`<text x="12" y="119" font-size="11" fill="${s.sub}">到班 09:12</text><rect x="138" y="104" width="66" height="18" rx="5" fill="${s.paper}" ${pk(1.2)}/><text x="171" y="117" font-size="11" font-weight="500" text-anchor="middle" fill="${s.text}">請他下班</text>`;
+  return o+`</g>`;
+}
+function furnish(s,kind,k,tone){
+  let o='';
+  if(kind==='library'){o+=`<rect x="610" y="104" width="64" height="96" rx="2" fill="${s.wood}" ${k()}/>`;[128,152,176].forEach(y=>o+=`<path d="M611 ${y} H673" ${k(1.2)}/>`);
+    ['#c9d8e8','#f1d0c4','#d8e4cf','#e8dcc0','#c9d8e8'].forEach((c,i)=>[108,132,156].forEach((y,j)=>{if((i+j)%2===0)o+=`<rect x="${616+i*11}" y="${y+3}" width="8" height="${17-j}" fill="${c}" ${k(1)}/>`}));o+=`<rect x="662" y="106" width="10" height="92" fill="${tone}"/>`;
+    o+=`<rect x="712" y="164" width="36" height="36" rx="4" fill="#c98a6a" ${k()}/><rect x="736" y="166" width="10" height="32" fill="${tone}"/><ellipse cx="718" cy="140" rx="12" ry="20" fill="#9cc08a" ${k()}/><ellipse cx="742" cy="138" rx="12" ry="21" fill="#9cc08a" ${k()}/><ellipse cx="730" cy="124" rx="10" ry="22" fill="#9cc08a" ${k()}/><ellipse cx="746" cy="144" rx="6" ry="14" fill="${tone}"/>`}
+  if(kind==='pantry'){o+=`<rect x="606" y="122" width="32" height="78" rx="4" fill="#eef2f6" ${k()}/><rect x="610" y="92" width="24" height="32" rx="9" fill="#bfe0f5" ${k()}/><circle cx="616" cy="140" r="2.5" fill="#4a90d9"/><circle cx="628" cy="140" r="2.5" fill="${RED}"/><rect x="628" y="124" width="8" height="74" fill="${tone}"/>`;
+    o+=`<rect x="648" y="92" width="60" height="108" rx="4" fill="#d9534f" ${k()}/><rect x="654" y="98" width="48" height="10" fill="${s.day?'#ffe9a8':'#fff3c4'}" ${k(1)}/><rect x="654" y="114" width="34" height="58" fill="#24324f" ${k(1)}/>`;[0,1,2,3,4,5].forEach(i=>o+=`<rect x="${657+(i%3)*10}" y="${118+Math.floor(i/3)*22}" width="7" height="12" fill="${['#ffd166','#4fb477','#4a90d9'][i%3]}"/>`);o+=`<rect x="692" y="114" width="12" height="80" fill="${tone}"/>`;
+    if(s.lamp)o+=`<ellipse cx="678" cy="140" rx="46" ry="54" fill="#ffd98a" opacity=".1"/>`;
+    o+=`<rect x="722" y="168" width="32" height="32" rx="4" fill="#c98a6a" ${k()}/><ellipse cx="730" cy="146" rx="10" ry="18" fill="#9cc08a" ${k()}/><ellipse cx="748" cy="146" rx="10" ry="18" fill="#9cc08a" ${k()}/><ellipse cx="739" cy="132" rx="8" ry="20" fill="#9cc08a" ${k()}/>`}
+  if(kind==='lounge'){if(s.lamp)o+=`<ellipse cx="626" cy="110" rx="40" ry="46" fill="#ffd98a" opacity=".14"/>`;
+    o+=`<path d="M626 200 v-84" ${k(2)}/><path d="M612 116 l28 0 l-6 -20 h-16z" fill="${s.lamp?'#ffe9a8':'#f5f0e4'}" ${k()}/><ellipse cx="626" cy="200" rx="12" ry="3" fill="${s.fig}"/>`;
+    o+=`<rect x="652" y="146" width="104" height="40" rx="10" fill="#9fb2d9" ${k()}/><rect x="646" y="160" width="20" height="40" rx="8" fill="#9fb2d9" ${k()}/><rect x="742" y="160" width="20" height="40" rx="8" fill="#9fb2d9" ${k()}/><rect x="664" y="172" width="80" height="22" rx="5" fill="#b9c7e6" ${k()}/><rect x="720" y="148" width="22" height="24" fill="${tone}"/><path d="M670 200 v-6 M738 200 v-6" ${k()}/>`}
+  return o;
+}
+function floor(s,name,sc,ss,furn,k,pk,tone){
+  let o=`<rect width="800" height="212" fill="${s.wall}"/>`;
+  for(let x=0;x<800;x+=40)o+=`<rect x="${x}" y="0" width="20" height="150" fill="${s.stripe}"/>`;
+  for(let i=0;i<12;i++)o+=`<path d="M${226+i*7} 0 l-16 20" stroke="${s.hatch}" stroke-width="1"/>`;
+  o+=`<rect x="0" y="150" width="800" height="50" fill="${s.strip}"/><rect x="0" y="200" width="800" height="12" fill="${s.floor}"/><path d="M0 200 H800 M0 212 H800" ${pk()}/>`;
+  [310,520].forEach(x=>{const y=16;o+=`<rect x="${x}" y="${y}" width="100" height="54" rx="4" fill="${s.sky}"/>`;
+    if(s.day)o+=`<ellipse cx="${x+28}" cy="${y+16}" rx="13" ry="5" fill="#fff"/>`;else o+=`<rect x="${x+20}" y="${y+10}" width="2" height="2" fill="#fff"/><rect x="${x+66}" y="${y+8}" width="2" height="2" fill="#fff"/>`;
+    [[4,30,16,24],[22,22,14,32],[38,34,20,20],[60,18,14,36],[76,28,20,26]].forEach(([dx,dy,w,h])=>o+=`<rect x="${x+dx}" y="${y+dy}" width="${w}" height="${h}" fill="${s.city}"/><rect x="${x+dx+4}" y="${y+dy+5}" width="3" height="3" fill="${s.lit}"/>`);
+    o+=`<rect x="${x}" y="${y}" width="100" height="54" rx="4" fill="none" ${pk()}/>`;});
+  o+=`<rect x="8" y="30" width="64" height="170" rx="3" fill="${s.elev}" ${k()}/><rect x="14" y="56" width="25" height="144" fill="${s.door}" ${k()}/><rect x="41" y="56" width="25" height="144" fill="${s.door}" ${k()}/><rect x="56" y="58" width="9" height="140" fill="${tone}"/><rect x="26" y="36" width="28" height="15" rx="2" fill="#151515" ${k(1)}/><text x="40" y="48" font-size="12" font-weight="500" text-anchor="middle" fill="#ff8a5c">${name[0]}</text>`;
+  const w=name.length*10+34;o+=`<rect x="90" y="12" width="${w}" height="30" rx="7" fill="${sc}" ${pk()}/><text x="${90+w/2}" y="33" font-size="17" font-weight="500" text-anchor="middle" fill="#fff">${name}</text>`;
+  o+=furnish(s,furn,k,tone);
+  ss.forEach(([st,i],j)=>o+=seat(s,st,140+j*120,i,k,tone));
+  return o;
+}
+function seat(s,st,c,i,k,tone){
+  let o='';
+  if(!st){o+=`<rect x="${c+20}" y="118" width="32" height="25" rx="2" fill="${s.mon}" ${k()}/><rect x="${c+24}" y="122" width="24" height="16" fill="${s.off}"/><rect x="${c-56}" y="146" width="112" height="54" rx="3" fill="${s.desk}" ${k()}/><rect x="${c-54}" y="152" width="108" height="6" fill="${tone}"/><path d="M${c-55} 152 H${c+55}" ${k(1.1)}/>`;return o}
+  const H=HR[i],S=SH[i],sub=st==='sub';
+  if(s.lamp)o+=`<ellipse cx="${c}" cy="140" rx="58" ry="48" fill="#ffd98a" opacity=".1"/>`;
+  if(st==='wait'){o+=`<g class="lines">`;for(let a=-170;a<=-10;a+=14){const r=a*Math.PI/180;o+=`<path d="M${c+Math.cos(r)*30} ${96+Math.sin(r)*30} L${c+Math.cos(r)*(a%28?44:52)} ${96+Math.sin(r)*(a%28?44:52)}" stroke="${s.fx}" stroke-width="${a%28?1:1.8}" stroke-linecap="round"/>`}o+=`</g>`}
+  const tf=sub?`translate(${c-25.5} 92) scale(.85)`:`translate(${c-30} 80)`;
+  o+=`<g class="${sub?'work':st}"><g transform="${tf}"><rect x="11" y="36" width="38" height="36" rx="8" fill="#8f8270" ${k()}/><g class="fig">`;
+  if(i===2)o+=`<rect x="14" y="22" width="32" height="30" rx="10" fill="${H}" ${k()}/>`;
+  o+=`<g class="p arm arm-l"><rect x="12.5" y="44" width="8" height="19" rx="4" fill="${S}" ${k()}/><circle cx="16.5" cy="63" r="3.4" fill="${s.skin}" ${k(1.1)}/></g>`;
+  o+=`<rect x="17" y="41" width="26" height="25" rx="8" fill="${S}" ${k()}/><rect x="34" y="43" width="7" height="21" fill="${tone}"/>`;
+  o+=i===1?`<path d="M25 42 L30 47 L27 50Z M35 42 L30 47 L33 50Z" fill="#fff" ${k(1)}/><path d="M30 47 l-2 8 l2 3 l2 -3z" fill="#c0583c"/>`:`<path d="M25 42 Q30 46 35 42" fill="none" ${k(1)}/>`;
+  o+=`<g class="p arm arm-r"><rect x="39.5" y="44" width="8" height="19" rx="4" fill="${S}" ${k()}/><circle cx="43.5" cy="63" r="3.4" fill="${s.skin}" ${k(1.1)}/></g>`;
+  o+=`<g class="p head"><circle cx="30" cy="28" r="14" fill="${s.skin}" ${k()}/>`;
+  if(st==='turn')o+=`<path d="M21.5 30 q3 3.2 6 0 M32.5 30 q3 3.2 6 0" fill="none" ${k(1.5)}/><path d="M28 36 q2 1.4 4 0" fill="none" ${k(1.1)}/>`;
+  else if(st==='wait')o+=`<ellipse cx="25" cy="29" rx="3.4" ry="4.5" fill="#fff" ${k(1.1)}/><ellipse cx="35" cy="29" rx="3.4" ry="4.5" fill="#fff" ${k(1.1)}/><circle cx="25" cy="29.5" r="1.3" fill="#1a1a1a"/><circle cx="35" cy="29.5" r="1.3" fill="#1a1a1a"/><ellipse cx="30" cy="37" rx="2.4" ry="2.8" fill="#7a2e3a" ${k(1)}/>`;
+  else o+=`<ellipse cx="25" cy="29.5" rx="2.7" ry="4" fill="#1a1a1a"/><ellipse cx="35" cy="29.5" rx="2.7" ry="4" fill="#1a1a1a"/><circle cx="26" cy="28" r="1.2" fill="#fff"/><circle cx="36" cy="28" r="1.2" fill="#fff"/><path d="M28 35.5 q2 1.6 4 0" fill="none" ${k(1.1)}/>`;
+  o+=`<path d="M19 33.5 l1.6 -1.6 M21 33.5 l1.6 -1.6 M37.4 33.5 l1.6 -1.6 M39.4 33.5 l1.6 -1.6" stroke="#d9746a" stroke-width=".9" stroke-linecap="round"/>`;
+  o+=`<path d="M15 30 A15 15 0 0 1 45 29 Q41 19 31 20 Q24 22 22 26 Q19 22 15 30Z" fill="${H}" ${k()}/><path d="M37 21 Q43 24 44 29 L40 28Z" fill="${tone}"/><path d="M23 19 q5 -2 10 0" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".85"/>`;
+  if(i===2)o+=`<circle cx="25" cy="29.5" r="4.4" fill="none" ${k(1.1)}/><circle cx="35" cy="29.5" r="4.4" fill="none" ${k(1.1)}/>`;
+  o+=`</g></g></g></g>`;
+  if(st==='wait')o+=`<path class="drop" d="M${c-22} 70 q-4 6 0 9 q4 -3 0 -9z" fill="#bfe3ff" ${k(1.2)}/><g class="burst"><polygon points="${c+34},26 ${c+39},35 ${c+50},30 ${c+46},41 ${c+58},45 ${c+46},49 ${c+50},60 ${c+39},55 ${c+34},64 ${c+29},55 ${c+18},60 ${c+22},49 ${c+10},45 ${c+22},41 ${c+18},30 ${c+29},35" fill="#fff" ${k(1.4)}/><text x="${c+34}" y="51" font-size="15" font-weight="500" text-anchor="middle" fill="${RED}">！</text></g>`;
+  if(st==='turn')o+=`<circle cx="${c+26}" cy="62" r="11" fill="${AMB}" ${k(1.4)}/><path d="M${c+21} 62 l4 4 l7 -7" fill="none" stroke="#4a3000" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><text class="z1" x="${c-34}" y="76" font-size="13" font-weight="500" fill="${s.fx}">z</text><text class="z2" x="${c-30}" y="66" font-size="16" font-weight="500" fill="${s.fx}">Z</text>`;
+  if(st==='work')o+=`<text class="sfx" x="${c-54}" y="120" font-size="14" font-weight="500" fill="${s.fx}">噠噠</text><path d="M${c-24} 128 q-5 3 -2 8 M${c+24} 128 q5 3 2 8" fill="none" stroke="${s.fx}" stroke-width="1.2" stroke-linecap="round"/>`;
+  const scr=st==='work'||sub?s.on:st==='wait'?'#f2a0a0':'#f6d68a';
+  o+=`<rect x="${c+20}" y="118" width="32" height="25" rx="2" fill="${s.mon}" ${k()}/><rect x="${c+24}" y="122" width="24" height="16" fill="${scr}"/><path d="M${c+36} 143 v4" ${k()}/>`;
+  if(s.lamp)o+=`<path d="M${c-48} 148 v-16 l8 -6" fill="none" ${k(1.4)}/><path d="M${c-46} 124 l12 -2 l1 8z" fill="#ffd98a" ${k(1.2)}/>`;
+  o+=`<rect x="${c-56}" y="146" width="112" height="54" rx="3" fill="${s.desk}" ${k()}/><rect x="${c-54}" y="152" width="108" height="6" fill="${tone}"/><path d="M${c-55} 152 H${c+55}" ${k(1.1)}/>`;
+  const t={work:['整理 API 文件','改版首頁','重構路由'][i%3],wait:'! 要權限',turn:'✓ 草稿完成',sub:'↳ 查連結'}[st];
+  let [bg,fg]=PL[st];if(bg==='P')bg=s.plate;
+  o+=`<rect x="${c-52}" y="164" width="104" height="23" rx="3" fill="${bg}" ${k(1.4)}/><text x="${c}" y="181" font-size="15" font-weight="500" text-anchor="middle" fill="${fg}">${t}</text>`;
+  return o;
+}
+const w=document.getElementById('wrap');
+[DAY,NIGHT].forEach(s=>{const d=document.createElement('div');d.innerHTML=`<div style="margin:0 0 6px;font-size:15px;font-weight:500">${s.name}</div>`+page(s);w.appendChild(d)});
+</script>
+</body>
+</html>

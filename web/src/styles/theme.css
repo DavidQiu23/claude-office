@@ -1,0 +1,88 @@
+/* 主題變數：<html data-time="day|night"> 由 theme.ts 設定；三種狀態色日夜相同 */
+:root {
+  --waiting: #d63434;
+  --turn: #f2b83d;
+  --working: #6fae7a;
+  --screen-turn: #f6d68a;
+  --screen-waiting: #f2a0a0;
+}
+
+:root[data-time="day"] {
+  --day: 1;
+  --night: 0;
+  --page-bg: #cfe1ee;
+  --paper: #faf5ea;
+  --text: #2d2a26;
+  --text-sub: #6b5f4f;
+  --ink: #2d2a26;
+  --fig-ink: #1a1a1a;
+  --fx: #1a1a1a;
+  --wall: #efe4cf;
+  --wall-stripe: #e8dbc2;
+  --hatch: #d6c7a8;
+  --wall-low: #e6d8bd;
+  --slab: #c9b99a;
+  --window-sky: #a9c6de;
+  --city: #8aa3b8;
+  --city-lit: #f6e7b0;
+  --desk: #ead6b4;
+  --wood: #c79a6a;
+  --monitor: #2a2a2a;
+  --screen-off: #6a6a6a;
+  --screen-working: #c9f0dc;
+  --skin: #fbe6d4;
+  --tone-opacity: 0.45;
+  --elevator: #e9e2d2;
+  --door: #f5f0e4;
+  --button: #e8dbc2;
+  --plate: #fbf6ea;
+  --ground: #d9d2c2;
+  --roof: #b9a98a;
+  --lamp-glow: transparent; /* 白天不顯示 */
+}
+
+:root[data-time="night"] {
+  --day: 0;
+  --night: 1;
+  --page-bg: #1b2140;
+  --paper: #2a3152;
+  --text: #f1e9d8;
+  --text-sub: #b7b0c8;
+  --ink: #0d1120;
+  --fig-ink: #0d1120;
+  --fx: #f1e9d8;
+  --wall: #2e3a5c;
+  --wall-stripe: #34416a;
+  --hatch: #3d4a74;
+  --wall-low: #28324f;
+  --slab: #1d2640;
+  --window-sky: #141c36;
+  --city: #26304f;
+  --city-lit: #ffd98a;
+  --desk: #c9a578;
+  --wood: #a8805a;
+  --monitor: #151515;
+  --screen-off: #3a3f55;
+  --screen-working: #a8e6cf;
+  --skin: #f3d6bd;
+  --tone-opacity: 0.55;
+  --elevator: #46557f;
+  --door: #5d6d99;
+  --button: #3a4470;
+  --plate: #f3ead6;
+  --ground: #2a3048;
+  --roof: #3a4470;
+  --lamp-glow: #ffd98a;
+}
+
+/* 共用線條 class：紙張風墨線、漫畫風輪廓與細節、網點填色 */
+.ink,
+.fig,
+.fig-thin {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ink { stroke: var(--ink); stroke-width: 1.6; }
+.fig { stroke: var(--fig-ink); stroke-width: 1.5; }
+.fig-thin { stroke: var(--fig-ink); stroke-width: 1.1; }
+.tone { fill: url(#tone); }

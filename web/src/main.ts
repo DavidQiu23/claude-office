@@ -1,6 +1,11 @@
+import './styles/theme.css';
+import './styles/building.css';
+import './styles/figure.css';
+import './styles/ui.css';
 import { Building } from './building.js';
 import { ElevatorPanel } from './elevator.js';
 import { connect, OfficeStore } from './sync.js';
+import { startTheme } from './theme.js';
 import { summary } from './view.js';
 
 const store = new OfficeStore();
@@ -18,6 +23,11 @@ const render = () => {
 };
 store.on(render);
 render();
+
+// 先標好日夜再建立大樓，第一次繪製就是正確的配色
+startTheme((t) => {
+  document.documentElement.dataset.time = t;
+});
 
 new Building(document.getElementById('building')!, store, new ElevatorPanel(document.getElementById('elevator')!));
 

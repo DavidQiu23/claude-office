@@ -1,0 +1,88 @@
+html { background: #1a1726; }
+/* body 是直向 flex：狀態列取自己的高度，大樓 flex:1 補滿剩下的視窗高（不必量狀態列） */
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #1a1726; color: #eee; font-family: system-ui, "Microsoft JhengHei", sans-serif; }
+[hidden] { display: none !important; }
+/* 剖面大樓：上方夜空、樓層（最高樓在上）、下方地面；樓層左邊留 56 給電梯面板、右邊距 16 */
+#building { flex: 1 0 auto; display: flex; flex-direction: column; overflow-anchor: none; } /* 錨定由 building.ts 自己做（瀏覽器在 scrollY 0 不錨定） */
+#building .sky { position: relative; overflow: hidden; flex: 1 0 72px; background-color: #120f22;
+  background-image: radial-gradient(1px 1px at 18px 22px, #fff9, transparent), radial-gradient(1px 1px at 77px 61px, #fff6, transparent),
+    radial-gradient(1.5px 1.5px at 131px 14px, #fffa, transparent), radial-gradient(1px 1px at 52px 104px, #fff5, transparent),
+    radial-gradient(1px 1px at 236px 47px, #fff8, transparent), linear-gradient(#0b0a16, #1a1730);
+  background-size: 160px 90px, 160px 90px, 160px 90px, 160px 130px, 290px 120px, auto; }
+/* 月亮（右上）與遠方城市剪影（貼著天空底部；天空矮時只露出下半） */
+#building .sky::before { content: ''; position: absolute; top: 28px; right: 14%; width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 36%, #fff8e0, #f2e2b0 60%, #d9c58c); box-shadow: 0 0 18px #f2e2b066; }
+#building .sky::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 80px; background-repeat: repeat-x; background-position: left bottom;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='80'%3E%3Cg fill='%23221f40'%3E%3Crect x='0' y='30' width='40' height='50'/%3E%3Crect x='40' y='18' width='30' height='62'/%3E%3Crect x='70' y='40' width='50' height='40'/%3E%3Crect x='120' y='10' width='26' height='70'/%3E%3Crect x='146' y='32' width='44' height='48'/%3E%3Crect x='190' y='22' width='36' height='58'/%3E%3Crect x='226' y='44' width='60' height='36'/%3E%3Crect x='286' y='14' width='30' height='66'/%3E%3Crect x='316' y='36' width='48' height='44'/%3E%3Crect x='364' y='24' width='26' height='56'/%3E%3Crect x='390' y='40' width='56' height='40'/%3E%3Crect x='446' y='16' width='34' height='64'/%3E%3Crect x='480' y='34' width='50' height='46'/%3E%3Crect x='530' y='20' width='28' height='60'/%3E%3Crect x='558' y='38' width='44' height='42'/%3E%3Crect x='602' y='26' width='38' height='54'/%3E%3Crect x='132' y='4' width='2' height='6'/%3E%3C/g%3E%3Cg fill='%23f2d37a' opacity='.5'%3E%3Crect x='128' y='18' width='2' height='2'/%3E%3Crect x='134' y='26' width='2' height='2'/%3E%3Crect x='296' y='22' width='2' height='2'/%3E%3Crect x='302' y='30' width='2' height='2'/%3E%3Crect x='452' y='24' width='2' height='2'/%3E%3Crect x='458' y='32' width='2' height='2'/%3E%3Crect x='46' y='26' width='2' height='2'/%3E%3Crect x='198' y='30' width='2' height='2'/%3E%3Crect x='540' y='28' width='2' height='2'/%3E%3Crect x='612' y='34' width='2' height='2'/%3E%3C/g%3E%3Cg fill='%2317142b'%3E%3Crect x='0' y='50' width='56' height='30'/%3E%3Crect x='56' y='36' width='34' height='44'/%3E%3Crect x='90' y='56' width='60' height='24'/%3E%3Crect x='150' y='42' width='30' height='38'/%3E%3Crect x='180' y='52' width='52' height='28'/%3E%3Crect x='232' y='34' width='40' height='46'/%3E%3Crect x='272' y='58' width='64' height='22'/%3E%3Crect x='336' y='40' width='30' height='40'/%3E%3Crect x='366' y='50' width='50' height='30'/%3E%3Crect x='416' y='30' width='36' height='50'/%3E%3Crect x='452' y='54' width='58' height='26'/%3E%3Crect x='510' y='38' width='32' height='42'/%3E%3Crect x='542' y='52' width='60' height='28'/%3E%3Crect x='602' y='44' width='38' height='36'/%3E%3C/g%3E%3Cg fill='%23f2d37a' opacity='.4'%3E%3Crect x='60' y='44' width='2' height='2'/%3E%3Crect x='66' y='52' width='2' height='2'/%3E%3Crect x='240' y='42' width='2' height='2'/%3E%3Crect x='424' y='38' width='2' height='2'/%3E%3Crect x='430' y='46' width='2' height='2'/%3E%3Crect x='516' y='46' width='2' height='2'/%3E%3C/g%3E%3C/svg%3E"); }
+/* 屋頂：疊在天空底部（往上蓋 30px，城市剪影在它後面），只多出 12px 的女兒牆；寬度對齊樓層 */
+#building .roof { position: relative; z-index: 1; height: 42px; margin: -30px 16px 0 56px; pointer-events: none; }
+.roof > div { position: absolute; bottom: 12px; }
+.roof .parapet { left: 0; right: 0; bottom: 0; height: 12px; border-radius: 3px 3px 0 0; background: linear-gradient(#6a76a6 0 3px, #4d5782 3px 5px, #3a3f6d 5px); box-shadow: inset 0 -2px 0 #2a2c4d; }
+.roof .tank { right: 40px; width: 34px; height: 28px; border-radius: 5px 5px 2px 2px; background: linear-gradient(90deg, #5a6590, #3b4468); box-shadow: inset 0 4px 0 #6a76a6, inset 0 -4px 0 #2a3150; }
+.roof .ac { right: 92px; width: 42px; height: 16px; border-radius: 3px 3px 0 0; background: repeating-linear-gradient(90deg, #4f566b 0 3px, #3f4558 3px 5px); box-shadow: inset 0 2px 0 #6b7288; }
+.roof .antenna { left: 28px; width: 2px; height: 30px; background: #6b7288; }
+.roof .antenna::after { content: ''; position: absolute; left: -2px; top: -5px; width: 6px; height: 6px; border-radius: 50%; background: #ff4d4d; box-shadow: 0 0 6px #ff4d4d; animation: blink 1.8s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .roof .antenna::after { animation: none; } }
+#building .floors { padding: 0 16px 0 56px; background: #1a1730; }
+/* 地面（高 72）：人行道（地磚縫）、路緣、馬路與車道線 */
+#building .ground { height: 72px;
+  background: repeating-linear-gradient(90deg, #f2d37a59 0 28px, transparent 28px 64px) 0 58px / 100% 2px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 47px, #0000004d 47px 48px) 0 4px / 100% 34px no-repeat,
+    linear-gradient(#4a4862 0 4px, #3a3850 4px 20px, #2e2c42 20px 21px, #3a3850 21px 38px, #6a6888 38px 40px, #2e2c40 40px 45px, #1c1a26 45px); }
+/* 一層樓：高 200（含 8 樓板）；外層不捲，暗影與邊緣提示疊在上面；內容比可用寬寬時 .floor-scroll 自己左右捲 */
+.floor { position: relative; height: 200px; }
+.floor-scroll { height: 200px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+/* 兩側暗影 22px（那一側還有內容才顯示）；提示垂直置中在人物那排（y 74~158），貼可見範圍左右緣 */
+.shade { position: absolute; top: 0; width: 22px; height: 192px; pointer-events: none; z-index: 2; }
+.shade.left { left: 0; background: linear-gradient(90deg, #0a0814b3, #0a081400); }
+.shade.right { right: 0; background: linear-gradient(270deg, #0a0814b3, #0a081400); }
+.edge-hint { position: absolute; top: 102px; z-index: 3; height: 28px; padding: 0 11px; border: 0; border-radius: 14px; cursor: pointer; white-space: nowrap;
+  font: bold 13px/28px system-ui, "Microsoft JhengHei", sans-serif; box-shadow: 0 2px 6px #0008; }
+.edge-hint.left { left: 6px; }
+.edge-hint.right { right: 6px; }
+.edge-hint.waiting { background: #d63434; color: #fff; }
+.edge-hint.idle { background: #f2b83d; color: #2b1d00; }
+.edge-hint:hover { filter: brightness(1.12); }
+.floor-in { position: relative; height: 200px; min-width: 100%; }
+.floor-in > div { position: absolute; }
+.wall { left: 0; right: 0; top: 0; height: 136px; background: linear-gradient(#41477a, #3a3f6d); box-shadow: inset 0 -3px 0 #2a2c4d; }
+.ground-strip { left: 0; right: 0; top: 136px; height: 56px; background: linear-gradient(#2a2d50, #30335a); }
+.slab { left: 0; right: 0; top: 192px; height: 8px; background: #14121f; }
+.elevator { left: 0; top: 0; width: 80px; height: 192px; background: #33375e; }
+.elevator .door-num { position: absolute; left: 26px; top: 20px; width: 28px; height: 16px; border-radius: 3px; background: #14121f;
+  color: #ff9b6b; font: bold 11px/16px system-ui, "Microsoft JhengHei", sans-serif; text-align: center; }
+.elevator .door { position: absolute; left: 14px; top: 44px; width: 52px; height: 92px; box-sizing: border-box; border: 2px solid #2a2d4d; border-bottom: 0;
+  border-radius: 2px 2px 0 0; overflow: hidden; background: linear-gradient(#e8d6a2, #a88f5c); }
+/* 兩片門往左右滑進牆裡（300ms，同 floor.ts 的 DOOR_MS），露出亮著的車廂；中間 2px 門縫 */
+.elevator .door::before, .elevator .door::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50%; background: #5d6496; transition: transform .3s ease-in-out; }
+.elevator .door::before { left: 0; box-shadow: inset -1px 0 0 #3d4270; }
+.elevator .door::after { right: 0; box-shadow: inset 1px 0 0 #3d4270; }
+.elevator.open .door::before { transform: translateX(-100%); }
+.elevator.open .door::after { transform: translateX(100%); }
+.elevator.snap .door::before, .elevator.snap .door::after { transition: none; }
+/* 招牌：專案色（不透明度 0.9 由程式加在色碼後）、白色粗體，放不下用「…」；left 與 max-width（到第一扇窗之前）由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定。
+   top 14：0 號座位輪到你的泡泡頂在 y 44，招牌底（含陰影）在 42，不重疊 */
+.sign { top: 14px; height: 26px; padding: 0 12px; border-radius: 13px; box-sizing: border-box;
+  color: #fff; font: bold 15px/26px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 0 #0005; }
+.people, .desks, .windows { inset: 0; pointer-events: none; }
+/* 右端家具區：貼樓層右緣、寬 200（GEO.furnitureW） */
+.furniture { top: 0; right: 0; width: 200px; height: 200px; pointer-events: none; }
+.windows img, .furniture img { position: absolute; display: block; }
+.desk { position: absolute; top: 0; width: 120px; height: 200px; }
+/* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色同舊畫面的 PLATE_COLORS */
+.plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; }
+.plate > span { max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: 1px solid; border-radius: 3px;
+  font: bold 13px/17px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: inset 0 2px 0 #ffffff55, 0 2px 3px #0006; }
+.plate.working > span { background: #f3e9d6; border-color: #d8c7aa; color: #3b2f2a; }
+.plate.waiting > span { background: #d63434; border-color: #a82a2a; color: #ffffff; }
+.plate.idle > span { background: #f2b83d; border-color: #c9952c; color: #2b1d00; }
+.plate.assistant > span, .plate.done > span { background: #cfe0f7; border-color: #a9c1e4; color: #1f3550; }
+.plate.done > span { opacity: .75; }
+/* 沒有人上班：空大廳 */
+.lobby-msg { left: 80px; right: 0; top: 52px; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #aab0d0; font-size: 13px; text-align: center; }
+.lobby-msg b { font-size: 16px; color: #d4d8f0; }
+@media (prefers-reduced-motion: reduce) {
+  .elevator .door::before, .elevator .door::after { transition: none; }
+}
