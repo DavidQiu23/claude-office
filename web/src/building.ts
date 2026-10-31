@@ -177,6 +177,7 @@ export class Building {
           if (!rec) {
             const p = new Person(appearance(id));
             p.el.dataset.key = id; // 與 floor.ts 的 occKey 同一套
+            if (o.kind === 'assistant') p.el.dataset.kind = 'assistant'; // 助理縮小 0.85 倍（figure.css）
             rec = { p, floor: '', x, out: false };
           }
           c.people.set(id, rec); // 先登記再搭電梯：開門回呼用 people 判斷是不是同一個人

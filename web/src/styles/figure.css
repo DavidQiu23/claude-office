@@ -1,9 +1,68 @@
+/* 漫畫人物（figure.ts 的 SVG 直接放在 .person 裡）：姿勢、表情、漫符、動畫與坐下站起的過場，全依 data-act／data-bubble。
+   規則一律以 .person 開頭，資訊卡的頭像（avatarSvg，也有 face-work）不受影響 */
 .person { position: absolute; top: 74px; width: 60px; height: 84px; pointer-events: auto; }
-.person .fig { position: absolute; inset: 0; }
-.person img, .person canvas, .desk img { position: absolute; display: block; }
-.person[data-act="up"] .fig { transform: translateY(-12px); }
-.person[data-act="idle"] .fig { animation: bob .9s ease-in-out infinite alternate; }
-@keyframes bob { to { transform: translateY(1.5px); } }
+.person .figure { position: absolute; inset: 0; display: block; width: 60px; height: 84px; overflow: visible; }
+.person[data-kind="assistant"] .figure { transform: scale(.85); transform-origin: 50% 100%; }
+
+/* 部件以自己的外框為基準旋轉／縮放：手臂轉肩膀、腿轉髖部 */
+.person .fig, .person .chair, .person .arm, .person .leg, .person .head,
+.person .burst, .person .drop, .person .z1, .person .z2 { transform-box: fill-box; }
+.person .arm { transform-origin: 50% 8%; }
+.person .leg { transform-origin: 50% 5%; }
+.person .head { transform-origin: 50% 90%; }
+.person .burst { transform-origin: 50% 50%; }
+/* 漫符超出人物框，不接滑鼠（資訊卡只認人） */
+.person .fx-work, .person .fx-wait, .person .fx-turn { pointer-events: none; }
+
+/* 坐下／站起：data-act 一換就播 300ms（與 building.ts 的 STAND_MS 相同） */
+.person .fig, .person .leg, .person .chair { transition: transform 300ms ease-in-out, opacity 300ms ease-in-out; }
+
+/* 坐著（work、idle）：腿收起來（被桌子擋住）、椅背在。站著（up、walk、stand）：上移 12、腿伸直、椅背藏起來 */
+.person[data-act="work"] .leg, .person[data-act="idle"] .leg { transform: scaleY(.6); }
+.person[data-act="up"] .fig, .person[data-act="walk"] .fig, .person[data-act="stand"] .fig { transform: translateY(-12px); }
+.person[data-act="up"] .chair, .person[data-act="walk"] .chair, .person[data-act="stand"] .chair { opacity: 0; }
+
+/* 表情與漫符：預設全藏，只露目前狀態的那一組（漫符的動畫也只掛在看得到的狀態上） */
+.person .face-work, .person .face-wait, .person .face-turn,
+.person .fx-work, .person .fx-wait, .person .fx-turn { display: none; }
+.person[data-act="work"] .face-work, .person[data-act="walk"] .face-work, .person[data-act="stand"] .face-work,
+.person[data-act="up"] .face-wait, .person[data-act="idle"] .face-turn,
+.person[data-act="work"] .fx-work, .person[data-act="up"] .fx-wait,
+.person[data-act="idle"][data-bubble="on"] .fx-turn { display: inline; }
+
+/* 工作中：兩手輪流上下（錯開半週期），「噠噠」閃 */
+.person[data-act="work"] .arm-l { animation: fig-type .42s ease-in-out infinite; }
+.person[data-act="work"] .arm-r { animation: fig-type .42s ease-in-out .21s infinite; }
+.person[data-act="work"] .sfx { animation: fig-sfx .84s steps(1) infinite; }
+@keyframes fig-type { 50% { transform: translateY(-3px); } }
+@keyframes fig-sfx { 50% { opacity: .25; } }
+
+/* 等你處理：站起來，右臂舉到頭上揮動（靜止時停在 175°，減少動態時照樣舉手）；集中線淡入淡出、「！」框脈動、汗滴往下滑 */
+.person[data-act="up"] .arm-r { transform: rotate(175deg); animation: fig-wave .8s ease-in-out infinite; }
+.person[data-act="up"] .lines { animation: fig-lines 1.6s ease-in-out infinite; }
+.person[data-act="up"] .burst { animation: fig-pop 1.6s ease-in-out infinite; }
+.person[data-act="up"] .drop { animation: fig-drop 1.6s ease-in infinite; }
+@keyframes fig-wave { 0%, 100% { transform: rotate(160deg); } 50% { transform: rotate(195deg); } }
+@keyframes fig-lines { 50% { opacity: .35; } }
+@keyframes fig-pop { 50% { transform: scale(1.12); } }
+@keyframes fig-drop { 0% { opacity: 0; transform: translateY(-3px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(5px); } }
+
+/* 輪到你：閉眼點頭；zZ 輪流往上飄（泡泡與 zZ 只在 data-bubble="on" 時顯示，完成的助理只閉眼點頭） */
+.person[data-act="idle"] .head { animation: fig-nod 2.6s ease-in-out infinite; }
+.person[data-act="idle"][data-bubble="on"] .z1 { animation: fig-zz 2.6s ease-out infinite; }
+.person[data-act="idle"][data-bubble="on"] .z2 { animation: fig-zz 2.6s ease-out 1.3s infinite; }
+@keyframes fig-nod { 50% { transform: rotate(-6deg) translateY(1.5px); } }
+@keyframes fig-zz { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -12px); } }
+
+/* 走路：腿與手臂交錯擺 ±16°（左腿配右手），身體每步上下 1.5px。
+   用獨立的 translate／rotate 屬性而不是 transform：走到座位那一刻動畫拿掉時，.fig 與腿的 transform 才會照常播坐下過場 */
+.person[data-act="walk"] .fig { animation: fig-bob .28s ease-in-out infinite; }
+.person[data-act="walk"] .leg-l, .person[data-act="walk"] .arm-r { animation: fig-swing .56s ease-in-out infinite; }
+.person[data-act="walk"] .leg-r, .person[data-act="walk"] .arm-l { animation: fig-swing .56s ease-in-out -.28s infinite; }
+@keyframes fig-bob { 50% { translate: 0 -1.5px; } }
+@keyframes fig-swing { 0%, 100% { rotate: 16deg; } 50% { rotate: -16deg; } }
+
+/* 減少動態：動畫與過場全停，姿勢與目前狀態的漫符照樣靜止顯示 */
 @media (prefers-reduced-motion: reduce) {
-  .person[data-act="idle"] .fig { animation: none; }
+  .person * { animation: none !important; transition: none !important; }
 }
