@@ -3,6 +3,7 @@ import './styles/building.css';
 import './styles/figure.css';
 import './styles/ui.css';
 import { Building } from './building.js';
+import { defsSvg } from './objects.js';
 import { ElevatorPanel } from './elevator.js';
 import { connect, OfficeStore } from './sync.js';
 import { startTheme } from './theme.js';
@@ -29,6 +30,8 @@ startTheme((t) => {
   document.documentElement.dataset.time = t;
 });
 
+// 桌子、窗、家具共用的 SVG symbol，要在建立大樓之前就位
+document.body.insertAdjacentHTML('afterbegin', defsSvg());
 new Building(document.getElementById('building')!, store, new ElevatorPanel(document.getElementById('elevator')!));
 
 connect(store);

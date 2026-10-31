@@ -1,22 +1,34 @@
 // 一層樓：後牆（招牌「NF 專案名」、夜景窗）、地板、樓板、左邊電梯門（門上樓號）、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
-import { deskFront, type DeskState } from './flat.js';
 import { DOOR_X, edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, type EdgeHint, type Floor, type Occupant } from './floors.js';
-import { furnitureSet, layoutSet, nightWindow, SIGN_MAX_W, SIGN_X, windowXs } from './furniture.js';
-import { placeImg, spriteImg } from './sprites.js';
+import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowXs } from './furniture.js';
+import { OBJECTS, type DeskState, type ObjectId } from './objects.js';
 import { ElevatorDoor } from './door.js';
 import { reduceMotion } from './motion.js';
 
-export const DESK_SCALE = 1.25; // 正面桌素材寬 80 → 100px
-export const DESK_Y = 126; // 桌子素材原點（左上）的 y：桌面在 143.5、桌腳到 176
+const SVG_NS = 'http://www.w3.org/2000/svg';
 const WIN_Y = 66; // 窗台底邊：窗頂 14 與招牌同高，窗在坐著的人頭上
 const FURN_Y = 156; // 家具的地板線：與人物腳底同一條（在桌子後面）
+const DESK_ORIGIN = { x: GEO.seatW / 2, y: 192 }; // 桌子的原點（底邊中點）在桌子元素內的位置；桌面落在 y 143.5
 
-const img = (): HTMLImageElement => {
-  const n = document.createElement('img');
-  n.alt = '';
-  n.draggable = false;
-  return n;
-};
+/** <svg class="obj"><use href="#id"/></svg>，絕對定位成原點（物件底邊中點）在 (x, y)（父元素座標）。
+ *  symbol 的 viewBox 是 `${-w/2} ${-h} ${w} ${h}`，所以外層 svg 用 0 0 w h、<use> 給 w×h，symbol 自己的 viewBox 就把原點對到底邊中點 */
+export function useObj(id: ObjectId, x: number, y: number): SVGSVGElement {
+  const { w, h } = OBJECTS[id];
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'obj');
+  svg.setAttribute('width', String(w));
+  svg.setAttribute('height', String(h));
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('aria-hidden', 'true');
+  svg.style.left = `${x - w / 2}px`;
+  svg.style.top = `${y - h}px`;
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `#${id}`);
+  use.setAttribute('width', String(w));
+  use.setAttribute('height', String(h));
+  svg.append(use);
+  return svg;
+}
 
 const deskState = (o: Occupant | null): DeskState => {
   if (!o) return 'empty';
@@ -26,7 +38,7 @@ const deskState = (o: Occupant | null): DeskState => {
 /** 人物元素的 data-key：員工是 sessionId，助理是 helperKey */
 export const occKey = (o: Occupant): string => (o.kind === 'employee' ? o.emp.sessionId : helperKey({ owner: o.owner, a: o.a }));
 
-interface DeskEl { el: HTMLElement; img: HTMLImageElement; plate: HTMLElement; text: HTMLElement }
+interface DeskEl { el: HTMLElement; use: SVGUseElement; plate: HTMLElement; text: HTMLElement }
 
 export const div = (cls: string): HTMLDivElement => {
   const n = document.createElement('div');
@@ -122,17 +134,17 @@ export class FloorView {
     this.doorNum.textContent = String(f.level);
     while (this.desks.length > f.desks) this.desks.pop()!.el.remove();
     while (this.desks.length < f.desks) {
-      const el = div('desk'), pic = img(), plate = div('plate'), text = document.createElement('span');
+      const el = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = document.createElement('span');
       plate.append(text);
-      el.append(pic, plate);
+      el.append(pic, plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上
       el.style.left = `${seatCenter(this.desks.length) - GEO.seatW / 2}px`; // 一格寬 120
       this.deskRow.append(el);
-      this.desks.push({ el, img: pic, plate, text });
+      this.desks.push({ el, use: pic.firstElementChild as SVGUseElement, plate, text });
     }
     f.seats.forEach((s, i) => {
       const d = this.desks[i]!;
       const st = deskState(s.occ);
-      placeImg(d.img, spriteImg(`desk-${st}`, () => deskFront(st), DESK_SCALE), GEO.seatW / 2 - 40 * DESK_SCALE, DESK_Y);
+      d.use.setAttribute('href', `#desk-${st}`); // 狀態變了就換 symbol
       // 名牌永遠等於這個座位目前的佔用者；空桌連字與底色一起清掉（藏起來的名牌也不留上一個人的「↳ ✓ 完成」）
       const p = s.occ ? plateText(s.occ) : null;
       d.plate.hidden = !p;
@@ -144,20 +156,17 @@ export class FloorView {
 
   /** 後牆窗：位置只跟樓層寬有關（windowXs），多的拿掉、少的補上 */
   private placeWindows(width: number): void {
-    const xs = windowXs(width), win = spriteImg('nightWindow', nightWindow, 1);
-    const imgs = this.windows.children;
-    while (imgs.length > xs.length) imgs[imgs.length - 1]!.remove();
-    while (imgs.length < xs.length) this.windows.append(img());
-    xs.forEach((x, i) => placeImg(imgs[i] as HTMLImageElement, win, x, WIN_Y));
+    const xs = windowXs(width), wins = this.windows.children;
+    while (wins.length > xs.length) wins[wins.length - 1]!.remove();
+    while (wins.length < xs.length) this.windows.append(useObj('window', xs[wins.length]!, WIN_Y));
   }
 
   /** 右端家具：依 roomKey 挑一組（同一層永遠同一組），家具區貼著樓層右緣 */
   private placeFurniture(key: string): void {
     this.furnKey = key;
     this.furniture.replaceChildren(...layoutSet(furnitureSet(key)).map((it) => {
-      const n = img();
+      const n = useObj(it.id, it.x, FURN_Y);
       n.dataset.id = it.id;
-      placeImg(n, spriteImg(`furn-${it.id}`, it.make, 1), it.x, FURN_Y);
       return n;
     }));
   }

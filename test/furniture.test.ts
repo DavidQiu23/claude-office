@@ -1,43 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { extent, type FlatSprite } from '../web/src/flat.js';
+import { describe, it, test, expect } from 'vitest';
 import { GEO } from '../web/src/floors.js';
 import * as F from '../web/src/furniture.js';
-import { checkSprite } from './sprite-check.js';
+import { OBJECTS, type ObjectId } from '../web/src/objects.js';
 
-const MAKERS: [string, () => FlatSprite][] = [
-  ['waterCooler', F.waterCooler], ['vending', F.vending], ['plant', F.plant], ['bookshelf', F.bookshelf], ['copier', F.copier],
-  ['sofa', F.sofa], ['floorLamp', F.floorLamp], ['sideTable', F.sideTable], ['nightWindow', F.nightWindow],
-];
-const width = (s: FlatSprite): number => { const x = extent(s); return x.x1 - x.x0; };
-
-describe('正面家具', () => {
-  it.each(MAKERS)('%s：格式正確，原點 = 底邊中點', (_n, make) => {
-    const s = make();
-    checkSprite(s);
-    const x = extent({ ...s, shadow: undefined }); // 圖形本身（投影的橢圓會跨過地板線）
-    expect(x.y1).toBeCloseTo(0, 5);
-    expect(x.y0).toBeLessThan(-10);
-    expect(Math.abs(x.x0 + x.x1)).toBeLessThanOrEqual(1);
-    expect(x.x1 - x.x0).toBeGreaterThan(10);
-  });
-
-  it('落地家具有正面接地投影，中心在地板線上', () => {
-    for (const [n, make] of MAKERS) {
-      if (n === 'nightWindow') continue;
-      const sh = make().shadow;
-      expect(sh, n).toBeDefined();
-      expect(sh!.fx, n).toBe(0);
-      expect(sh!.fy, n).toBe(0);
-    }
-    expect(F.nightWindow().shadow).toBeUndefined();
-  });
-});
+const width = (it: { id: ObjectId }): number => OBJECTS[it.id].w;
 
 describe('家具組', () => {
+  test('每組家具都是 OBJECTS 裡的物件', () => {
+    for (const set of F.SETS) for (const it of set.items) expect(OBJECTS[it.id], it.id).toBeDefined();
+  });
+
   it('至少三組，每組總寬（含間隔 12）≤ 200 − 24', () => {
     expect(F.SETS.length).toBeGreaterThanOrEqual(3);
     for (const set of F.SETS) {
-      const total = set.items.reduce((a, it) => a + width(it.make()), 0) + 12 * (set.items.length - 1);
+      const total = set.items.reduce((a, it) => a + width(it), 0) + 12 * (set.items.length - 1);
       expect(total, set.id).toBeLessThanOrEqual(GEO.furnitureW - 24);
     }
   });
@@ -59,15 +35,14 @@ describe('家具組', () => {
       expect(placed.map((p) => p.id)).toEqual(set.items.map((i) => i.id));
       let prev = -Infinity;
       for (const p of placed) {
-        const x = extent(p.make());
-        const l = p.x + x.x0, r = p.x + x.x1;
+        const l = p.x - OBJECTS[p.id].w / 2, r = p.x + OBJECTS[p.id].w / 2;
         expect(l, p.id).toBeGreaterThanOrEqual(12 - 1e-9);
         expect(r, p.id).toBeLessThanOrEqual(GEO.furnitureW - 12 + 1e-9);
         if (prev > -Infinity) expect(l - prev, p.id).toBeCloseTo(12, 5);
         prev = r;
       }
       const first = placed[0]!, last = placed[placed.length - 1]!;
-      const l = first.x + extent(first.make()).x0, r = last.x + extent(last.make()).x1;
+      const l = first.x - OBJECTS[first.id].w / 2, r = last.x + OBJECTS[last.id].w / 2;
       expect(l + r).toBeCloseTo(GEO.furnitureW, 5); // 置中
     }
   });
@@ -91,7 +66,7 @@ describe('後牆窗', () => {
   });
 
   it('窗（含窗台）寬不超過 2 × WIN.half', () => {
-    expect(width(F.nightWindow())).toBeLessThanOrEqual(2 * F.WIN.half);
+    expect(OBJECTS.window.w).toBeLessThanOrEqual(2 * F.WIN.half);
   });
 
   it('招牌最大寬 = 電梯區右側到第一扇窗之前', () => {

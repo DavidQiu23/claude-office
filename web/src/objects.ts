@@ -1,0 +1,225 @@
+// 日式漫畫風物件：桌子、窗、右端家具。純函式產生 SVG 字串（不碰 DOM），defsSvg() 放進頁面共用的隱藏 <svg>，再用 <use href="#id"> 擺上去。
+// 座標：原點 = 底邊中點，x 往右、y 往上是負的；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}`。
+// 顏色規則：一律寫在 style 或 class（mk／mk-thin／tone／ink），不用 fill="色"／stroke="色" 屬性。
+// 文件的 CSS 選擇器進不了 <use> 的影子樹，所以依日夜顯示的群組用 style="opacity:var(--day)"／"opacity:var(--night)"（繼承的變數進得去）。
+import { tag } from './svg.js';
+
+export type DeskState = 'empty' | 'working' | 'waiting' | 'idle';
+export type FurnitureId = 'waterCooler' | 'vending' | 'plant' | 'bookshelf' | 'copier' | 'sofa' | 'floorLamp' | 'sideTable';
+export type ObjectId = `desk-${DeskState}` | 'window' | FurnitureId;
+/** 原點 = 底邊中點；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}`；standX = 人使用它時站的 x 偏移（子專案 2 用） */
+export interface ObjectSpec { w: number; h: number; standX: number }
+
+const DESK: ObjectSpec = { w: 112, h: 76, standX: 0 }; // 放在座位中心、底邊在樓層 y 192
+export const OBJECTS: Record<ObjectId, ObjectSpec> = {
+  'desk-empty': DESK,
+  'desk-working': DESK,
+  'desk-waiting': DESK,
+  'desk-idle': DESK,
+  window: { w: 70, h: 52, standX: 0 },
+  waterCooler: { w: 28, h: 78, standX: 0 },
+  vending: { w: 56, h: 112, standX: 10 }, // 站在投幣口與按鈕前
+  plant: { w: 34, h: 74, standX: -22 }, // 站在旁邊澆水
+  bookshelf: { w: 60, h: 104, standX: 0 },
+  copier: { w: 50, h: 68, standX: 0 },
+  sofa: { w: 92, h: 46, standX: 0 },
+  floorLamp: { w: 28, h: 102, standX: 0 },
+  sideTable: { w: 30, h: 37, standX: 0 },
+};
+
+// ── 小工具（同 figure.ts） ──
+
+const g = (style: string, children: string) => tag('g', { style }, children);
+const rect = (x: number, y: number, w: number, h: number, rx: number, cls: string | undefined, style?: string) =>
+  tag('rect', { x, y, width: w, height: h, rx: rx || undefined, class: cls, style });
+const circle = (cx: number, cy: number, r: number, cls: string | undefined, style: string) => tag('circle', { cx, cy, r, class: cls, style });
+const ellipse = (cx: number, cy: number, rx: number, ry: number, cls: string | undefined, style?: string) =>
+  tag('ellipse', { cx, cy, rx, ry, class: cls, style });
+const path = (d: string, cls: string | undefined, style?: string) => tag('path', { d, class: cls, style });
+const line = (d: string, cls: string, style?: string) => tag('path', { d, class: cls, fill: 'none', style }); // 只有線、不填色
+const fill = (c: string) => `fill:${c}`;
+const tone = (x: number, y: number, w: number, h: number) => rect(x, y, w, h, 0, 'tone');
+
+const day = (children: string) => g('opacity:var(--day)', children);
+const night = (children: string) => g('opacity:var(--night)', children);
+/** 夜晚的暖光：--lamp-glow（白天是 transparent），不透明度 0.1 */
+const glow = (cx: number, cy: number, rx: number, ry: number) => ellipse(cx, cy, rx, ry, undefined, 'fill:var(--lamp-glow);opacity:.1');
+
+const WHITE = fill('#fff');
+const DARK_STEEL = fill('#8089ad');
+const GREEN_LEAF = fill('#9cc08a');
+const POT = fill('#c98a6a');
+/** 書背：衣服色票（淡色，日夜都看得清楚） */
+const BOOKS = ['#c9d8e8', '#f1d0c4', '#d8e4cf', '#e8dcc0', '#d9c9e6', '#f3c9d2', '#bfe0dc', '#e9c9a8'];
+
+// ── 桌子：112×76；桌面上緣 y −48.5、螢幕 x 20–52／y −74 到 −48、正面 y −42 到 −23 留白給 HTML 名牌 ──
+
+const SCREEN: Record<DeskState, string> = {
+  empty: 'var(--screen-off)',
+  working: 'var(--screen-working)',
+  waiting: 'var(--screen-waiting)',
+  idle: 'var(--screen-turn)',
+};
+
+function desk(st: DeskState): string {
+  const lit = st !== 'empty';
+  let o = '';
+  // 檯燈與人周圍的暖光：只有非空桌、只在夜晚
+  if (lit) {
+    o += night(glow(0, -56, 58, 46)
+      + rect(-55, -50.5, 10, 2, 1, 'mk-thin', fill('var(--monitor)'))
+      + line('M-50 -50.5 v-14 l8 -6', 'mk', 'stroke-width:1.4')
+      + path('M-47 -73 l12 -2 l1 8z', 'mk-thin', fill('var(--lamp-glow)')));
+  }
+  // 螢幕：外框、畫面、支架
+  o += rect(20, -74, 32, 23, 2, 'mk', fill('var(--monitor)'))
+    + rect(24, -70, 24, 15, 0, undefined, fill(SCREEN[st]))
+    + rect(33, -51, 6, 2.5, 0, 'mk-thin', fill('var(--monitor)'));
+  if (st === 'working') o += line('M27 -66.5 h10 M27 -63 h15 M27 -59.5 h7', 'mk-thin', 'stroke:var(--monitor);opacity:.45');
+  if (lit) o += path('M25 -69 h6 l-5 7 h-1z', undefined, 'fill:#fff;opacity:.5'); // 反光
+  // 桌上：筆記本、馬克杯、鍵盤
+  o += rect(-43, -50.5, 12, 2, 0.5, 'mk-thin', fill('#4f86b8')) + rect(-42, -52.5, 10, 2, 0.5, 'mk-thin', fill('var(--plate)'))
+    + rect(-30, -56, 7, 7.5, 1.5, 'mk-thin', fill('#c9d8e8')) + line('M-23 -54.5 q3 0 3 2.5 q0 2.5 -3 2.5', 'mk-thin')
+    + rect(-15, -51, 30, 2.5, 1, 'mk-thin', fill('var(--plate)'));
+  if (st === 'idle') o += path('M-28 -58.5 q-2 -3 0 -6 q2 -3 0 -6 M-25 -59 q-2 -2.5 0 -5 q2 -2.5 0 -5', undefined,
+    'fill:none;stroke:var(--fx);stroke-width:1;stroke-linecap:round;opacity:.6'); // 蒸氣
+  // 桌子本體：桌面（等你處理混一點紅）、桌板下緣的網點陰影、底邊踢腳線
+  o += rect(-56, -48.5, 112, 48.5, 3, 'mk', fill('var(--desk)'));
+  if (st === 'waiting') o += rect(-55.25, -47.75, 110.5, 4.25, 2, undefined, 'fill:var(--waiting);opacity:.3');
+  o += tone(-55, -43.5, 110, 2.5) + line('M-55 -43.5 H55', 'mk-thin') + line('M-55 -4 H55', 'mk-thin');
+  return o;
+}
+
+// ── 窗：70×52（含窗台）。紙張風墨線窗框，城市與天空用變數；白雲只在白天，星星與月亮只在夜晚 ──
+
+const CITY: [number, number, number][] = [[-31, -24, 10], [-20, -33, 9], [-10, -21, 11], [2, -37, 9], [12, -27, 10], [23, -31, 8.5]]; // [x, 樓頂 y, 寬]
+const LIT: [number, number][] = [[-28, -21], [-17, -29], [-17, -23], [-6, -18], [5, -33], [5, -26], [15, -23], [26, -27], [26, -20]];
+
+function windowSym(): string {
+  const sky = rect(-32, -51, 64, 44, 3, undefined, fill('var(--window-sky)'));
+  const clouds = day(ellipse(-14, -40, 9, 3.2, undefined, WHITE) + ellipse(-8, -42.5, 5, 2.6, undefined, WHITE) + ellipse(14, -45, 6, 2.2, undefined, WHITE));
+  const stars = night(circle(19, -41, 5, undefined, fill('#f3e6b8')) + circle(21.5, -43, 4.3, undefined, fill('var(--window-sky)'))
+    + line('M-23 -44 h4 M-21 -46 v4 M-1 -47 h3 M0.5 -48.5 v3', 'mk-thin', 'stroke:#f1e9d8;stroke-width:.9')
+    + circle(-11, -38, 0.7, undefined, fill('#f1e9d8')) + circle(8, -41, 0.6, undefined, fill('#f1e9d8')));
+  const city = CITY.map(([x, y, w]) => rect(x, y, w, -7 - y, 0, undefined, fill('var(--city)'))).join('')
+    + LIT.map(([x, y]) => rect(x, y, 2, 2, 0, undefined, fill('var(--city-lit)'))).join('');
+  return sky + clouds + stars + city
+    + rect(-32, -51, 64, 44, 3, 'ink', 'fill:none') // 窗框
+    + rect(-35, -7, 70, 7, 2, 'ink', fill('var(--wall-low)')); // 窗台
+}
+
+// ── 右端家具（尺寸沿用現在的版本，layoutSet 排出來的位置不變） ──
+
+/** 飲水機 28×78：水桶、機身、兩個出水口 */
+const waterCooler = () =>
+  rect(-10, -77, 20, 31, 8, 'mk', fill('#bfe0f5')) + line('M-6 -72 v18', 'mk-thin', 'stroke:#fff;stroke-width:1.6;opacity:.8')
+  + rect(-4, -48.5, 8, 3, 1, 'mk-thin', fill('#bfe0f5'))
+  + rect(-13, -46, 26, 46, 4, 'mk', fill('#eef2f6')) + tone(6.5, -44, 5, 42)
+  + rect(-9, -39, 14, 11, 2, 'mk-thin', fill('#dfe6ee'))
+  + circle(-5, -33.5, 2.2, undefined, fill('#4a90d9')) + circle(1.5, -33.5, 2.2, undefined, fill('var(--waiting)'))
+  + line('M-9 -24 H5', 'mk-thin');
+
+const SNACKS = ['#ffd166', '#4fb477', '#4a90d9'];
+/** 販賣機 56×112：燈箱（夜晚亮起、周圍暖光）、商品窗、投幣口與按鈕、取物口 */
+function vending(): string {
+  let snacks = '';
+  for (let i = 0; i < 9; i++) {
+    const row = Math.floor(i / 3), col = i % 3;
+    snacks += rect(-18 + col * 10.5, -86 + row * 20, 7, 12, 1.5, undefined, fill(SNACKS[(col + row) % 3]!));
+  }
+  return night(glow(0, -56, 46, 56))
+    + rect(-27, -111, 54, 111, 4, 'mk', fill('#d9534f'))
+    + rect(-21, -105, 42, 10, 1, 'mk-thin', fill('#ffe9a8'))
+    + night(rect(-21, -105, 42, 10, 1, 'mk-thin', fill('#fff3c4')))
+    + rect(-21, -90, 34, 60, 0, 'mk-thin', fill('#24324f')) + snacks
+    + line('M-21 -73.5 H13 M-21 -53.5 H13', 'mk-thin', 'stroke:#8089ad;stroke-width:1')
+    + tone(15, -90, 10, 84)
+    + rect(17, -86, 5, 8, 1, 'mk-thin', DARK_STEEL)
+    + circle(19.5, -70, 1.8, 'mk-thin', fill('#ffe9a8')) + circle(19.5, -63, 1.8, 'mk-thin', fill('#4fb477'))
+    + rect(-21, -22, 34, 10, 2, 'mk-thin', fill('#5a1414'));
+}
+
+/** 盆栽 34×74：三片大葉、暗面網點、陶盆 */
+const plant = () =>
+  ellipse(-8, -46, 8, 16, 'mk', GREEN_LEAF) + ellipse(8, -47, 8, 17, 'mk', GREEN_LEAF) + ellipse(0, -56, 7, 17.5, 'mk', GREEN_LEAF)
+  + ellipse(10, -44, 3.5, 10, 'tone')
+  + rect(-12, -24, 24, 24, 4, 'mk', POT) + tone(4, -22, 6, 20)
+  + rect(-13.5, -27, 27, 5, 2, 'mk', POT);
+
+/** 書櫃 60×104：木框、四層、書背（淡色）、右側內壁網點 */
+function bookshelf(): string {
+  let books = '';
+  const rows: [number, number][] = [[-99, -77], [-77, -51], [-51, -25], [-25, -4]]; // [層頂, 層底]
+  let k = 0;
+  rows.forEach(([top, bottom], r) => {
+    for (let x = -26 + (r % 2) * 2; ; k++) {
+      const w = [6, 8, 5, 7][k % 4]!, h = Math.min(bottom - top - 2, [17, 20, 15, 19][k % 4]!);
+      if (x + w > 17) break;
+      if ((k + r) % 5 !== 3 && r < 3) books += rect(x, bottom - h, w, h, 1, 'mk-thin', fill(BOOKS[k % BOOKS.length]!)); // 每五格空一格；最下層放書盒
+      x += w + 1;
+    }
+  });
+  books += rect(-24, -15, 16, 11, 1, 'mk-thin', fill('#e8dcc0')) + rect(-5, -15, 16, 11, 1, 'mk-thin', fill('#c9d8e8'));
+  return rect(-29, -103, 58, 103, 2, 'mk', fill('var(--wood)'))
+    + books
+    + tone(19, -101, 8, 97)
+    + line(rows.map(([, b]) => `M-28 ${b} H28`).join(' '), 'mk-thin');
+}
+
+/** 影印機 68 高：掃描蓋、出紙口、操作面板、兩個紙匣、右側網點 */
+const copier = () =>
+  rect(-24, -51, 48, 51, 4, 'mk', fill('#eef2f6')) + tone(16, -49, 6, 47)
+  + rect(-23, -60, 46, 10, 2, 'mk', fill('#dfe6ee')) + rect(-25, -67, 50, 7.5, 2, 'mk', fill('#d6dce6'))
+  + rect(8, -58, 12, 5, 1.5, 'mk-thin', DARK_STEEL) + circle(17.5, -55.5, 1.2, undefined, fill('var(--working)'))
+  + rect(-15, -49, 24, 3, 0.5, 'mk-thin', WHITE)
+  + rect(-20, -40, 34, 13, 2, 'mk-thin', fill('#dfe6ee')) + rect(-20, -23, 34, 13, 2, 'mk-thin', fill('#dfe6ee'))
+  + line('M-8 -33.5 h10 M-8 -16.5 h10', 'mk', 'stroke-width:1.8');
+
+/** 沙發 92×46：椅背、兩側扶手、坐墊、抱枕、椅背右側網點、短腳 */
+const sofa = () =>
+  rect(-41, -45, 82, 32, 8, 'mk', fill('#9fb2d9')) + tone(18, -43, 12, 18)
+  + rect(-28, -37, 14, 12, 4, 'mk-thin', fill('#f3c9d2'))
+  + rect(-45.5, -33, 16, 33, 6, 'mk', fill('#9fb2d9')) + rect(29.5, -33, 16, 33, 6, 'mk', fill('#9fb2d9'))
+  + rect(-31, -24, 62, 19, 5, 'mk', fill('#b9c7e6'))
+  + line('M-24 -5 V0 M24 -5 V0', 'mk');
+
+/** 立燈 28×102：燈罩（夜晚亮起、周圍暖光）、燈桿、底座 */
+const SHADE = 'M-14 -81 L14 -81 L8 -101 L-8 -101Z';
+const floorLamp = () =>
+  night(glow(0, -84, 40, 46))
+  + line('M0 -81 V-2', 'mk', 'stroke-width:2')
+  + ellipse(0, -2, 11, 2.2, undefined, fill('var(--fig-ink)'))
+  + path(SHADE, 'mk', fill('#f5f0e4'))
+  + night(path(SHADE, 'mk', fill('#ffe9a8')) + ellipse(0, -80, 9, 1.8, undefined, 'fill:#fff3c4;opacity:.9'))
+  + path('M5 -99 L8 -99 L12.5 -83 L8.5 -83Z', 'tone');
+
+/** 邊桌 30×37：桌面下網點、桌腳、下層一本書、桌上一本書與一杯咖啡 */
+const sideTable = () =>
+  rect(-12, -24, 3, 24, 0, 'mk-thin', fill('var(--wood)')) + rect(9, -24, 3, 24, 0, 'mk-thin', fill('var(--wood)'))
+  + rect(-10, -10, 20, 2.5, 0, 'mk-thin', fill('var(--wood)')) + rect(-7, -14, 12, 4, 1, 'mk-thin', fill('#4f86b8'))
+  + tone(-9, -23.5, 18, 3)
+  + rect(-14.5, -28, 29, 4.5, 1.5, 'mk', fill('var(--wood)'))
+  + rect(-11, -31, 11, 3, 1, 'mk-thin', fill('#c0583c'))
+  + rect(3, -35.5, 6.5, 7.5, 1.5, 'mk-thin', WHITE) + line('M9.5 -33.5 q2.5 0 2.5 2 q0 2 -2.5 2', 'mk-thin');
+
+const DRAW: Record<ObjectId, () => string> = {
+  'desk-empty': () => desk('empty'),
+  'desk-working': () => desk('working'),
+  'desk-waiting': () => desk('waiting'),
+  'desk-idle': () => desk('idle'),
+  window: windowSym,
+  waterCooler, vending, plant, bookshelf, copier, sofa, floorLamp, sideTable,
+};
+
+/** 隱藏的 <svg>：<defs> 裡有 <pattern id="tone">（4×4、中心半徑 0.95 的點，style fill var(--fig-ink)、opacity var(--tone-opacity)）與每個 ObjectId 的 <symbol id>。
+ *  symbol 設 overflow:visible：外緣的墨線不被切掉一半，暖光可以超出物件範圍 */
+export function defsSvg(): string {
+  const pattern = tag('pattern', { id: 'tone', width: 4, height: 4, patternUnits: 'userSpaceOnUse' },
+    circle(2, 2, 0.95, undefined, 'fill:var(--fig-ink);opacity:var(--tone-opacity)'));
+  const symbols = (Object.keys(OBJECTS) as ObjectId[]).map((id) => {
+    const { w, h } = OBJECTS[id];
+    return tag('symbol', { id, viewBox: `${-w / 2} ${-h} ${w} ${h}`, style: 'overflow:visible' }, DRAW[id]());
+  }).join('');
+  return tag('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 0, height: 0, 'aria-hidden': 'true', style: 'position:absolute' },
+    tag('defs', {}, pattern + symbols));
+}
