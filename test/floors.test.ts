@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { assignAssistantSeats, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter, visibleSpan, atBottom } from '../web/src/floors.js';
+import { assignAssistantSeats, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -188,4 +188,43 @@ test('atBottom：沒有捲軸或捲到底（容許 1px）算在最底', () => {
   expect(atBottom(800, 1500, 700)).toBe(true);
   expect(atBottom(799.5, 1500, 700)).toBe(true); // 小數捲動位置
   expect(atBottom(500, 1500, 700)).toBe(false);
+});
+
+test('walkMs：距離 ÷ 120px/s，左右走一樣久，原地為 0；電梯門中心在電梯區正中', () => {
+  expect(walkMs(40, 280)).toBe(2000);
+  expect(walkMs(280, 40)).toBe(2000);
+  expect(walkMs(100, 100)).toBe(0);
+  expect(DOOR_X).toBe(40);
+});
+
+test('walkPos：等速內插，半路轉向從那裡開始；時間外夾在起終點；0ms 直接在終點', () => {
+  const w = { from: 40, to: 280, start: 1000, ms: 2000 };
+  expect(walkPos(w, 1000)).toBe(40);
+  expect(walkPos(w, 2000)).toBe(160);
+  expect(walkPos(w, 500)).toBe(40);
+  expect(walkPos(w, 9000)).toBe(280);
+  expect(walkPos({ from: 280, to: 40, start: 0, ms: 1000 }, 250)).toBe(220);
+  expect(walkPos({ from: 5, to: 5, start: 0, ms: 0 }, 0)).toBe(5);
+});
+
+test('withLeaving + vacate：最後一人走去電梯時樓層還在、座位已空、不算提示', () => {
+  const gone = emp('a', 'waiting', { seat: 1 });
+  const plan = vacate(floorPlan(withLeaving([], [gone]), [], none, none), new Set(['a']));
+  expect(plan).toHaveLength(1);
+  expect(plan[0].desks).toBe(2);
+  expect(plan[0].seats.every((s) => s.occ === null)).toBe(true);
+  expect(floorAlert(plan[0])).toBe(null);
+});
+
+test('withLeaving：新人坐上正在離開的人的座位時新人優先；同一人又回來只算一次', () => {
+  const gone = emp('a', 'working', { seat: 0 }), fresh = emp('b', 'waiting', { seat: 0 });
+  const plan = vacate(floorPlan(withLeaving([fresh], [gone]), [], none, none), new Set(['a']));
+  expect(plan[0].seats[0].occ).toMatchObject({ kind: 'employee', emp: { sessionId: 'b' } });
+  const back = emp('a', 'idle', { seat: 2 });
+  expect(withLeaving([back], [gone]).map((e) => [e.sessionId, e.seat])).toEqual([['a', 2]]);
+});
+
+test('vacate：沒有人在離開時原樣回傳', () => {
+  const plan = floorPlan([emp('a')], [], none, none);
+  expect(vacate(plan, new Set())).toBe(plan);
 });

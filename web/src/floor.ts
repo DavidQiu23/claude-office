@@ -1,7 +1,8 @@
 // 一層樓：後牆、地板、樓板、左邊電梯門（門上樓號）、後牆招牌「NF 專案名」、一排正面桌與名牌。人物由 building.ts 放進 people 圖層
 import { deskFront, type DeskState } from './flat.js';
-import { edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, type EdgeHint, type Floor, type Occupant } from './floors.js';
+import { DOOR_X, edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, type EdgeHint, type Floor, type Occupant } from './floors.js';
 import { placeImg, spriteImg } from './sprites.js';
+import { ElevatorDoor } from './door.js';
 
 export const DESK_SCALE = 1.25; // 正面桌素材寬 80 → 100px
 export const DESK_Y = 126; // 桌子素材原點（左上）的 y：桌面在 143.5、桌腳到 176
@@ -63,11 +64,15 @@ export class FloorView {
   private deskRow = div('desks');
   private desks: DeskEl[] = [];
   private f: Floor | null = null;
+  /** 電梯門中心 x（內容座標，與 seatCenter 同一套） */
+  readonly doorX = DOOR_X;
+  private elev = div('elevator');
+  private door = div('door');
+  private doorQ = new ElevatorDoor((open) => this.elev.classList.toggle('open', open));
 
   constructor(hooks: { hover(o: Occupant, at: DOMRect): void; unhover(): void }) {
-    const elev = div('elevator');
-    elev.append(this.doorNum, div('door'));
-    this.inner.append(div('wall'), div('ground-strip'), div('slab'), elev, this.sign, this.people, this.deskRow);
+    this.elev.append(this.doorNum, this.door);
+    this.inner.append(div('wall'), div('ground-strip'), div('slab'), this.elev, this.sign, this.people, this.deskRow);
     this.scroller.append(this.inner);
     this.el.append(this.scroller, this.shadeL, this.shadeR, this.hintL.el, this.hintR.el);
     // 內容座標（電梯區從 0 開始）與 seatCenter 同一套；一次只讀一次版面
@@ -142,8 +147,23 @@ export class FloorView {
     this.hintR.set(h.right);
   }
 
+  /** 電梯門開（300ms）→ 呼叫 atOpen（一律非同步）→ 停一下 → 關（300ms）；門關好時 resolve。排隊規則見 ElevatorDoor.ride */
+  openDoor(atOpen?: () => void): Promise<void> {
+    return this.doorQ.ride(atOpen);
+  }
+
+  /** 重新連線：門直接關上、不播動畫，等著的事都作廢 */
+  shutDoor(): void {
+    this.doorQ.cancel();
+    this.elev.classList.add('snap');
+    this.elev.classList.remove('open');
+    void getComputedStyle(this.door, '::before').transform; // 讓沒有 transition 的關門先生效
+    this.elev.classList.remove('snap');
+  }
+
   destroy(): void {
     cancelAnimationFrame(this.raf);
+    this.doorQ.cancel();
     this.el.remove();
   }
 }

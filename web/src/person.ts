@@ -1,9 +1,10 @@
-// 一個人：人物圖（1.5 倍、椅背在圖裡）、姿勢、打字/走路換幀、輪到你的泡泡。el 的 left = 人的中心 x（樓層座標）
+// 一個人：人物圖（1.5 倍、椅背在圖裡）、姿勢、打字/走路換幀、輪到你的泡泡、水平走路。el 的 left = 人的中心 x（樓層座標）
 import type { Pose } from './flat.js';
+import { walkMs, walkPos, type Walk } from './floors.js';
 import { charImg, placeImg } from './sprites.js';
 import type { Look } from './view.js';
 
-export type Act = 'work' | 'up' | 'idle' | 'walk';
+export type Act = 'work' | 'up' | 'idle' | 'walk' | 'stand';
 
 const TYPE_MS = 200; // 打字換幀
 const WALK_MS = 140; // 走路換幀
@@ -56,6 +57,9 @@ export class Person {
   private bubble: HTMLCanvasElement | null = null;
   private act: Act | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private x = 0; // 停著的位置；走路中是目的地
+  private walk: Walk | null = null;
+  private walkT: ReturnType<typeof setTimeout> | undefined; // 站起來或走路的計時器，到了才呼叫 done
 
   constructor(private look: Look) {
     this.el.className = 'person';
@@ -87,7 +91,7 @@ export class Person {
     this.el.dataset.act = a;
     if (a === 'work') this.loop('sit0', 'sit1', TYPE_MS);
     else if (a === 'walk') this.loop('walk0', 'walk1', WALK_MS);
-    else this.pose(a);
+    else this.pose(a === 'stand' ? 'walk0' : a); // stand：站著不動（走路第一格），不舉手
   }
 
   setBubble(on: boolean): void {
@@ -95,12 +99,61 @@ export class Person {
     if (this.bubble) this.bubble.hidden = !on;
   }
 
+  /** 畫面上目前的 x：走路中依時間內插（不讀版面） */
+  get at(): number {
+    return this.walk ? walkPos(this.walk, performance.now()) : this.x;
+  }
+
+  /** 正在站起來或走路（還沒到目的地） */
+  get moving(): boolean {
+    return this.walkT !== undefined;
+  }
+
+  /** 直接放到 x（取消走路，不呼叫原本的 done） */
   placeAt(x: number): void {
+    this.stop();
+    this.x = x;
+    this.el.style.transition = '';
     this.el.style.left = `${x}px`;
+  }
+
+  /**
+   * 從目前位置等速（120px/s）走到 x，到了呼叫 done；走路中再呼叫就從當下位置轉向，前一次的 done 作廢。
+   * standMs > 0：先站起來（stand）停一下再走；到了先站著不動（stand），done 再決定姿勢（坐下或等電梯門）
+   */
+  walkTo(x: number, done?: () => void, standMs = 0): void {
+    this.placeAt(this.at);
+    const go = (): void => {
+      const from = this.x, ms = walkMs(from, x);
+      this.setAct('walk');
+      void this.el.offsetWidth; // 先讓「停在 from、沒有 transition」（含剛取消 hidden）生效，transition 才會從這裡開始
+      this.el.style.transition = `left ${ms}ms linear`;
+      this.el.style.left = `${x}px`;
+      this.x = x;
+      this.walk = { from, to: x, start: performance.now(), ms };
+      // 用計時器而不是 transitionend：樓層 DOM 被搬動時 transition 會被取消、不會有 transitionend
+      this.walkT = setTimeout(() => {
+        this.stop();
+        this.el.style.transition = '';
+        this.setAct('stand');
+        done?.();
+      }, ms);
+    };
+    if (standMs > 0) {
+      this.setAct('stand');
+      this.walkT = setTimeout(go, standMs);
+    } else go();
+  }
+
+  private stop(): void {
+    clearTimeout(this.walkT);
+    this.walkT = undefined;
+    this.walk = null;
   }
 
   destroy(): void {
     clearInterval(this.timer);
+    this.stop();
     this.el.remove();
   }
 }

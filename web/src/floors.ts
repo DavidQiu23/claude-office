@@ -129,3 +129,26 @@ export function visibleSpan(flags: readonly boolean[]): { from: number; to: numb
 
 /** 頁面是否已在最底（含完全沒有捲軸）：加蓋樓層時要維持貼底，不是貼著某一層 */
 export const atBottom = (scrollY: number, scrollHeight: number, viewH: number): boolean => scrollY >= scrollHeight - viewH - 1;
+
+// ---- 走路與電梯 ----
+/** 電梯門中心 x（樓層內座標，與 seatCenter 同一套） */
+export const DOOR_X = GEO.elevatorW / 2;
+export const WALK_SPEED = 120; // px/s
+/** 走一段路要多久（ms）：距離 ÷ 120px/s，等速 */
+export const walkMs = (from: number, to: number): number => (Math.abs(to - from) / WALK_SPEED) * 1000;
+export interface Walk { from: number; to: number; start: number; ms: number }
+/** 走路中某個時間點的 x（等速內插，時間外夾在起點或終點） */
+export const walkPos = (w: Walk, now: number): number =>
+  w.ms <= 0 ? w.to : w.from + (w.to - w.from) * Math.min(1, Math.max(0, (now - w.start) / w.ms));
+
+/** 正在走去電梯的人也放進 floorPlan（那層才不會先拆）；排在前面，同座位的新人才會蓋過他；同一人又回來了只算一次 */
+export const withLeaving = (employees: Employee[], leaving: Employee[]): Employee[] => {
+  const here = new Set(employees.map((e) => e.sessionId));
+  return [...leaving.filter((l) => !here.has(l.sessionId)), ...employees];
+};
+
+/** 走去電梯的人從座位拿掉：桌子變空、沒有名牌、不算電梯燈與邊緣提示，但樓層還在 */
+export function vacate(plan: Floor[], ids: ReadonlySet<string>): Floor[] {
+  if (!ids.size) return plan;
+  return plan.map((f) => ({ ...f, seats: f.seats.map((s) => (s.occ?.kind === 'employee' && ids.has(s.occ.emp.sessionId) ? { ...s, occ: null } : s)) }));
+}

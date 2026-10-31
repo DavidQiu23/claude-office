@@ -61,7 +61,14 @@
     .elevator .door-num { position: absolute; left: 26px; top: 20px; width: 28px; height: 16px; border-radius: 3px; background: #14121f;
       color: #ff9b6b; font: bold 11px/16px system-ui, "Microsoft JhengHei", sans-serif; text-align: center; }
     .elevator .door { position: absolute; left: 14px; top: 44px; width: 52px; height: 92px; box-sizing: border-box; border: 2px solid #2a2d4d; border-bottom: 0;
-      border-radius: 2px 2px 0 0; background: linear-gradient(90deg, #5d6496 calc(50% - 1px), #3d4270 calc(50% - 1px) calc(50% + 1px), #5d6496 calc(50% + 1px)); }
+      border-radius: 2px 2px 0 0; overflow: hidden; background: linear-gradient(#e8d6a2, #a88f5c); }
+    /* 兩片門往左右滑進牆裡（300ms，同 floor.ts 的 DOOR_MS），露出亮著的車廂；中間 2px 門縫 */
+    .elevator .door::before, .elevator .door::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50%; background: #5d6496; transition: transform .3s ease-in-out; }
+    .elevator .door::before { left: 0; box-shadow: inset -1px 0 0 #3d4270; }
+    .elevator .door::after { right: 0; box-shadow: inset 1px 0 0 #3d4270; }
+    .elevator.open .door::before { transform: translateX(-100%); }
+    .elevator.open .door::after { transform: translateX(100%); }
+    .elevator.snap .door::before, .elevator.snap .door::after { transition: none; }
     /* 招牌：專案色（不透明度 0.9 由程式加在色碼後）、白色粗體，放不下用「…」 */
     .sign { left: 92px; top: 18px; max-width: 260px; height: 26px; padding: 0 12px; border-radius: 13px; box-sizing: border-box;
       color: #fff; font: bold 15px/26px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 0 #0005; }
