@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { chairDepth, deskDepth, fitCamera, focusCamera, islandsBox, isoDepth, personDepth, plateAt, roomBox, roomSize, toScreen } from '../web/src/iso.js';
+import { chairDepth, clampView, deskDepth, fitCamera, focusCamera, islandsBox, isoDepth, personDepth, plateAt, roomBox, roomSize, toScreen, zoomAt } from '../web/src/iso.js';
 import type { Employee } from '../src/state/types.js';
 import { entryPath, ISLAND, layout, seatCell, SEAT, BASE_H, BASE_W, type Island } from '../web/src/view.js';
 
@@ -86,4 +86,40 @@ test('focusCamera：人少放大到上限，人多拉遠，畫面都在房間內
     if (room.w > 2 * hw) { expect(c.cx - hw).toBeGreaterThanOrEqual(room.x - 1e-9); expect(c.cx + hw).toBeLessThanOrEqual(room.x + room.w + 1e-9); }
     if (room.h > 2 * hh) { expect(c.cy - hh).toBeGreaterThanOrEqual(room.y - 1e-9); expect(c.cy + hh).toBeLessThanOrEqual(room.y + room.h + 1e-9); }
   }
+});
+
+test('zoomAt：游標下的那一點縮放後仍在畫面同一個位置', () => {
+  const v = { zoom: 1, cx: 100, cy: 50 };
+  const anchor = { x: 300, y: -20 };
+  const n = zoomAt(v, anchor, 1.6);
+  expect(n.zoom).toBe(1.6);
+  expect((anchor.x - n.cx) * n.zoom).toBeCloseTo((anchor.x - v.cx) * v.zoom);
+  expect((anchor.y - n.cy) * n.zoom).toBeCloseTo((anchor.y - v.cy) * v.zoom);
+  expect(zoomAt(v, { x: v.cx, y: v.cy }, 2)).toEqual({ zoom: 2, cx: 100, cy: 50 });
+});
+
+test('clampView：倍率夾在整個房間到上限之間', () => {
+  const room = roomBox(1006, 420);
+  const whole = fitCamera(room, BASE_W, BASE_H, 2);
+  expect(clampView({ zoom: 5, cx: 0, cy: 0 }, room, BASE_W, BASE_H, 2).zoom).toBe(2);
+  expect(clampView({ zoom: 0.01, cx: 0, cy: 0 }, room, BASE_W, BASE_H, 2).zoom).toBe(whole.zoom);
+  // 拉到最遠時整個房間放得下，中心固定在房間中央
+  const far = clampView({ zoom: 0.01, cx: 9999, cy: -9999 }, room, BASE_W, BASE_H, 2);
+  expect(far.cx).toBeCloseTo(room.x + room.w / 2);
+  expect(far.cy).toBeCloseTo(room.y + room.h / 2);
+});
+
+test('clampView：放大時中心夾在房間內，畫面不露出房間外', () => {
+  const room = roomBox(1006, 420);
+  for (const [cx, cy] of [[-9999, -9999], [9999, 9999], [room.x, room.y + room.h]]) {
+    const v = clampView({ zoom: 2, cx, cy }, room, BASE_W, BASE_H, 2);
+    const hw = BASE_W / 2 / v.zoom, hh = BASE_H / 2 / v.zoom;
+    expect(v.cx - hw).toBeGreaterThanOrEqual(room.x - 1e-9);
+    expect(v.cx + hw).toBeLessThanOrEqual(room.x + room.w + 1e-9);
+    expect(v.cy - hh).toBeGreaterThanOrEqual(room.y - 1e-9);
+    expect(v.cy + hh).toBeLessThanOrEqual(room.y + room.h + 1e-9);
+  }
+  // 已經在房間內就不動
+  const mid = { zoom: 2, cx: room.x + room.w / 2, cy: room.y + room.h / 2 };
+  expect(clampView(mid, room, BASE_W, BASE_H, 2)).toEqual(mid);
 });

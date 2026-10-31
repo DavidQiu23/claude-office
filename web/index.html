@@ -26,8 +26,12 @@
     #summary .total { margin-left: auto; font-size: 14px; color: #a9a3c9; }
     #summary .bar { display: flex; gap: 2px; height: 8px; padding: 2px; background: #14121f; border-radius: 2px; }
     #summary .bar span { border-radius: 1px; }
-    #game { width: fit-content; margin: 0 auto 24px; border: 2px solid #2b2233; box-shadow: 4px 4px 0 #0007; }
+    #game { position: relative; width: fit-content; margin: 0 auto 24px; border: 2px solid #2b2233; box-shadow: 4px 4px 0 #0007; }
     #game canvas { display: block; }
+    /* 手動移過鏡頭才出現，配色同狀態列 */
+    #auto-focus { position: absolute; top: 10px; right: 10px; padding: 6px 12px; cursor: pointer; font: 14px system-ui, "Microsoft JhengHei", sans-serif;
+      color: #eee; background: #2b2840; border: 2px solid #8a7fc4; border-radius: 4px; box-shadow: 3px 3px 0 #0007; }
+    #auto-focus:hover { background: #3a3658; }
   </style>
 </head>
 <body>

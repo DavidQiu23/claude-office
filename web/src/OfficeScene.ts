@@ -4,7 +4,7 @@ import { addSprite, bakeSprite, bakeTextures, CHAIR_KEY, deskKey, drawShapes, en
 import { drawClay } from './clay.js';
 import { character, FLOOR, isoRoom, mix, quad, type Shape } from './flat.js';
 import { planWall } from './furniture.js';
-import { chairDepth, deskDepth, focusCamera, islandsBox, personDepth, plateAt, roomBox, roomSize, toScreen } from './iso.js';
+import { chairDepth, clampView, deskDepth, focusCamera, islandsBox, personDepth, plateAt, roomBox, roomSize, toScreen, zoomAt, type View } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
   appearance, assistantList, entryPath, formatTime, layout, layoutSig, nameplate, PALETTE, PLATE, plateFit, platePrefix, plateWidths, projectColor,
@@ -14,7 +14,9 @@ import {
 const FONT = 'system-ui, "Microsoft JhengHei", sans-serif';
 const TYPE_MS = 200; // 打字動畫換幀間隔
 const WALK_MS = 140; // 走路換幀間隔
-const MAX_ZOOM = 2; // 鏡頭放大上限（人少時對準島放大，最多 2 倍）
+const MAX_ZOOM = 2; // 鏡頭放大上限（人少時對準島放大，最多 2 倍；手動縮放也一樣）
+const DRAG_PX = 4; // 按下後移動超過這個距離（地板 px）才算拖曳
+const RELABEL_MS = 150; // 滾輪停下多久後重算名牌文字
 
 type Pt = { x: number; y: number };
 
@@ -275,6 +277,10 @@ export class OfficeScene extends Phaser.Scene {
   private emptyText!: Phaser.GameObjects.Text;
   private z = 1; // 內部渲染倍率（整數）：畫布放大、文字以同倍率繪製才不會糊
   private view = { zoom: 0, x: 0, y: 0 }; // 鏡頭目前（或 tween 中）的倍率與中心；zoom 0 = 還沒設定過
+  private manual = false; // 使用者手動移過鏡頭：版面變動時不再自動對焦，按「回到自動對焦」才恢復
+  private drag: { x: number; y: number; cx: number; cy: number; moved: boolean } | null = null; // 按下時的指標位置與鏡頭中心
+  private relabelTimer?: Phaser.Time.TimerEvent;
+  private autoBtn!: HTMLElement;
 
   constructor(private store: OfficeStore) {
     super('office');
@@ -291,6 +297,7 @@ export class OfficeScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.card = new InfoCard();
+    this.cameraControls();
     this.rebuild();
     this.store.on((c) => {
       // 兩步各自 try：重排出錯時仍要把員工放上去
@@ -412,27 +419,103 @@ export class OfficeScene extends Phaser.Scene {
     return o;
   }
 
-  /** 鏡頭對準有人的島（人少放大、人多拉遠，不露出房間外；沒人時框整個房間）；畫布大小固定。第一次直接設定，之後倍率或中心有變就 300ms 平移縮放 */
+  /** 鏡頭對準有人的島（人少放大、人多拉遠，不露出房間外；沒人時框整個房間）；畫布大小固定。第一次直接設定，之後倍率或中心有變就 300ms 平移縮放。
+   *  手動模式下留在原處，只在房間變小時夾回房間內 */
   private fitView(): void {
     const { w, h } = roomSize(this.lay.islands);
-    const { zoom, cx, cy } = focusCamera(islandsBox(this.lay.islands), roomBox(w, h), BASE_W, BASE_H, MAX_ZOOM);
+    const room = roomBox(w, h);
+    const { zoom, cx, cy } = this.manual
+      ? clampView(this.curView(), room, BASE_W, BASE_H, MAX_ZOOM)
+      : focusCamera(islandsBox(this.lay.islands), room, BASE_W, BASE_H, MAX_ZOOM);
     const mid = toScreen(w / 2, h / 2 + 40);
     this.emptyText.setPosition(mid.x, mid.y);
-    const cam = this.cameras.main;
     const to = { zoom: this.z * zoom, x: cx, y: cy };
-    // 名牌每幀跟著縮放與移位；文字（寬度上限、只顯示名字）在倍率定下來時才重算
-    const apply = (v: typeof to, relabel: boolean): void => {
-      cam.setZoom(v.zoom).centerOn(v.x, v.y);
-      this.emptyText.setScale(this.z / v.zoom); // 提示字維持 14px 畫面字級
-      this.placePlates(relabel);
-    };
     this.tweens.killTweensOf(this.view);
-    if (this.view.zoom === 0) apply(Object.assign(this.view, to), true);
-    else if (this.view.zoom !== to.zoom || this.view.x !== to.x || this.view.y !== to.y) {
+    if (this.view.zoom === 0) {
+      Object.assign(this.view, to);
+      this.applyView(true);
+    } else if (this.view.zoom !== to.zoom || this.view.x !== to.x || this.view.y !== to.y) {
       this.card.hide(); // 平移期間卡片會錯位
       this.placePlates(false); // 新畫的名牌先放好，不會在 (0,0) 出現一幀
-      this.tweens.add({ targets: this.view, ...to, duration: 300, ease: 'Sine.easeInOut', onUpdate: () => apply(this.view, false), onComplete: () => apply(this.view, true) });
+      this.tweens.add({ targets: this.view, ...to, duration: 300, ease: 'Sine.easeInOut', onUpdate: () => this.applyView(false), onComplete: () => this.applyView(true) });
     } else this.placePlates(true); // 鏡頭沒變，但重畫後的名牌還沒放好
+  }
+
+  /** 把 this.view 套到鏡頭；名牌每幀跟著縮放與移位，文字（寬度上限、只顯示名字）在倍率定下來時才重算 */
+  private applyView(relabel: boolean): void {
+    this.cameras.main.setZoom(this.view.zoom).centerOn(this.view.x, this.view.y);
+    this.emptyText.setScale(this.z / this.view.zoom); // 提示字維持 14px 畫面字級
+    this.placePlates(relabel);
+  }
+
+  /** 目前鏡頭（畫面倍率，不含內部渲染倍率） */
+  private curView(): View {
+    return { zoom: this.view.zoom / this.z, cx: this.view.x, cy: this.view.y };
+  }
+
+  private clampToRoom(v: View): View {
+    const { w, h } = roomSize(this.lay.islands);
+    return clampView(v, roomBox(w, h), BASE_W, BASE_H, MAX_ZOOM);
+  }
+
+  /** 手動移動鏡頭：停掉自動對焦，夾在房間內後直接套用 */
+  private moveView(v: View, relabel: boolean): void {
+    const c = this.clampToRoom(v);
+    this.tweens.killTweensOf(this.view);
+    this.card.hide();
+    Object.assign(this.view, { zoom: this.z * c.zoom, x: c.cx, y: c.cy });
+    this.applyView(relabel);
+    this.setManual(true);
+  }
+
+  private setManual(on: boolean): void {
+    this.manual = on;
+    this.autoBtn.style.display = on ? '' : 'none';
+  }
+
+  /** 滾輪／觸控板捏合：以游標為中心縮放；拖曳：平移；角落按鈕回到自動對焦 */
+  private cameraControls(): void {
+    this.autoBtn = el('button', 'display:none', '回到自動對焦');
+    this.autoBtn.id = 'auto-focus';
+    this.autoBtn.onclick = () => {
+      this.setManual(false);
+      this.guard(() => this.fitView());
+    };
+    this.game.canvas.parentElement?.append(this.autoBtn);
+
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _over: unknown, _dx: number, dy: number) => {
+      const ev = p.event as WheelEvent;
+      // 捏合（ctrlKey）一次的 delta 很小，係數調高；Firefox 的滾輪以行為單位
+      const k = (ev.deltaMode === 1 ? 16 : 1) * (ev.ctrlKey ? 0.01 : 0.0015);
+      const cur = this.curView();
+      const zoom = this.clampToRoom({ ...cur, zoom: cur.zoom * Math.exp(-dy * k) }).zoom;
+      if (zoom === cur.zoom) return; // 已到上下限
+      // 游標的世界座標：鏡頭原點在畫布中央，直接算（同一幀多次滾輪時鏡頭矩陣還沒更新）
+      const at = { x: cur.cx + (p.x - this.cameras.main.width / 2) / this.view.zoom, y: cur.cy + (p.y - this.cameras.main.height / 2) / this.view.zoom };
+      this.moveView(zoomAt(cur, at, zoom), false);
+      this.relabelTimer?.remove();
+      this.relabelTimer = this.time.delayedCall(RELABEL_MS, () => this.guard(() => this.placePlates(true)));
+    });
+
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.drag = { x: p.x, y: p.y, cx: this.view.x, cy: this.view.y, moved: false };
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      const d = this.drag;
+      if (!d) return;
+      if (!p.isDown) return this.endDrag();
+      if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) < DRAG_PX * this.z) return;
+      if (!d.moved) this.input.setDefaultCursor('grabbing');
+      d.moved = true;
+      this.moveView({ zoom: this.view.zoom / this.z, cx: d.cx - (p.x - d.x) / this.view.zoom, cy: d.cy - (p.y - d.y) / this.view.zoom }, false);
+    });
+    this.input.on('pointerup', () => this.endDrag());
+    this.input.on('pointerupoutside', () => this.endDrag());
+  }
+
+  private endDrag(): void {
+    if (this.drag?.moved) this.input.setDefaultCursor('');
+    this.drag = null;
   }
 
   /** 名牌固定螢幕大小：縮放抵銷鏡頭，上緣照 plateAt（以卡片高計算，底座與影子往下垂） */
@@ -726,7 +809,7 @@ export class OfficeScene extends Phaser.Scene {
     const id = e.sessionId;
     person.on('pointerover', () => {
       const cur = this.slots.get(id);
-      if (!cur) return;
+      if (!cur || this.drag?.moved) return; // 拖曳中經過的人不跳卡片
       // 世界座標 → 螢幕座標：扣掉鏡頭視野左上角、乘鏡頭倍率，再換成畫布在頁面上的 CSS 大小
       const cam = this.cameras.main;
       const r = this.game.canvas.getBoundingClientRect();

@@ -68,13 +68,27 @@ export function fitCamera(b: Box, viewW: number, viewH: number, maxZoom: number,
   };
 }
 
+export type View = { zoom: number; cx: number; cy: number };
+
+// 倍率夾在「整個房間」到 maxZoom 之間；中心夾在房間內，畫面不露出房間外（房間比畫面小時置中）
+export function clampView(v: View, room: Box, viewW: number, viewH: number, maxZoom: number): View {
+  const zoom = Math.min(maxZoom, Math.max(fitCamera(room, viewW, viewH, maxZoom).zoom, v.zoom));
+  const clamp = (c: number, lo: number, size: number, half: number): number =>
+    (size <= 2 * half ? lo + size / 2 : Math.min(Math.max(c, lo + half), lo + size - half));
+  return { zoom, cx: clamp(v.cx, room.x, room.w, viewW / 2 / zoom), cy: clamp(v.cy, room.y, room.h, viewH / 2 / zoom) };
+}
+
+// 以 anchor（世界座標，通常是游標下的點）為中心縮放到 zoom：anchor 在畫面上的位置不變
+export const zoomAt = (v: View, anchor: Pt, zoom: number): View => ({
+  zoom,
+  cx: anchor.x - (anchor.x - v.cx) * v.zoom / zoom,
+  cy: anchor.y - (anchor.y - v.cy) * v.zoom / zoom,
+});
+
 // 鏡頭對準有人的地方（focus），人少放大到 maxZoom、人多拉遠；中心夾在房間內，畫面不露出房間外。沒人時框整個房間。
-export function focusCamera(focus: Box | null, room: Box, viewW: number, viewH: number, maxZoom: number): { zoom: number; cx: number; cy: number } {
+export function focusCamera(focus: Box | null, room: Box, viewW: number, viewH: number, maxZoom: number): View {
   const whole = fitCamera(room, viewW, viewH, maxZoom);
   if (!focus) return whole;
   const f = fitCamera(focus, viewW, viewH, maxZoom);
-  const zoom = Math.max(f.zoom, whole.zoom); // 整個房間都放得下時不必再拉遠
-  const clamp = (c: number, lo: number, size: number, half: number): number =>
-    (size <= 2 * half ? lo + size / 2 : Math.min(Math.max(c, lo + half), lo + size - half));
-  return { zoom, cx: clamp(f.cx, room.x, room.w, viewW / 2 / zoom), cy: clamp(f.cy, room.y, room.h, viewH / 2 / zoom) };
+  return clampView({ ...f, zoom: Math.max(f.zoom, whole.zoom) }, room, viewW, viewH, maxZoom); // 整個房間都放得下時不必再拉遠
 }
