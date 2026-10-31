@@ -80,7 +80,7 @@ export const formatTime = (ms: number): string => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-export const PROJECT_COLORS: string[] = ['#4a90d9', '#e98f3f', '#4fb477', '#8e6fc9', '#d9669a', '#38a8a0', '#e6c34a', '#d9534f'];
+export const PROJECT_COLORS: string[] = ['#4f86b8', '#d08a4a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#c4a23e', '#c0583c'];
 
 // 名牌前綴：等你處理「! 」、輪到你「✓ 」
 export const platePrefix = (e: Employee): string => (e.status === 'waiting' ? '! ' : e.status === 'idle' ? '✓ ' : '');

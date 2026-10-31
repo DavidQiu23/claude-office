@@ -1,4 +1,4 @@
-// 整棟大樓：夜空（星星、城市剪影）、屋頂、樓層（最高樓在上、1F 在下）、地面人行道；沒人時是空大廳。store 每個事件都重算 floorPlan，差異套到既有的樓層與人物
+// 整棟大樓：天空（白天太陽白雲、夜晚月牙星星）、屋頂、樓層（最高樓在上、1F 在下）、地面人行道；沒人時是空大廳。store 每個事件都重算 floorPlan，差異套到既有的樓層與人物
 import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
@@ -18,6 +18,22 @@ interface Leaving { occ: Occupant; p: Person; floor: string; gone: boolean }
 /** 一群人：真員工依 sessionId、助理依 helperKey，分成兩群各自的 Map，兩種 key 不會撞在一起 */
 interface Crowd { kind: Occupant['kind']; people: Map<string, Rec>; leaving: Map<string, Leaving> }
 const crowd = (kind: Occupant['kind']): Crowd => ({ kind, people: new Map(), leaving: new Map() });
+
+/** 星星：[左緣 %, 離天空底部 px]（白雲 c1~c3 的位置在 CSS）；日夜由 CSS 依 data-time 顯示 */
+const STARS: [number, number][] = [[13, 42], [25, 12], [37, 34], [49, 18], [62, 30], [74, 8], [92, 44]];
+
+/** 天空：太陽、白雲、月牙、星星（造型都在 CSS） */
+function sky(): HTMLElement {
+  const el = div('sky');
+  el.append(div('sun'), div('cloud c1'), div('cloud c2'), div('cloud c3'), div('moon'));
+  for (const [x, y] of STARS) {
+    const s = div('star');
+    s.style.left = `${x}%`;
+    s.style.bottom = `${y}px`;
+    el.append(s);
+  }
+  return el;
+}
 
 /** 最高樓上面的屋頂：女兒牆、水塔、冷氣機、閃燈天線（造型都在 CSS） */
 function roof(): HTMLElement {
@@ -50,7 +66,7 @@ export class Building {
   private order: string[] = []; // 上次的樓層 key 順序（1F 在前），下次排樓層時還在的樓層維持這個順序
 
   constructor(root: HTMLElement, private store: OfficeStore, private panel: ElevatorPanel) {
-    root.replaceChildren(div('sky'), roof(), this.stack, div('ground'));
+    root.replaceChildren(sky(), roof(), this.stack, div('ground'));
     store.on((c) => {
       if (c.type === 'reset') this.clearPeople();
       else if (c.type === 'leave') this.leave(this.staff, c.sessionId);

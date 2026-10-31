@@ -130,7 +130,7 @@ export class FloorView {
     if (this.furnKey !== f.key) this.placeFurniture(f.key);
     this.sign.textContent = `${f.level}F ${f.title}`;
     this.sign.title = f.key || f.title;
-    this.sign.style.backgroundColor = `${f.color}e6`; // 專案色，不透明度 0.9
+    this.sign.style.backgroundColor = f.color; // 專案色（不透明）
     this.doorNum.textContent = String(f.level);
     while (this.desks.length > f.desks) this.desks.pop()!.el.remove();
     while (this.desks.length < f.desks) {
@@ -214,16 +214,17 @@ export class FloorView {
   }
 }
 
-/** 沒有人上班：一層空的大廳，中間兩行提示 */
+/** 沒有人上班：一層空的大廳，中間一張紙條寫兩行提示 */
 export function lobby(): HTMLElement {
-  const el = div('floor lobby'), inner = div('floor-in'), elev = div('elevator'), msg = div('lobby-msg');
+  const el = div('floor lobby'), inner = div('floor-in'), elev = div('elevator'), msg = div('lobby-msg'), note = div('note');
   const num = div('door-num');
   num.textContent = '1';
   elev.append(num, div('door'));
   const a = document.createElement('b'), b = document.createElement('span');
   a.textContent = '目前沒有人上班';
   b.textContent = '開一個 Claude Code session 就會出現';
-  msg.append(a, b);
+  note.append(a, b);
+  msg.append(note);
   inner.append(div('wall'), div('ground-strip'), div('slab'), elev, msg);
   el.append(inner);
   return el;

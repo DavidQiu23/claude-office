@@ -66,6 +66,10 @@ test('projectColor：同一個 key 永遠同色', () => {
   expect(PROJECT_COLORS.length).toBe(8);
 });
 
+test('PROJECT_COLORS：spec 色票的 8 種水彩色（照順序）', () => {
+  expect(PROJECT_COLORS).toEqual(['#4f86b8', '#d08a4a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#c4a23e', '#c0583c']);
+});
+
 test('formatTime：HH:mm 補零', () => {
   expect(formatTime(new Date(2026, 0, 2, 3, 4).getTime())).toBe('03:04');
 });
