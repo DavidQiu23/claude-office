@@ -1,4 +1,4 @@
-// 一層樓：後牆（招牌「NF 專案名」、夜景窗）、地板、樓板、左邊電梯門（門上樓號）、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
+// 一層樓：後牆（招牌「NF 專案名」、窗景與家具）、地板、樓板、左邊電梯門（門上樓號）、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
 import { DOOR_X, edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, type EdgeHint, type Floor, type Occupant } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowXs } from './furniture.js';
 import { OBJECTS, type DeskState, type ObjectId } from './objects.js';

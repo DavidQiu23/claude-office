@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { FIG, FX_BOXES, avatarSvg, figureSvg } from '../web/src/figure.js';
+import { BURST_BOX, FIG, FX_BOXES, avatarSvg, figureSvg } from '../web/src/figure.js';
 import { esc, tag } from '../web/src/svg.js';
 import { appearance, type Look } from '../web/src/view.js';
 
@@ -45,6 +45,22 @@ test('墨線 class 是 mk／mk-thin（theme.css）', () => {
   expect(css).not.toMatch(/\.fig(-thin)?\b/);
 });
 
+test('figure.css 的狀態規則：漫符只在對應狀態顯示，減少動態不隱藏漫符', () => {
+  const css = readFileSync('web/src/styles/figure.css', 'utf8');
+  // 預設全藏
+  expect(css).toMatch(/\.person \.fx-work, \.person \.fx-wait, \.person \.fx-turn \{ display: none; \}/);
+  // 顯示條件：工作中的 fx-work、站起來的 fx-wait、坐著且有泡泡的 fx-turn
+  const shown = css.match(/([^{}]*)\{ display: inline; \}/g)?.join('\n') ?? '';
+  expect(shown).toContain('.person[data-act="work"] .fx-work');
+  expect(shown).toContain('.person[data-act="up"] .fx-wait');
+  expect(shown).toContain('.person[data-act="idle"][data-bubble="on"] .fx-turn');
+  // 減少動態：只停動畫與過場，不動 display
+  const reduce = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  expect(reduce).toMatch(/animation: none/);
+  expect(reduce).toMatch(/transition: none/);
+  expect(reduce).not.toMatch(/display/);
+});
+
 test('同一個外觀每次相同', () => {
   expect(figureSvg(appearance('abc'))).toBe(figureSvg(appearance('abc')));
 });
@@ -72,6 +88,12 @@ test('漫符在自己的座位內', () => {
     expect(b.x0).toBeLessThan(b.x1);
     expect(b.y0).toBeLessThan(b.y1);
   }
+});
+
+test('「！」框（含脈動）不蓋住招牌，也不超出座位右緣', () => {
+  // 人物頂在樓層 y 74、招牌在樓層 y 14–40 → 人物座標 y −29 以上會碰到招牌
+  expect(BURST_BOX.y0).toBeGreaterThanOrEqual(-29);
+  expect(BURST_BOX.x1).toBeLessThanOrEqual(90);
 });
 
 test('avatarSvg 對所有外觀都畫得出來', () => {

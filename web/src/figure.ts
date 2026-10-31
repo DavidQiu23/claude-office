@@ -147,12 +147,13 @@ const LINES = Array.from({ length: 12 }, (_, i) => {
   const a = ((-170 + i * 14) * Math.PI) / 180, long = i % 2 === 1, r1 = long ? 52 : 44;
   return { x1: n(30 + 30 * Math.cos(a)), y1: n(16 + 30 * Math.sin(a)), x2: n(30 + r1 * Math.cos(a)), y2: n(16 + r1 * Math.sin(a)), long };
 });
-/** 「！」尖角框：站姿頭的右上方、集中線外側；16 個頂點的相對位置（外凸 8 點、內凹 8 點）縮成 0.9 倍（寬 43 高 34） */
-const BURST_C: Pt = [64, -40];
+/** 「！」尖角框：站姿頭的右上方、集中線外側；16 個頂點的相對位置（外凸 8 點、內凹 8 點）縮成 0.8 倍（寬 38 高 30）。放在站姿頭的右側偏上，含 1.12 倍脈動後頂端不高於人物座標 y −29（= 樓層 y 45），才不會蓋住坐在座位 0 的人上方的招牌（樓層 y 14–40） */
+const BURST_C: Pt = [66, -11];
 const BURST_PTS: Pt[] = [[0, -19], [5, -10], [16, -15], [12, -4], [24, 0], [12, 4], [16, 15], [5, 10], [0, 19], [-5, 10], [-16, 15], [-12, 4], [-24, 0], [-12, -4], [-16, -15], [-5, -10]];
 const burstAt = (k: number): Pt[] => BURST_PTS.map(([x, y]) => [n(BURST_C[0] + x * k), n(BURST_C[1] + y * k)]);
-const BURST = burstAt(0.9);
-const BURST_PULSE = burstAt(0.9 * 1.12); // CSS 以框的中心放大到 1.12 倍時的範圍
+const BURST_K = 0.8;
+const BURST = burstAt(BURST_K);
+const BURST_PULSE = burstAt(BURST_K * 1.12); // CSS 以框的中心放大到 1.12 倍時的範圍
 const DROP: Pt = [11, 8]; // 汗滴頂點（站姿頭的左側，在集中線內圈裡面）
 const BUBBLE = { cx: 56, cy: -18, r: 11 };
 const SFX = { x: -24, y: 40, size: 14 }; // 「噠噠」
@@ -165,6 +166,9 @@ function boxOf(pts: Pt[], pad: number): Box {
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   return { x0: n(Math.min(...xs) - pad), y0: n(Math.min(...ys) - pad), x1: n(Math.max(...xs) + pad), y1: n(Math.max(...ys) + pad) };
 }
+
+/** 「！」框含脈動（1.12 倍）的外框（不含 pad），測試用來確認不會蓋到招牌 */
+export const BURST_BOX: Box = boxOf(BURST_PULSE, 0);
 
 /** 漫符在人物座標裡的外框（人物座標 x 30 = 座位中心；座位 ±60 → x −30 到 90）；pad 涵蓋線寬 */
 export const FX_BOXES: Record<'work' | 'wait' | 'turn', Box> = {

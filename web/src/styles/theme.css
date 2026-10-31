@@ -8,6 +8,7 @@
 }
 
 :root[data-time="day"] {
+  color-scheme: light;
   --day: 1;
   --night: 0;
   --page-bg: #cfe1ee;
@@ -42,6 +43,7 @@
 }
 
 :root[data-time="night"] {
+  color-scheme: dark;
   --day: 0;
   --night: 1;
   --page-bg: #1b2140;

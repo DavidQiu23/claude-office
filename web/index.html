@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
+  <!-- 同步先設好日夜主題，避免樣式載入後才換色而閃一下；規則與 web/src/theme.ts 相同（06:00 到 18:00 為白天，?time=day|night 可固定），之後由 startTheme 持續更新 -->
+  <script>(function(){var m=new URLSearchParams(location.search).get('time'),h=new Date().getHours();document.documentElement.dataset.time=m==='day'||m==='night'?m:h>=6&&h<18?'day':'night'})()</script>
   <title>Claude 辦公室</title>
 </head>
 <body>
