@@ -276,3 +276,45 @@ test('SendMessage 叫回已停下的 subagent 時多一位背景助理，Subagen
   const queued = ev('PostToolUse', { tool_name: 'SendMessage', tool_use_id: 'toolu_q', tool_response: { success: true, message: 'Message queued' } });
   expect(run([queued], state).state.employees.s1.assistants).toEqual([]);
 });
+
+test('toolKind：新進員工是 null，送出 prompt 是 think', () => {
+  expect(run([ev('SessionStart')]).state.employees.s1.toolKind).toBeNull();
+  expect(run([ev('UserPromptSubmit', { prompt: 'x' })]).state.employees.s1.toolKind).toBe('think');
+});
+test('toolKind：PreToolUse 依工具名稱設定', () => {
+  const kind = (tool_name: string) => run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name, tool_input: {} })]).state.employees.s1.toolKind;
+  expect(kind('Read')).toBe('read');
+  expect(kind('Edit')).toBe('edit');
+  expect(kind('Bash')).toBe('run');
+  expect(kind('WebFetch')).toBe('web');
+  expect(kind('Agent')).toBe('agent');
+  expect(kind('mcp__foo__bar')).toBe('other');
+});
+test('toolKind：工具用完（含失敗）回到 think，Stop／StopFailure 清成 null', () => {
+  const used = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Read', tool_input: {} })]);
+  expect(run([ev('PostToolUse', { tool_name: 'Read' })], used.state).state.employees.s1.toolKind).toBe('think');
+  expect(run([ev('PostToolUseFailure', { tool_name: 'Read' })], used.state).state.employees.s1.toolKind).toBe('think');
+  expect(run([ev('Stop')], used.state).state.employees.s1.toolKind).toBeNull();
+  expect(run([ev('StopFailure')], used.state).state.employees.s1.toolKind).toBeNull();
+});
+test('toolKind：AskUserQuestion 與 PermissionRequest 不改', () => {
+  const used = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'ls' } })]);
+  expect(run([ev('PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'ls' } })], used.state).state.employees.s1.toolKind).toBe('run');
+  expect(run([ev('PreToolUse', { tool_name: 'AskUserQuestion', tool_input: {} })], used.state).state.employees.s1.toolKind).toBe('run');
+});
+test('toolKind：帶 agent_id 的事件不改', () => {
+  const used = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a1', tool_input: { description: 'd' } })]);
+  const { state } = run(
+    [ev('PreToolUse', { tool_name: 'Read', tool_input: {}, agent_id: 'sub' }), ev('PostToolUse', { tool_name: 'Read', agent_id: 'sub' }),
+     ev('UserPromptSubmit', { agent_id: 'sub' }), ev('Stop', { agent_id: 'sub' })],
+    used.state,
+  );
+  expect(state.employees.s1.toolKind).toBe('agent');
+});
+test('toolKind：較舊的事件不改', () => {
+  const { state } = run([
+    ev('Stop', { sentAt: 10 }),
+    ev('PreToolUse', { sentAt: 5, tool_name: 'Edit', tool_input: { file_path: 'a.ts' } }),
+  ]);
+  expect(state.employees.s1.toolKind).toBeNull();
+});

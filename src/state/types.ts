@@ -17,6 +17,9 @@ export interface HookEvent {
 
 export type EmployeeStatus = 'working' | 'waiting' | 'idle';
 
+// 人物動作用的工具類型（docs/superpowers/specs/2026-11-01-figure-actions-design.md）
+export type ToolKind = 'read' | 'edit' | 'run' | 'web' | 'agent' | 'think' | 'other';
+
 export interface Assistant {
   id: string;                  // tool_use_id，或 `seq-<n>`
   description: string;
@@ -37,6 +40,7 @@ export interface Employee {
   transcriptPath: string;
   status: EmployeeStatus;
   activity: string | null;
+  toolKind: ToolKind | null;   // 剛送出 prompt 或工具剛用完是 think，閒置是 null；只在工作中有意義
   seat: number;                // 從 0 開始
   arrivedAt: number;
   lastEventAt: number;

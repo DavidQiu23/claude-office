@@ -26,6 +26,7 @@ test('真實 fixtures：Agent 工具建立助理、配對完成、Stop 閒置、
       expect(e.tool_name).toBe('Agent');
       expect(emp.assistants).toEqual([expect.objectContaining({ id: agentPre, description: 'count files', status: 'working' })]);
       var agentActivity = emp.activity;
+      expect(emp.toolKind).toBe('agent');
     } else if (name === 'PostToolUse' && e.tool_use_id === agentPre) {
       expect(emp.assistants).toEqual([expect.objectContaining({ id: agentPre, status: 'done' })]);
     } else if (name === 'SessionEnd') {
@@ -34,11 +35,13 @@ test('真實 fixtures：Agent 工具建立助理、配對完成、Stop 閒置、
       expect(emp.assistants).toEqual(before); // 內部事件與 SubagentStop 不動助理
       if (e.agent_id) {
         expect(emp.activity).toBe(agentActivity);
+        expect(emp.toolKind).toBe('agent');
         sawActivityDuringSub = true;
       }
     }
     if (name === 'Stop') {
       expect(emp.status).toBe('idle');
+      expect(emp.toolKind).toBeNull();
       expect(emp.assistants).toEqual([]); // 下一個事件已清掉 done
     }
   }

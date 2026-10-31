@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { describeTool, folderName, isWaitingNotification, isSubagentTool, truncate } from '../src/state/describe.js';
+import { describeTool, folderName, isWaitingNotification, isSubagentTool, toolKindOf, truncate } from '../src/state/describe.js';
 import type { HookEvent } from '../src/state/types.js';
 
 test('truncate 以字元計算', () => {
@@ -47,4 +47,12 @@ test('isWaitingNotification：權限與 MCP 表單／網址要你處理，其餘
 });
 test('describeTool：權限詢問與提問', () => {
   expect(describeTool('AskUserQuestion', {})).toBe('提問中');
+});
+test('toolKindOf：工具名稱對應到人物動作的類型', () => {
+  for (const t of ['Read', 'Grep', 'Glob', 'LS']) expect(toolKindOf(t)).toBe('read');
+  for (const t of ['Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'TodoWrite']) expect(toolKindOf(t)).toBe('edit');
+  for (const t of ['Bash', 'BashOutput', 'KillShell']) expect(toolKindOf(t)).toBe('run');
+  for (const t of ['WebSearch', 'WebFetch']) expect(toolKindOf(t)).toBe('web');
+  for (const t of ['Task', 'Agent']) expect(toolKindOf(t)).toBe('agent');
+  for (const t of ['mcp__foo__bar', 'Skill', '']) expect(toolKindOf(t)).toBe('other');
 });
