@@ -7,7 +7,7 @@ import { planWall } from './furniture.js';
 import { chairDepth, deskDepth, focusCamera, islandsBox, personDepth, plateAt, roomBox, roomSize, toScreen } from './iso.js';
 import type { OfficeStore } from './sync.js';
 import {
-  appearance, assistantList, entryPath, formatTime, layout, layoutSig, PALETTE, plateLabel, plateMaxW, PLATE_NAME_ONLY_ZOOM, projectColor,
+  appearance, assistantList, entryPath, formatTime, layout, layoutSig, nameplate, PALETTE, PLATE, plateFit, platePrefix, plateWidths, projectColor,
   roomKey, seatCell, signFit, signMaxW, statusCount, BASE_H, BASE_W, DOOR_X, SEAT, type Island, type Layout,
 } from './view.js';
 
@@ -27,13 +27,20 @@ const TURN = { fill: 0xf2b83d, ink: '#2b1d00' };
 const BUBBLE = { x: 6, y: -61 };
 
 // 一格（seatCell 左上角）裡各物件的相對位置：座位點見 view.ts 的 SEAT
-const PLATE_H = 18; // 名牌螢幕高度（字 13px）
 const PLATE_DEPTH = 1000; // 名牌永遠在人與桌之上
+// 名牌（設計稿 10：桌上名片座）：卡片色依狀態，底座是桌子前緣的木色
+const PLATE_COLORS: Record<Employee['status'], { face: number; edge: number; ink: string }> = {
+  working: { face: 0xf3e9d6, edge: 0xd8c7aa, ink: '#3b2f2a' },
+  waiting: { face: 0xd63434, edge: 0xa82a2a, ink: '#ffffff' },
+  idle: { face: 0xf2b83d, edge: 0xc9952c, ink: '#2b1d00' },
+};
+const PLATE_WOOD = { fill: 0xb87a45, edge: 0x8d5a31 };
 // 角色素材 (0,0) 相對地板點（縮放前）：素材 40×56，底部中心（腳底陰影）對到地板點
 const CHAR = { x: -20, y: -54 };
 const CHAR_SCALE = 1; // 套在 figure 容器上
 const SIT_Y = -6; // 坐著時身體上移，臀部落在椅墊上（走路時 0）
 const RAISE_Y = -6; // 舉手時再上移
+const HEAD = { y: CHAR.y + 16 + SIT_Y, r: 12.5 }; // 坐著時臉的圓心（相對地板點）與半徑：素材頭部圓 (20, 16) r12.5
 
 const hexNum = (h: string): number => parseInt(h.slice(1), 16) || 0;
 
@@ -48,7 +55,8 @@ const drawBubble = (g: Phaser.GameObjects.Graphics): Phaser.GameObjects.Graphics
 };
 
 // 名牌 = container（位置、縮放、深度、顯示）裡的圓角底色 bg + 文字 text
-interface DeskObj { cell: Pt; img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; emp?: Employee }
+// drawn = 上次畫的狀態、字級與文字，沒變就不重畫
+interface DeskObj { cell: Pt; img: Phaser.GameObjects.Image; plate: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; emp?: Employee; drawn?: string }
 interface SignObj {
   isl: Island;
   badge: Phaser.GameObjects.Container;
@@ -427,15 +435,15 @@ export class OfficeScene extends Phaser.Scene {
     } else this.placePlates(true); // 鏡頭沒變，但重畫後的名牌還沒放好
   }
 
-  /** 名牌固定 13px 螢幕字級：縮放抵銷鏡頭，位置照規格 §11 */
+  /** 名牌固定螢幕大小：縮放抵銷鏡頭，上緣照 plateAt（以卡片高計算，底座與影子往下垂） */
   private placePlates(relabel: boolean): void {
     const zoom = this.view.zoom / this.z;
     for (const d of this.desks.values()) {
       if (!d.plate.active) continue;
-      const p = plateAt(d.cell, zoom, PLATE_H);
+      const p = plateAt(d.cell, zoom, PLATE.cardH);
       d.plate.setPosition(p.x, p.y).setScale(1 / zoom);
-      if (relabel && d.emp) this.label(d, d.emp);
     }
+    if (relabel) this.labelPlates();
     for (const s of this.slots.values()) s.bubble.setScale(1 / zoom);
   }
 
@@ -513,7 +521,7 @@ export class OfficeScene extends Phaser.Scene {
       // 位置與縮放由 placePlates 設定；先 keep 容器再加子物件，中途出錯也會隨重畫銷毀
       const plate = this.keep(this.add.container(0, 0).setVisible(false).setDepth(deskDepth(c) + PLATE_DEPTH));
       const bg = this.add.graphics();
-      const text = this.add.text(0, 0, '', { fontFamily: FONT, resolution: this.z, fontSize: '13px', padding: { x: 6, y: 1 }, fixedHeight: PLATE_H }).setOrigin(0.5, 0);
+      const text = this.add.text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold', resolution: this.z, fontSize: '13px', padding: { x: PLATE.pad, y: 1 }, fixedHeight: PLATE.cardH }).setOrigin(0.5, 0);
       plate.add([bg, text]);
       const d: DeskObj = { cell: c, img, plate, bg, text };
       this.desks.set(`${isl.key}#${i}`, d);
@@ -772,15 +780,48 @@ export class OfficeScene extends Phaser.Scene {
     setSprite(d.img, deskKey(deskState(e)));
     d.emp = e;
     d.plate.setVisible(!!e); // 空桌不顯示名牌
-    if (e) this.label(d, e);
+    this.labelPlates(); // 標題、狀態（舉手）會影響鄰座能分到的寬度
   }
 
-  /** 一行「名字 · 動作」，依螢幕寬度上限截斷（相鄰名牌不會疊在一起）；鏡頭 < 0.8 倍只顯示名字 */
-  private label(d: DeskObj, e: Employee): void {
+  // 量名牌寬度用 canvas，不經過 Phaser Text（每次 setText 都會重畫貼圖）
+  private readonly measureCtx = document.createElement('canvas').getContext('2d')!;
+  /** 名牌整塊寬（字寬 + 左右內距） */
+  private plateWidth(s: string, size: number): number {
+    this.measureCtx.font = `bold ${size}px ${FONT}`;
+    return this.measureCtx.measureText(s).width + 2 * PLATE.pad;
+  }
+
+  /** 名牌只放標題；寬度依鄰座整批分配（設計稿 10） */
+  private labelPlates(): void {
     const zoom = this.view.zoom / this.z;
-    const t = d.text;
-    const { text, waiting, turn } = plateLabel(e, (s) => (t.setText(s), t.width <= plateMaxW(zoom)), zoom < PLATE_NAME_ONLY_ZOOM);
-    t.setText(text).setColor(waiting ? '#ffffff' : turn ? TURN.ink : '#f4efe6');
-    d.bg.clear().fillStyle(waiting ? 0xd63434 : turn ? TURN.fill : 0x14172a, waiting || turn ? 0.92 : 0.85).fillRoundedRect(-t.width / 2, 0, t.width, PLATE_H, 2);
+    if (!(zoom > 0)) return; // 鏡頭還沒定，fitView 會再呼叫
+    const ds = [...this.desks.values()].filter((d) => d.plate.active && d.emp);
+    // plateWidths 用螢幕 px：世界座標 × 倍率
+    const widths = plateWidths(ds.map((d) => {
+      const e = d.emp!;
+      const p = plateAt(d.cell, zoom, PLATE.cardH);
+      const s = toScreen(d.cell.x + SEAT.x, d.cell.y + SEAT.y);
+      const hy = s.y + HEAD.y + (e.status === 'waiting' ? RAISE_Y : 0);
+      return { x: p.x * zoom, y: p.y * zoom, want: this.plateWidth(platePrefix(e) + nameplate(e), PLATE.sizes[0]), head: { x: s.x * zoom, y: hy * zoom, r: HEAD.r * zoom } };
+    }), zoom);
+    ds.forEach((d, i) => this.drawPlate(d, d.emp!, widths[i]!));
+  }
+
+  /** 桌上名片座：影子、木頭底座、卡片、上緣亮線（座標原點 = 卡片上緣中點，螢幕 px） */
+  private drawPlate(d: DeskObj, e: Employee, maxW: number): void {
+    const { text, size } = plateFit(e, maxW, (s, n) => this.plateWidth(s, n));
+    const key = `${e.status}|${size}|${text}`;
+    if (d.drawn === key) return;
+    d.drawn = key;
+    const c = PLATE_COLORS[e.status];
+    const t = d.text.setFontSize(size).setText(text).setColor(c.ink);
+    const w = t.width, x = -w / 2, h = PLATE.cardH;
+    d.bg.clear()
+      .fillStyle(0x000000, 0.32).fillRoundedRect(x + 2, h + 2, w - 4, 5, 2.5)
+      .fillStyle(PLATE_WOOD.fill, 1).fillRoundedRect(x - 3, h - 2, w + 6, 6, 2)
+      .lineStyle(1, PLATE_WOOD.edge, 1).strokeRoundedRect(x - 3, h - 2, w + 6, 6, 2)
+      .fillStyle(c.face, 1).fillRoundedRect(x, 0, w, h, 3)
+      .lineStyle(1.2, c.edge, 1).strokeRoundedRect(x, 0, w, h, 3)
+      .fillStyle(0xffffff, 0.45).fillRoundedRect(x + 4, 2, w - 8, 2, 1);
   }
 }

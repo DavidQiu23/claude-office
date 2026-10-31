@@ -1,5 +1,4 @@
 import type { Assistant, Employee } from '../../src/state/types.js';
-import { truncate } from '../../src/state/describe.js';
 import type { Void } from './flat.js';
 
 export const PALETTE = [0xd9534f, 0xe98f3f, 0xe6c34a, 0x4fb477, 0x38a8a0, 0x4a90d9, 0x8e6fc9, 0xd9669a];
@@ -32,12 +31,9 @@ export const appearance = (sessionId: string): Look => {
 };
 
 // 名牌：session 標題（沒有就用第一個 prompt），這些在 session 期間不會變，比最近的 prompt 好認。
-// 換行/連續空白壓成一格，避免名牌變多行而蓋到下一排
+// 換行/連續空白壓成一格，避免名牌變多行而蓋到下一排；長度交給 plateFit 依寬度截
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
-export const nameplate = (e: Employee): string => {
-  const base = oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt);
-  return truncate(base, 24);
-};
+export const nameplate = (e: Employee): string => oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt);
 
 /** 資訊卡的助理清單：工作中排前（同組維持原順序），前 max 位成列，其餘歸入 extra */
 export const assistantList = (list: readonly Assistant[], max = 4) => {
@@ -81,18 +77,6 @@ export const formatTime = (ms: number): string => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-/** 文字太寬時，取最長的前綴加「…」使 fits 為真；原本就放得下則原樣回傳。 */
-export const fitText = (text: string, fits: (s: string) => boolean): string => {
-  const base = text.endsWith('…') ? text.slice(0, -1) : text;
-  const chars = [...base];
-  if (fits(text)) return text;
-  for (let n = chars.length - 1; n > 0; n--) {
-    const t = chars.slice(0, n).join('') + '…';
-    if (fits(t)) return t;
-  }
-  return '…';
-};
-
 /** 文字太寬時，保留開頭與結尾、中間換成「…」使 fits 為真（結尾多留一字，同開頭的名字仍可分辨）；原本就放得下則原樣回傳。 */
 export const fitMiddle = (text: string, fits: (s: string) => boolean): string => {
   if (fits(text)) return text;
@@ -132,28 +116,53 @@ export interface Island {
   desks: number;
   color: string;
 }
-/** 鏡頭倍率低於此值時名牌只顯示名字 */
-export const PLATE_NAME_ONLY_ZOOM = 0.8;
-/** 名牌整條（含左右內距 6+6）在螢幕上的最大寬度 */
-export const plateMaxW = (zoom: number): number => (zoom >= PLATE_NAME_ONLY_ZOOM ? Math.min(170, 180 * zoom - 8) : Math.min(200, 160 * zoom));
+// ---- 名牌（設計稿 10：桌上名片座）----
+// cardH = 卡片高（位置與避臉只看它）、h = 含底座與影子的總高（鄰座名牌互撞看它）、pad = 左右內距、gap = 鄰座名牌最小間隔
+export const PLATE = { cardH: 19, h: 26, pad: 7, gap: 6, sizes: [13, 12, 11] } as const;
+/** 名牌整塊（含左右內距）在螢幕上的最大寬度 */
+export const plateMaxW = (zoom: number): number => Math.min(280, 120 + 160 * zoom);
+export const platePrefix = (e: Employee): string => (e.status === 'waiting' ? '! ' : e.status === 'idle' ? '✓ ' : '');
 
-/** 一行名牌「名字 · 動作」：先從尾端截動作（至少留 4 字加「…」），再截名字；等你處理時前綴「! 」 */
-export function plateLabel(e: Employee, fits: (s: string) => boolean, nameOnly = false): { text: string; waiting: boolean; turn: boolean } {
-  const waiting = e.status === 'waiting';
-  const turn = e.status === 'idle';
-  const pre = waiting ? '! ' : turn ? '✓ ' : '';
+/** 名牌只放標題：13 → 11px，11px 還放不下才截中間（前綴不截）。measure 回傳整塊寬（含內距） */
+export function plateFit(e: Employee, maxW: number, measure: (s: string, size: number) => number): { text: string; size: number } {
+  const pre = platePrefix(e);
   const name = nameplate(e);
-  const act = nameOnly ? '' : oneLine(e.activity ?? '');
-  const full = pre + name + (act ? ' · ' + act : '');
-  if (fits(full)) return { text: full, waiting, turn };
-  if (!act) return { text: pre + fitMiddle(name, (s) => fits(pre + s)), waiting, turn };
-  const chars = [...act];
-  const minAct = chars.length > 4 ? chars.slice(0, 4).join('') + '…' : act;
-  const cut = fitText(act, (a) => fits(pre + name + ' · ' + a));
-  // fitText 找不到時回 '…'；比最小動作短就不採用，改截名字
-  if ([...cut].length >= [...minAct].length && fits(pre + name + ' · ' + cut)) return { text: pre + name + ' · ' + cut, waiting, turn };
-  const n = fitMiddle(name, (s) => fits(pre + s + ' · ' + minAct));
-  return { text: pre + n + ' · ' + minAct, waiting, turn };
+  for (const size of PLATE.sizes) if (measure(pre + name, size) <= maxW) return { text: pre + name, size };
+  const min = PLATE.sizes[PLATE.sizes.length - 1]!;
+  return { text: pre + fitMiddle(name, (s) => measure(pre + s, min) <= maxW), size: min };
+}
+
+export interface Circle { x: number; y: number; r: number }
+/** 螢幕 px：x, y = 名牌上緣中點，want = 整串標題的寬，head = 這桌的人的臉 */
+export interface PlateSlot { x: number; y: number; want: number; head: Circle }
+
+/** 依鄰座分配名牌寬度：不蓋到別人的臉；上下會撞的兩塊，半寬加起來 ≤ 中心距 − gap，短的拿完整寬度、長的拿剩下的，兩塊都長各拿一半 */
+export function plateWidths(slots: PlateSlot[], zoom: number): number[] {
+  const { cardH, h, gap } = PLATE;
+  const w = slots.map((s, i) => {
+    let cap = Math.min(s.want, plateMaxW(zoom));
+    slots.forEach((o, j) => {
+      const f = o.head;
+      // 上下只差不到 0.5px 視為沒碰到
+      if (j !== i && f.y + f.r > s.y + 0.5 && f.y - f.r < s.y + cardH - 0.5) cap = Math.min(cap, 2 * (Math.abs(f.x - s.x) - f.r - 2));
+    });
+    return Math.max(0, cap);
+  });
+  // 一對一對調整；某對縮小後可能讓前面的對又撞上，重複幾輪
+  for (let pass = 0; pass < 6; pass++) {
+    for (let i = 0; i < slots.length; i++) {
+      for (let j = i + 1; j < slots.length; j++) {
+        const a = slots[i]!, b = slots[j]!;
+        if (Math.abs(a.y - b.y) >= h + 2) continue;
+        const avail = 2 * (Math.abs(a.x - b.x) - gap);
+        if (w[i]! + w[j]! <= avail + 0.01) continue;
+        const s = w[i]! <= w[j]! ? i : j, l = s === i ? j : i;
+        if (w[s]! <= avail / 2) w[l] = avail - w[s]!;
+        else w[i] = w[j] = avail / 2;
+      }
+    }
+  }
+  return w.map((x) => Math.max(0, x));
 }
 
 // ---- 地上招牌 ----

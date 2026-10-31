@@ -1,8 +1,7 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, columnsFor, DOOR_X, entryPath, SEAT, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, statusCount, fitText, fitMiddle, formatTime, nameplate, PALETTE, summary, plateMaxW, plateLabel, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
+import { appearance, assistantList, columnsFor, DOOR_X, entryPath, SEAT, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, statusCount, fitMiddle, formatTime, nameplate, PALETTE, summary, plateMaxW, plateFit, plateWidths, PLATE, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
 import type { Island } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
-import { truncate } from '../src/state/describe.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
 const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Employee> = {}): Employee => ({
@@ -15,11 +14,6 @@ test('appearance 對同一個 sessionId 永遠相同', () => {
   const a = appearance('abc');
   expect(a.hair).toBeLessThan(PALETTE.length);
   expect(a.shirt).toBeLessThan(PALETTE.length);
-});
-
-test('nameplate 截斷內容', () => {
-  const p = nameplate(emp('abcd1234', 'idle', { title: 'x'.repeat(100) }));
-  expect(p).toBe(truncate('x'.repeat(100), 24));
 });
 
 test('nameplate 優先順序：標題 > 第一個 prompt > 最近的 prompt', () => {
@@ -166,15 +160,6 @@ test('formatTime：HH:mm 補零', () => {
   expect(formatTime(new Date(2026, 0, 2, 3, 4).getTime())).toBe('03:04');
 });
 
-test('fitText：放得下原樣；放不下以「…」結尾；已有「…」仍保留', () => {
-  const fits = (n: number) => (s: string) => [...s].length <= n;
-  expect(fitText('abc', fits(5))).toBe('abc');
-  expect(fitText('abcdefgh', fits(5))).toBe('abcd…');
-  expect(fitText('abcdefgh…', fits(5))).toBe('abcd…');
-  expect(fitText('abcde…', fits(6))).toBe('abcde…');
-  expect(fitText('abc', fits(0))).toBe('…');
-});
-
 test('fitMiddle：放得下原樣；放不下保留開頭與結尾、中間換成「…」', () => {
   const fits = (n: number) => (s: string) => [...s].length <= n;
   expect(fitMiddle('shop', fits(10))).toBe('shop');
@@ -211,69 +196,75 @@ test('columnsFor：桌數越多欄越多，高度不會一直往上長', () => {
   expect(l.islands[0].rows).toBe(3);
 });
 
-const lim = (n: number) => (s: string) => [...s].length <= n;
-const plateEmp = (status: Employee['status'], activity: string | null, title = '登入流程重構') => emp('abcd1234', status, { title, activity });
-
-test('plateMaxW', () => {
-  expect(plateMaxW(1)).toBe(170);
-  expect(plateMaxW(0.82)).toBeCloseTo(139.6, 5);
-  expect(plateMaxW(0.8)).toBe(136);
-  expect(plateMaxW(0.79)).toBeCloseTo(126.4, 5);
-  expect(plateMaxW(2)).toBe(170);
-  expect(plateMaxW(0.5)).toBe(80);
-});
-
-test('plateLabel：放得下就完整顯示', () => {
-  expect(plateLabel(plateEmp('working', '編輯 view.ts'), lim(40))).toEqual({ text: '登入流程重構 · 編輯 view.ts', waiting: false, turn: false });
-});
-
-test('plateLabel：等你處理加「! 」', () => {
-  const p = plateLabel(plateEmp('waiting', '編輯 view.ts'), lim(40));
-  expect(p.text.startsWith('! 登入流程重構 · ')).toBe(true);
-  expect(p.waiting).toBe(true);
-});
-
-test('plateLabel：等你處理又要截字，「! 」也算在寬度內', () => {
-  const p = plateLabel(plateEmp('waiting', '編輯非常長的檔案名稱.ts 與其他內容'), lim(16));
-  expect(p.text.startsWith('! ')).toBe(true);
-  expect(p.waiting).toBe(true);
-  expect(p.text.endsWith('…')).toBe(true);
-  expect('編輯非常長的檔案名稱.ts 與其他內容'.startsWith(p.text.split(' · ')[1].slice(0, -1))).toBe(true);
-  expect([...p.text].length).toBeLessThanOrEqual(16);
-});
-
-test('plateLabel：輪到你加「✓ 」，沒有動作只有名字', () => {
-  expect(plateLabel(plateEmp('idle', null), lim(40))).toEqual({ text: '✓ 登入流程重構', waiting: false, turn: true });
-});
-
-test('plateLabel：長動作先截動作，名字完整', () => {
-  const p = plateLabel(plateEmp('working', '編輯非常長的檔案名稱.ts 與其他內容'), lim(16));
-  expect(p.text.startsWith('登入流程重構 · 編輯')).toBe(true);
-  expect(p.text.endsWith('…')).toBe(true);
-  expect('編輯非常長的檔案名稱.ts 與其他內容'.startsWith(p.text.split(' · ')[1].slice(0, -1))).toBe(true);
-  expect([...p.text].length).toBeLessThanOrEqual(16);
-});
-
-test('plateLabel：nameOnly 只顯示名字', () => {
-  expect(plateLabel(plateEmp('working', '編輯 view.ts'), lim(40), true)).toEqual({ text: '登入流程重構', waiting: false, turn: false });
-  expect(plateLabel(plateEmp('waiting', '編輯 view.ts'), lim(40), true)).toEqual({ text: '! 登入流程重構', waiting: true, turn: false });
-});
-
-test('plateLabel：動作至少 4 字加…，其餘截名字', () => {
-  const p = plateLabel(plateEmp('working', '編輯非常長的檔案名稱.ts 與其他內容', 'N'.repeat(30)), lim(14));
-  const [name, act] = p.text.split(' · ');
-  expect([...p.text].length).toBeLessThanOrEqual(14);
-  expect(act).toBe('編輯非常…');
-  expect(name).toContain('…');
-});
-
-test('plateLabel：動作不超過 4 字不截動作', () => {
-  const p = plateLabel(plateEmp('working', '讀檔', 'N'.repeat(30)), lim(12));
-  expect(p.text.endsWith(' · 讀檔')).toBe(true);
-  expect([...p.text].length).toBeLessThanOrEqual(12);
-});
-
 const meas = (s: string, size: number) => [...s].length * size;
+const plateEmp = (status: Employee['status'], title = '登入流程重構') => emp('abcd1234', status, { title, activity: '編輯 view.ts' });
+
+test('plateMaxW：min(280, 120 + 160×倍率)', () => {
+  expect(plateMaxW(1)).toBe(280);
+  expect(plateMaxW(0.7)).toBe(232);
+  expect(plateMaxW(0.5)).toBe(200);
+});
+
+test('plateFit：只放標題（不接動作），放得下用 13px', () => {
+  expect(plateFit(plateEmp('working'), 1000, meas)).toEqual({ text: '登入流程重構', size: 13 });
+});
+
+test('plateFit：等你處理加「! 」、輪到你加「✓ 」', () => {
+  expect(plateFit(plateEmp('waiting'), 1000, meas).text).toBe('! 登入流程重構');
+  expect(plateFit(plateEmp('idle'), 1000, meas).text).toBe('✓ 登入流程重構');
+});
+
+test('plateFit：放不下先縮字 13 → 11', () => {
+  expect(plateFit(plateEmp('working'), 6 * 12, meas)).toEqual({ text: '登入流程重構', size: 12 });
+  expect(plateFit(plateEmp('working'), 6 * 11, meas)).toEqual({ text: '登入流程重構', size: 11 });
+});
+
+test('plateFit：11px 還放不下才截中間，前綴不截', () => {
+  const r = plateFit(plateEmp('waiting', 'ecn-bs5-handoff-2026-10-30.md 交接文件'), 20 * 11, meas);
+  expect(r.size).toBe(11);
+  expect(r.text).toMatch(/^! ecn.*….*交接文件$/);
+  expect(meas(r.text, 11)).toBeLessThanOrEqual(20 * 11);
+});
+
+test('nameplate 不再先截 24 字（寬度交給 plateFit）', () => {
+  expect(nameplate(emp('abcd', 'idle', { title: 'x'.repeat(40) }))).toBe('x'.repeat(40));
+});
+
+// 螢幕 px：同排鄰座在畫面上差 (+96, +48)、斜後方差 (+220, −14)；頭在名牌上緣上方 71
+const slot = (x: number, y: number, want: number) => ({ x, y, want, head: { x, y: y - 71, r: 12.5 } });
+
+test('plateWidths：沒有鄰座時拿想要的寬度，但不超過上限', () => {
+  expect(plateWidths([slot(0, 0, 150)], 1)).toEqual([150]);
+  expect(plateWidths([slot(0, 0, 400)], 1)).toEqual([280]);
+});
+
+test('plateWidths：上下錯開的同排鄰座不用分寬度', () => {
+  expect(plateWidths([slot(0, 0, 250), slot(96, 48, 250)], 1)).toEqual([250, 250]);
+});
+
+test('plateWidths：同一高度的鄰座，短的拿完整寬度、長的拿剩下的', () => {
+  const [a, b] = plateWidths([slot(0, 0, 100), slot(150, -14, 300)], 1);
+  expect(a).toBe(100);
+  expect(a / 2 + b / 2 + PLATE.gap).toBeCloseTo(150, 5);
+});
+
+test('plateWidths：兩塊都長就各拿一半', () => {
+  const [a, b] = plateWidths([slot(0, 0, 280), slot(220, -14, 280)], 1);
+  expect(a).toBeCloseTo(220 - PLATE.gap, 5);
+  expect(b).toBeCloseTo(220 - PLATE.gap, 5);
+});
+
+test('plateWidths：不蓋到別人的臉（只看卡片高）', () => {
+  const s = slot(0, 0, 280);
+  const face = { ...slot(96, 200, 50), head: { x: 96, y: 10, r: 12.5 } }; // 名牌在遠處，只有臉在旁邊
+  expect(plateWidths([s, face], 1)[0]).toBeCloseTo(2 * (96 - 12.5 - 2), 5);
+  const below = { ...face, head: { x: 96, y: PLATE.cardH + 13, r: 12.5 } }; // 臉在卡片下方，只會碰到底座
+  expect(plateWidths([s, below], 1)[0]).toBe(280);
+});
+
+test('plateWidths：倍率越小上限越小', () => {
+  expect(plateWidths([slot(0, 0, 400)], 0.7)).toEqual([232]);
+});
 test('signFit：能放就用最大字級', () => expect(signFit('claudeOffice', 1000, meas).size).toBe(SIGN_FONT.max));
 test('signFit：逐步縮小字級', () => {
   const r = signFit('claudeOffice', 12 * 14, meas);
