@@ -59,3 +59,64 @@ export function plateText(o: Occupant): { text: string; tone: PlateTone } {
   const desc = oneLine(o.a.description);
   return { text: '↳ ' + (desc ? (o.a.kind ? `${o.a.kind} · ${desc}` : desc) : '助理'), tone: 'assistant' };
 }
+
+/**
+ * 助理座位：只處理主人還在的 helper。
+ * 先保留 prev 的座位（沒被同專案真員工、已保留的助理佔用），其餘依 helpers 順序坐主人右邊第一張空桌，
+ * 沒有空桌就接在目前桌數之後。回傳只含這次的 helper。
+ */
+export function assignAssistantSeats(prev: ReadonlyMap<string, number>, employees: Employee[], helpers: Helper[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const real = new Map<string, Set<number>>();
+  const taken = new Map<string, Set<number>>();
+  const setOf = (m: Map<string, Set<number>>, k: string): Set<number> => {
+    let s = m.get(k);
+    if (!s) m.set(k, (s = new Set()));
+    return s;
+  };
+  for (const e of employees) setOf(real, roomKey(e)).add(e.seat);
+  const mine = helpers.flatMap((h) => {
+    const owner = employees.find((e) => e.sessionId === h.owner.sessionId);
+    return owner ? [{ key: helperKey(h), owner, room: roomKey(owner) }] : [];
+  });
+  const pending: typeof mine = [];
+  for (const m of mine) {
+    const s = prev.get(m.key);
+    if (s !== undefined && !real.get(m.room)!.has(s) && !setOf(taken, m.room).has(s)) {
+      out.set(m.key, s);
+      taken.get(m.room)!.add(s);
+    } else pending.push(m);
+  }
+  for (const m of pending) {
+    const rs = real.get(m.room)!;
+    const ts = setOf(taken, m.room);
+    const limit = Math.max(...rs, ...ts) + 1; // 目前桌數
+    let s = m.owner.seat + 1;
+    while (s < limit && (rs.has(s) || ts.has(s))) s++;
+    out.set(m.key, s);
+    ts.add(s);
+  }
+  return out;
+}
+
+export interface EdgeHint { status: 'waiting' | 'idle'; count: number; target: number } // target = 座位 index
+
+/** 看不到（座位中心在可見範圍外）的真員工，左右兩側各自的提示：有 waiting 就 waiting，否則 idle；target 是離可見範圍最近的那位 */
+export function edgeHints(f: Floor, view: { left: number; right: number }): { left: EdgeHint | null; right: EdgeHint | null } {
+  const statusOf = (i: number): Employee['status'] => {
+    const o = f.seats[i].occ;
+    return o?.kind === 'employee' ? o.emp.status : 'working';
+  };
+  const side = (hidden: number[], nearest: (xs: number[]) => number): EdgeHint | null => {
+    for (const status of ['waiting', 'idle'] as const) {
+      const hit = hidden.filter((i) => statusOf(i) === status);
+      if (hit.length) return { status, count: hit.length, target: nearest(hit) };
+    }
+    return null;
+  };
+  const emps = f.seats.filter((s) => s.occ?.kind === 'employee').map((s) => s.index);
+  return {
+    left: side(emps.filter((i) => seatCenter(i) < view.left), (xs) => Math.max(...xs)),
+    right: side(emps.filter((i) => seatCenter(i) > view.right), (xs) => Math.min(...xs)),
+  };
+}

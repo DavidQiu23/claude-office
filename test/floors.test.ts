@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter } from '../web/src/floors.js';
+import { assignAssistantSeats, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -105,4 +105,71 @@ test('seatCenter、floorWidth', () => {
   expect(seatCenter(2)).toBe(380);
   expect(floorWidth(3, 1000)).toBe(1000);
   expect(floorWidth(9, 1000)).toBe(80 + 9 * 120 + 200);
+});
+
+// ---- 助理座位 ----
+const seatsOf = (...seats: number[]) => seats.map((s, i) => emp('e' + i, 'working', { seat: s }));
+const helperOf = (owner: Employee, id = 't1'): { owner: Employee; a: Assistant } => ({ owner, a: asst({ id }) });
+
+test('assignAssistantSeats：坐主人右邊第一張空桌', () => {
+  const es = seatsOf(0, 1, 3);
+  const h = helperOf(es[0]);
+  expect(assignAssistantSeats(new Map(), es, [h]).get(helperKey(h))).toBe(2);
+});
+
+test('assignAssistantSeats：沒有空桌就接在最後', () => {
+  const es = seatsOf(0, 1, 2);
+  const h1 = helperOf(es[0], 'a');
+  const h2 = helperOf(es[0], 'b');
+  const m = assignAssistantSeats(new Map(), es, [h1, h2]);
+  expect(m.get(helperKey(h1))).toBe(3);
+  expect(m.get(helperKey(h2))).toBe(4);
+});
+
+test('assignAssistantSeats：在的期間座位不變', () => {
+  const es = seatsOf(0, 1);
+  const h = helperOf(es[0]);
+  expect(assignAssistantSeats(new Map([[helperKey(h), 3]]), es, [h]).get(helperKey(h))).toBe(3);
+});
+
+test('assignAssistantSeats：真員工撞到助理座位時，助理換位', () => {
+  const es = seatsOf(0, 1, 2);
+  const h = helperOf(es[0]);
+  expect(assignAssistantSeats(new Map([[helperKey(h), 2]]), es, [h]).get(helperKey(h))).toBe(3);
+});
+
+test('assignAssistantSeats：主人不在就不分配', () => {
+  const es = seatsOf(0);
+  const ghost = helperOf(emp('ghost', 'working', { seat: 1 }));
+  const m = assignAssistantSeats(new Map([[helperKey(ghost), 2]]), es, [ghost]);
+  expect(m.has(helperKey(ghost))).toBe(false);
+  expect(m.size).toBe(0);
+});
+
+test('assignAssistantSeats：不同專案的座位互不影響', () => {
+  const a = emp('a', 'working', { seat: 0, cwd: '/x/a' });
+  const b = emp('b', 'working', { seat: 1, cwd: '/x/b' });
+  const h = helperOf(a);
+  expect(assignAssistantSeats(new Map(), [a, b], [h]).get(helperKey(h))).toBe(1);
+});
+
+// ---- 邊緣提示 ----
+test('edgeHints：只算看不到的真員工，紅色優先，target 是最近的那位', () => {
+  const view = { left: seatCenter(2) - 60, right: seatCenter(5) + 60 };
+  const build = (s8: Employee['status']) => floorOf(
+    ee('waiting'), null, null, null, null, null, null, ee('idle'), { kind: 'employee', emp: emp('x8', s8) },
+  );
+  expect(edgeHints(build('waiting'), view)).toEqual({ left: { status: 'waiting', count: 1, target: 0 }, right: { status: 'waiting', count: 1, target: 8 } });
+  expect(edgeHints(build('working'), view).right).toEqual({ status: 'idle', count: 1, target: 7 });
+  // 看不到的只有助理 → null
+  const onlyAsst = floorOf({ kind: 'assistant', owner: emp('o'), a: asst() }, null, null, null, null, null, null, null, { kind: 'assistant', owner: emp('o'), a: asst({ id: 't2' }) });
+  expect(edgeHints(onlyAsst, view)).toEqual({ left: null, right: null });
+});
+
+test('edgeHints：同側多位時 waiting 計人數，target 取離可見範圍最近的 waiting', () => {
+  const view = { left: seatCenter(4) - 60, right: seatCenter(5) + 60 };
+  const f = floorOf(ee('waiting'), ee('idle'), ee('waiting'), ee('working'), null, null, ee('idle'), ee('working'));
+  expect(edgeHints(f, view)).toEqual({ left: { status: 'waiting', count: 2, target: 2 }, right: { status: 'idle', count: 1, target: 6 } });
+  // 全看得到 → 都是 null
+  expect(edgeHints(f, { left: 0, right: 99999 })).toEqual({ left: null, right: null });
 });
