@@ -1,11 +1,21 @@
-// 一層樓：後牆、地板、樓板、左邊電梯門（門上樓號）、後牆招牌「NF 專案名」、一排正面桌與名牌。人物由 building.ts 放進 people 圖層
+// 一層樓：後牆（招牌「NF 專案名」、夜景窗）、地板、樓板、左邊電梯門（門上樓號）、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
 import { deskFront, type DeskState } from './flat.js';
 import { DOOR_X, edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, type EdgeHint, type Floor, type Occupant } from './floors.js';
+import { furnitureSet, layoutSet, nightWindow, SIGN_MAX_W, SIGN_X, windowXs } from './furniture.js';
 import { placeImg, spriteImg } from './sprites.js';
 import { ElevatorDoor } from './door.js';
 
 export const DESK_SCALE = 1.25; // 正面桌素材寬 80 → 100px
 export const DESK_Y = 126; // 桌子素材原點（左上）的 y：桌面在 143.5、桌腳到 176
+const WIN_Y = 66; // 窗台底邊：窗頂 14 與招牌同高，窗在坐著的人頭上
+const FURN_Y = 156; // 家具的地板線：與人物腳底同一條（在桌子後面）
+
+const img = (): HTMLImageElement => {
+  const n = document.createElement('img');
+  n.alt = '';
+  n.draggable = false;
+  return n;
+};
 
 const deskState = (o: Occupant | null): DeskState => {
   if (!o) return 'empty';
@@ -63,6 +73,9 @@ export class FloorView {
   private doorNum = div('door-num');
   private deskRow = div('desks');
   private desks: DeskEl[] = [];
+  private windows = div('windows');
+  private furniture = div('furniture'); // 貼右緣、寬 GEO.furnitureW
+  private furnKey: string | null = null; // 目前擺的是哪個 roomKey 的那組
   private f: Floor | null = null;
   /** 電梯門中心 x（內容座標，與 seatCenter 同一套） */
   readonly doorX = DOOR_X;
@@ -72,7 +85,9 @@ export class FloorView {
 
   constructor(hooks: { hover(o: Occupant, at: DOMRect): void; unhover(): void }) {
     this.elev.append(this.doorNum, this.door);
-    this.inner.append(div('wall'), div('ground-strip'), div('slab'), this.elev, this.sign, this.people, this.deskRow);
+    this.sign.style.left = `${SIGN_X}px`;
+    this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
+    this.inner.append(div('wall'), div('ground-strip'), div('slab'), this.windows, this.elev, this.sign, this.furniture, this.people, this.deskRow);
     this.scroller.append(this.inner);
     this.el.append(this.scroller, this.shadeL, this.shadeR, this.hintL.el, this.hintR.el);
     // 內容座標（電梯區從 0 開始）與 seatCenter 同一套；一次只讀一次版面
@@ -97,21 +112,22 @@ export class FloorView {
   update(f: Floor, avail: number): void {
     this.f = f;
     this.el.dataset.key = f.key;
-    this.inner.style.width = `${floorWidth(f.desks, avail)}px`;
+    const width = floorWidth(f.desks, avail);
+    this.inner.style.width = `${width}px`;
+    this.placeWindows(width);
+    if (this.furnKey !== f.key) this.placeFurniture(f.key);
     this.sign.textContent = `${f.level}F ${f.title}`;
     this.sign.title = f.key || f.title;
     this.sign.style.backgroundColor = `${f.color}e6`; // 專案色，不透明度 0.9
     this.doorNum.textContent = String(f.level);
     while (this.desks.length > f.desks) this.desks.pop()!.el.remove();
     while (this.desks.length < f.desks) {
-      const el = div('desk'), img = document.createElement('img'), plate = div('plate'), text = document.createElement('span');
-      img.alt = '';
-      img.draggable = false;
+      const el = div('desk'), pic = img(), plate = div('plate'), text = document.createElement('span');
       plate.append(text);
-      el.append(img, plate);
+      el.append(pic, plate);
       el.style.left = `${seatCenter(this.desks.length) - GEO.seatW / 2}px`; // 一格寬 120
       this.deskRow.append(el);
-      this.desks.push({ el, img, plate, text });
+      this.desks.push({ el, img: pic, plate, text });
     }
     f.seats.forEach((s, i) => {
       const d = this.desks[i]!;
@@ -124,6 +140,26 @@ export class FloorView {
       d.text.textContent = p ? p.text : '';
     });
     this.schedule(); // 寬度或狀態變了不會有 scroll 事件；等這一輪的寫入做完再讀版面
+  }
+
+  /** 後牆窗：位置只跟樓層寬有關（windowXs），多的拿掉、少的補上 */
+  private placeWindows(width: number): void {
+    const xs = windowXs(width), win = spriteImg('nightWindow', nightWindow, 1);
+    const imgs = this.windows.children;
+    while (imgs.length > xs.length) imgs[imgs.length - 1]!.remove();
+    while (imgs.length < xs.length) this.windows.append(img());
+    xs.forEach((x, i) => placeImg(imgs[i] as HTMLImageElement, win, x, WIN_Y));
+  }
+
+  /** 右端家具：依 roomKey 挑一組（同一層永遠同一組），家具區貼著樓層右緣 */
+  private placeFurniture(key: string): void {
+    this.furnKey = key;
+    this.furniture.replaceChildren(...layoutSet(furnitureSet(key)).map((it) => {
+      const n = img();
+      n.dataset.id = it.id;
+      placeImg(n, spriteImg(`furn-${it.id}`, it.make, 1), it.x, FURN_Y);
+      return n;
+    }));
   }
 
   /** 平滑捲到讓第 i 個座位在這層可見範圍的正中間 */

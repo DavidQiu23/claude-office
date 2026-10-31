@@ -1,5 +1,7 @@
 # 現代電腦桌、座位比例與對焦鏡頭規格
 
+> 已由 `2026-10-31-cutaway-building-design.md` 取代（畫面部分）。
+
 日期：2026-10-30　設計稿：artifact `P3nBrZxz9wgvDNEXzKgwci` 第 61 版，設計稿 2（C 段）、3、4、5、7。
 
 使用者看過實際畫面後提出：

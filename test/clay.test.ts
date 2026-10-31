@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { drawClay, softShadow } from '../web/src/clay.js';
 import { extent, mix, type FlatSprite, type Shape } from '../web/src/flat.js';
-import { toScreen } from '../web/src/iso.js';
 
 interface Rec { op: string; args?: number[]; fillStyle?: unknown; strokeStyle?: unknown; lineWidth?: number; lineJoin?: string; globalAlpha?: number }
 interface Grad { kind: string; args: number[]; stops: [number, string][]; addColorStop(o: number, c: string): void }
@@ -108,17 +107,16 @@ describe('drawClay figure', () => {
 });
 
 describe('softShadow', () => {
-  it('三層', () => {
+  it('三層正面橢圓：中心 (fx, fy)、半徑 r·m 與 r/3·m', () => {
     const f = fakeCtx();
-    softShadow(f.ctx, 0, 0, 10);
+    softShadow(f.ctx, 12, 30, 9);
     const el = f.ops('ellipse');
     expect(el).toHaveLength(3);
-    const rx = 10 * Math.SQRT2;
     [1, 0.75, 0.5].forEach((m, i) => {
-      expect(el[i]!.args![0]).toBeCloseTo(0);
-      expect(el[i]!.args![1]).toBeCloseTo(0);
-      expect(el[i]!.args![2]).toBeCloseTo(rx * m);
-      expect(el[i]!.args![3]).toBeCloseTo((10 / Math.SQRT2) * m);
+      expect(el[i]!.args![0]).toBeCloseTo(12);
+      expect(el[i]!.args![1]).toBeCloseTo(30);
+      expect(el[i]!.args![2]).toBeCloseTo(9 * m);
+      expect(el[i]!.args![3]).toBeCloseTo((9 / 3) * m);
     });
     expect(el.map((l) => l.globalAlpha)).toEqual([0.10, 0.16, 0.22]);
     expect(f.ops('fill')).toHaveLength(3);
@@ -126,15 +124,14 @@ describe('softShadow', () => {
 });
 
 describe('extent 含接地投影', () => {
-  it('投影橢圓超出圖形時範圍變大', () => {
+  it('投影橢圓超出圖形時範圍變大（正面：rx = r、ry = r / 3）', () => {
     const base: FlatSprite = { w: 10, h: 10, shapes: [sq(10)] };
     const a = extent(base);
     const b = extent({ ...base, shadow: { fx: 0, fy: 0, r: 30 } });
-    const c = toScreen(0, 0);
-    expect(b.x0).toBeCloseTo(c.x - 30 * Math.SQRT2);
-    expect(b.x1).toBeCloseTo(c.x + 30 * Math.SQRT2);
+    expect(b.x0).toBeCloseTo(-30);
+    expect(b.x1).toBeCloseTo(30);
     expect(b.x1).toBeGreaterThan(a.x1);
-    expect(b.y0).toBeCloseTo(c.y - 30 / Math.SQRT2);
-    expect(b.y1).toBeCloseTo(c.y + 30 / Math.SQRT2);
+    expect(b.y0).toBeCloseTo(-10);
+    expect(b.y1).toBeCloseTo(10);
   });
 });

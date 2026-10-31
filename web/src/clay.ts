@@ -2,7 +2,6 @@
 // 純函式，只吃 CanvasRenderingContext2D，烘貼圖時才用。
 
 import { mix, type Shape } from './flat.js';
-import { toScreen } from './iso.js';
 
 const INK = '#1d1a2e', WHITE = '#ffffff';
 
@@ -105,15 +104,14 @@ export function drawClay(ctx: CanvasRenderingContext2D, shapes: Shape[], mode: '
   ctx.globalAlpha = 1;
 }
 
-/** 接地投影：三層同心的 2:1 橢圓（地板座標半徑 r 的圓）。 */
+/** 正面接地投影：三層同心橢圓，中心 (fx, fy)（素材座標），rx = r、ry = r / 3。 */
 export function softShadow(ctx: CanvasRenderingContext2D, fx: number, fy: number, r: number): void {
-  const o = toScreen(fx, fy);
   const layers: [number, number][] = [[1, 0.1], [0.75, 0.16], [0.5, 0.22]];
   ctx.fillStyle = '#000000';
   for (const [m, a] of layers) {
     ctx.globalAlpha = a;
     ctx.beginPath();
-    ctx.ellipse(o.x, o.y, r * Math.SQRT2 * m, (r / Math.SQRT2) * m, 0, 0, Math.PI * 2);
+    ctx.ellipse(fx, fy, r * m, (r / 3) * m, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
