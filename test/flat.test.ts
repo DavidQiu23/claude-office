@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { toScreen } from '../web/src/iso.js';
-import { SEAT } from '../web/src/view.js';
 import {
-  character, isoDesk, isoChair, isoRoom, WALL_Z, extent, LED, mix,
+  character, deskFront, isoDesk, isoChair, isoRoom, WALL_Z, extent, LED, mix,
   type FlatSprite, type Shape, type Pose, type Outfit, type DeskState,
 } from '../web/src/flat.js';
 
@@ -48,6 +47,14 @@ describe('flat', () => {
   it('桌子四種狀態的燈色不同', () => {
     expect(new Set(Object.values(LED)).size).toBe(4);
   });
+
+  it('deskFront：四種狀態都畫得出來，燈色是 LED[state]', () => {
+    for (const s of STATES) {
+      const d = deskFront(s);
+      checkSprite(d);
+      expect(d.shapes.some((sh) => sh.c === LED[s])).toBe(true);
+    }
+  });
 });
 
 describe('iso art', () => {
@@ -82,28 +89,11 @@ describe('iso art', () => {
 
 describe('座位素材', () => {
   const xs = (s: Shape): number[] => (s.t === 'p' ? s.pts.filter((_, i) => i % 2 === 0) : []);
-  const ys = (s: Shape): number[] => (s.t === 'p' ? s.pts.filter((_, i) => i % 2 === 1) : []);
-  it('人、椅子、螢幕都對齊桌子長邊中點 fx 62', () => {
-    expect(SEAT.x).toBe(62);
-    expect(isoChair().shadow?.fx).toBe(62);
-    const led = isoDesk('working').shapes.find((sh) => sh.t === 'c' && sh.c === LED.working && (sh.a ?? 1) === 1);
-    expect(led && led.t === 'c' ? led.x : NaN).toBeCloseTo(toScreen(62, 61.5).x, 5);
-  });
   it('桌面中心在 (62, 62)', () => {
     const w = (s: Shape): number => Math.max(...xs(s)) - Math.min(...xs(s));
     const top = isoDesk('working').shapes.filter((s) => s.t === 'p' && s.c === '#e6c9a0').sort((a, b) => w(b) - w(a))[0]!;
     const px = xs(top);
     expect(px.reduce((a, b) => a + b, 0) / px.length).toBeCloseTo(toScreen(62, 62).x, 5);
-  });
-  it('螢幕上緣在坐著的人的臉下方', () => {
-    // 臉 = 頭的圓：素材圓心 (20, 16)、半徑 12.5，縮放 1，坐著上移 6
-    const feet = toScreen(SEAT.x, SEAT.y), head = { x: feet.x, y: feet.y - 38 - 6, r: 12.5 };
-    const monTop = isoDesk('working').shapes.filter((s) => s.c === '#454b63').flatMap((s) => xs(s).map((x, i) => ({ x, y: ys(s)[i]! })));
-    expect(monTop.length).toBeGreaterThan(0);
-    for (let fx = 49; fx <= 75; fx += 0.5) {
-      const p = toScreen(fx, 60, 48), dx = Math.abs(p.x - head.x);
-      if (dx < head.r) expect(p.y).toBeGreaterThan(head.y + Math.sqrt(head.r ** 2 - dx ** 2));
-    }
   });
   it('等你處理有紅光、桌面偏紅', () => {
     const sh = isoDesk('waiting').shapes;

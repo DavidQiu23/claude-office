@@ -8,7 +8,7 @@
   <style>
     html, body { margin: 0; min-height: 100%; background: #1a1726; color: #eee; font-family: system-ui, "Microsoft JhengHei", sans-serif; }
     /* 狀態列：圖例＋比例條，外框跟著最緊急的狀態變色；配色與場景名牌一致 */
-    #summary { margin: 12px auto 10px; padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 6px;
+    #summary { margin: 12px 16px 10px 56px; padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 6px;
       background: #2b2840; border: 2px solid #8a7fc4; border-radius: 4px; box-shadow: 3px 3px 0 #0007; }
     #summary.turn { border-color: #f2b83d; }
     #summary.alert { background: #3a2233; border-color: #ff6b6b; }
@@ -26,17 +26,56 @@
     #summary .total { margin-left: auto; font-size: 14px; color: #a9a3c9; }
     #summary .bar { display: flex; gap: 2px; height: 8px; padding: 2px; background: #14121f; border-radius: 2px; }
     #summary .bar span { border-radius: 1px; }
-    #game { position: relative; width: fit-content; margin: 0 auto 24px; border: 2px solid #2b2233; box-shadow: 4px 4px 0 #0007; }
-    #game canvas { display: block; }
-    /* 手動移過鏡頭才出現，配色同狀態列 */
-    #auto-focus { position: absolute; top: 10px; right: 10px; padding: 6px 12px; cursor: pointer; font: 14px system-ui, "Microsoft JhengHei", sans-serif;
-      color: #eee; background: #2b2840; border: 2px solid #8a7fc4; border-radius: 4px; box-shadow: 3px 3px 0 #0007; }
-    #auto-focus:hover { background: #3a3658; }
+    [hidden] { display: none !important; }
+    /* 剖面大樓：上方夜空、樓層（最高樓在上）、下方地面；樓層左邊留 56 給電梯面板、右邊距 16 */
+    #building { display: flex; flex-direction: column; min-height: calc(100vh - 90px); }
+    #building .sky { flex: 1 0 48px; background-color: #120f22;
+      background-image: radial-gradient(1px 1px at 18px 22px, #fff9, transparent), radial-gradient(1px 1px at 77px 61px, #fff6, transparent),
+        radial-gradient(1.5px 1.5px at 131px 14px, #fffa, transparent), linear-gradient(#0b0a16, #1a1730);
+      background-size: 160px 90px, 160px 90px, 160px 90px, auto; }
+    #building .floors { padding: 0 16px 0 56px; background: #1a1730; }
+    #building .ground { height: 72px; background: linear-gradient(#3a3850 0 6px, #2a2838 6px 30px, #22202d 30px); }
+    /* 一層樓：高 200（含 8 樓板）；內容比可用寬寬時這層自己左右捲 */
+    .floor { position: relative; height: 200px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+    .floor-in { position: relative; height: 200px; min-width: 100%; }
+    .floor-in > div { position: absolute; }
+    .wall { left: 0; right: 0; top: 0; height: 136px; background: linear-gradient(#41477a, #3a3f6d); box-shadow: inset 0 -3px 0 #2a2c4d; }
+    .ground-strip { left: 0; right: 0; top: 136px; height: 56px; background: linear-gradient(#2a2d50, #30335a); }
+    .slab { left: 0; right: 0; top: 192px; height: 8px; background: #14121f; }
+    .elevator { left: 0; top: 0; width: 80px; height: 192px; background: #33375e; }
+    .elevator .door-num { position: absolute; left: 26px; top: 20px; width: 28px; height: 16px; border-radius: 3px; background: #14121f;
+      color: #ff9b6b; font: bold 11px/16px system-ui, "Microsoft JhengHei", sans-serif; text-align: center; }
+    .elevator .door { position: absolute; left: 14px; top: 44px; width: 52px; height: 92px; box-sizing: border-box; border: 2px solid #2a2d4d; border-bottom: 0;
+      border-radius: 2px 2px 0 0; background: linear-gradient(90deg, #5d6496 calc(50% - 1px), #3d4270 calc(50% - 1px) calc(50% + 1px), #5d6496 calc(50% + 1px)); }
+    /* 招牌：專案色（不透明度 0.9 由程式加在色碼後）、白色粗體，放不下用「…」 */
+    .sign { left: 92px; top: 18px; max-width: 260px; height: 26px; padding: 0 12px; border-radius: 13px; box-sizing: border-box;
+      color: #fff; font: bold 15px/26px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 0 #0005; }
+    .people, .desks { inset: 0; pointer-events: none; }
+    .person { position: absolute; top: 74px; width: 60px; height: 84px; pointer-events: auto; }
+    .person .fig { position: absolute; inset: 0; }
+    .person img, .person canvas, .desk img { position: absolute; display: block; }
+    .person[data-act="up"] .fig { transform: translateY(-12px); }
+    .person[data-act="idle"] .fig { animation: bob .9s ease-in-out infinite alternate; }
+    @keyframes bob { to { transform: translateY(1.5px); } }
+    .desk { position: absolute; top: 0; width: 120px; height: 200px; }
+    /* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色同舊畫面的 PLATE_COLORS */
+    .plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; }
+    .plate > span { max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: 1px solid; border-radius: 3px;
+      font: bold 13px/17px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      box-shadow: inset 0 2px 0 #ffffff55, 0 2px 3px #0006; }
+    .plate.working > span { background: #f3e9d6; border-color: #d8c7aa; color: #3b2f2a; }
+    .plate.waiting > span { background: #d63434; border-color: #a82a2a; color: #ffffff; }
+    .plate.idle > span { background: #f2b83d; border-color: #c9952c; color: #2b1d00; }
+    .plate.assistant > span, .plate.done > span { background: #cfe0f7; border-color: #a9c1e4; color: #1f3550; }
+    .plate.done > span { opacity: .75; }
+    /* 沒有人上班：空大廳 */
+    .lobby-msg { left: 80px; right: 0; top: 52px; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #aab0d0; font-size: 13px; text-align: center; }
+    .lobby-msg b { font-size: 16px; color: #d4d8f0; }
   </style>
 </head>
 <body>
   <div id="summary"></div>
-  <div id="game"></div>
+  <div id="building"></div>
   <script type="module" src="./src/main.ts"></script>
 </body>
 </html>

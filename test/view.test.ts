@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, columnsFor, DOOR_X, entryPath, SEAT, layout, layoutSig, PROJECT_COLORS, projectColor, seatCell, statusCount, fitMiddle, formatTime, nameplate, PALETTE, summary, plateMaxW, plateFit, plateWidths, PLATE, SIGN_FONT, signFit, signMaxW } from '../web/src/view.js';
-import type { Island } from '../web/src/view.js';
+import { appearance, assistantList, PROJECT_COLORS, projectColor, formatTime, nameplate, PALETTE, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
@@ -50,234 +49,19 @@ test('OfficeStore 套用 upsert 與 leave 並通知監聽者', () => {
   expect(seen).toEqual(['upsert', 'leave', 'reset']);
 });
 
-test('layout：每個資料夾一座島，桌數 = 最大座位 + 1，欄數最多 3', () => {
-  const l = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api' }), emp('b', 'idle', { cwd: 'D:/p/web', folder: 'web' })]);
-  expect(l.islands.length).toBe(2);
-  expect(l.islands.map((i) => i.title)).toEqual(['api', 'web']);
-  expect(l.islands[0].desks).toBe(1);
-  expect(l.islands[0].cols).toBe(1);
-  expect(l.islands[0].w).toBe(1 * 96 + 28);
-  expect(l.islands[0].h).toBe(26 + 124 + 10);
-  expect(l.islands[1].x).toBeGreaterThan(l.islands[0].x);
-  const big = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 3 })]);
-  expect(big.islands[0].desks).toBe(4);
-  expect(big.islands[0].cols).toBe(3);
-  expect(big.islands[0].rows).toBe(2);
-  expect(big.islands[0].h).toBe(26 + 2 * 124 + 10);
-});
-
-test('layout：座位有空缺時仍給足桌數', () => {
-  const l = layout([emp('a', 'idle', { seat: 0 }), emp('b', 'idle', { seat: 4 })]);
-  expect(l.islands[0].desks).toBe(5);
-  expect(l.islands[0].rows).toBe(2);
-});
-
-test('layout：位置規則', () => {
-  const three = layout(['a', 'b', 'c'].map((n) => emp(n, 'idle', { cwd: 'D:/p/' + n, folder: n, seat: 2 })));
-  expect(three.islands[0].x).toBe(40);
-  expect(three.islands[0].y).toBe(96);
-  expect(new Set(three.islands.map((i) => i.y)).size).toBe(1);
-  expect(three.width).toBe(1280); // 3 座島只要 1116，不到最小尺寸，仍是 1280 × 720
-  expect(three.height).toBe(720);
-  // 一排可以排到 1240（不留 180 的空位）：4 座一欄的小島放得進同一排
-  const small = layout(['a', 'b', 'c', 'd'].map((n, k) => emp(n, 'idle', { cwd: 'D:/p/' + n, folder: n, seat: 1, arrivedAt: k })));
-  expect(new Set(small.islands.map((i) => i.y)).size).toBe(1);
-  const four = layout(['a', 'b', 'c', 'd'].map((n, k) => emp(n, 'idle', { cwd: 'D:/p/' + n, folder: n, seat: 2, arrivedAt: k })));
-  const rowH = Math.max(...four.islands.slice(0, 3).map((i) => i.h));
-  expect(four.islands[3].x).toBe(40);
-  expect(four.islands[3].y).toBe(96 + rowH + 72);
-});
-
-test('layout：同名資料夾用上一層區分（含反斜線）；空辦公室仍有大小', () => {
-  const dup = layout([emp('a', 'idle', { cwd: 'D:\\x\\api' }), emp('b', 'idle', { cwd: 'D:\\y\\api' })]);
-  expect(dup.islands.map((r) => r.title).sort()).toEqual(['x/api', 'y/api']);
-  expect(layout([]).islands).toEqual([]);
-  expect(layout([]).width).toBeGreaterThan(0);
-  expect(layout([]).height).toBeGreaterThan(0);
-});
-
-test('layout：cwd 為空字串或缺值也有一座島', () => {
-  for (const cwd of ['', undefined as unknown as string]) {
-    const l = layout([emp('a', 'idle', { cwd })]);
-    expect(l.islands.length).toBe(1);
-    expect(PROJECT_COLORS).toContain(l.islands[0].color);
-  }
-});
-
-test('layout：超過 8 個專案', () => {
-  const l = layout(Array.from({ length: 10 }, (_, k) => emp('s' + k, 'idle', { cwd: 'D:/p/p' + k, folder: 'p' + k, seat: 2, arrivedAt: k })));
-  expect(l.islands.length).toBe(10);
-  for (const i of l.islands) expect(PROJECT_COLORS).toContain(i.color);
-  for (const a of l.islands) for (const b of l.islands) {
-    if (a === b) continue;
-    const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-    expect(overlap).toBe(false);
-  }
-});
-
 test('projectColor：同一個 key 永遠同色', () => {
   expect(projectColor('D:/p/api')).toBe(projectColor('D:/p/api'));
   expect(PROJECT_COLORS).toContain(projectColor('D:/p/api'));
   expect(PROJECT_COLORS.length).toBe(8);
 });
 
-test('statusCount 只算該專案指定狀態的人', () => {
-  const es = [emp('a', 'waiting'), emp('b', 'working'), emp('c', 'waiting', { cwd: '/other' }), emp('d', 'waiting'), emp('e', 'idle')];
-  expect(statusCount(es, '/x/proj', 'waiting')).toBe(2);
-  expect(statusCount(new Map(es.map((e) => [e.sessionId, e])).values(), '/other', 'waiting')).toBe(1);
-  expect(statusCount(es, '/x/proj', 'idle')).toBe(1);
-});
-
-test('seatCell 在島內，entryPath 從門口經走道到座位', () => {
-  const [i] = layout([emp('a', 'idle', { cwd: 'D:/p/api', folder: 'api', seat: 4 })]).islands;
-  const c = seatCell(i, 4);
-  expect(c.x).toBeGreaterThanOrEqual(i.x);
-  expect(c.y + 124).toBeLessThanOrEqual(i.y + i.h);
-  const p = entryPath(i, 4);
-  expect(p.length).toBe(4);
-  expect(p[0].x).toBe(DOOR_X);
-  expect(p[0].y).toBe(p[1].y);
-  expect(p[1].y).toBeLessThan(i.y);
-  expect(p[1].y).toBe(i.y - 16 - 28);
-  // 沿兩欄桌子之間的走道往下，不穿過上一排的桌子，最後才橫向走進座位
-  expect(p[1].x).toBe(p[2].x);
-  expect(p[2].x).toBeLessThan(c.x + 12);
-  expect(p[2].x).toBeGreaterThanOrEqual(i.x);
-  expect(p[2].y).toBe(c.y + SEAT.y);
-  expect(p[3]).toEqual({ x: c.x + SEAT.x, y: c.y + SEAT.y });
-});
-
-test('layoutSig：島的位置或大小改變時簽名不同', () => {
-  const a = layout([emp('a', 'idle', { seat: 0 })]);
-  const b = layout([emp('a', 'idle', { seat: 3 })]);
-  const c = layout([emp('x', 'idle', { cwd: '/q', folder: 'q', arrivedAt: -1 }), emp('a', 'idle', { seat: 0 })]);
-  expect(layoutSig(a)).toBe(layoutSig(layout([emp('a', 'idle', { seat: 0 })])));
-  expect(layoutSig(a)).not.toBe(layoutSig(b));
-  expect(layoutSig(a)).not.toBe(layoutSig(c));
-});
-
 test('formatTime：HH:mm 補零', () => {
   expect(formatTime(new Date(2026, 0, 2, 3, 4).getTime())).toBe('03:04');
 });
 
-test('fitMiddle：放得下原樣；放不下保留開頭與結尾、中間換成「…」', () => {
-  const fits = (n: number) => (s: string) => [...s].length <= n;
-  expect(fitMiddle('shop', fits(10))).toBe('shop');
-  const a = fitMiddle('claudeOffice-islands', fits(10));
-  expect(a).toContain('…');
-  expect(fits(10)(a)).toBe(true);
-  expect(a.startsWith('cl')).toBe(true);
-  expect(a.endsWith('ands')).toBe(true);
-  expect([...a].length).toBe(10);
-  // 同樣開頭的兩個名字截斷後仍可分辨
-  expect(fitMiddle('claudeOffice', fits(10))).not.toBe(a);
-  expect(fitMiddle('專案名稱非常非常長的資料夾', fits(6))).toMatch(/^專.*….*夾$/);
-  expect(fitMiddle('abc', fits(0))).toBe('…');
-});
-
-test('layout：較矮的島下方是空地，高度相同的島沒有空地', () => {
-  const l = layout([
-    emp('a', 'idle', { cwd: 'D:/p/a', folder: 'a', seat: 2, arrivedAt: 0 }),
-    emp('b', 'idle', { cwd: 'D:/p/b', folder: 'b', seat: 3, arrivedAt: 1 }),
-  ]);
-  const [a, b] = l.islands;
-  expect(l.voids).toEqual([{ x: a.x, y: a.y + a.h, w: a.w, h: b.h - a.h }]);
-  expect(layout([emp('a', 'idle', { seat: 2 })]).voids).toEqual([]);
-  expect(layoutSig(l)).not.toBe(layoutSig(layout([emp('a', 'idle', { cwd: 'D:/p/a', folder: 'a', seat: 3 }), emp('b', 'idle', { cwd: 'D:/p/b', folder: 'b', seat: 3 })])));
-});
-
-test('columnsFor：桌數越多欄越多，高度不會一直往上長', () => {
-  expect([1, 2, 3].map(columnsFor)).toEqual([1, 2, 3]);
-  expect([4, 9].map(columnsFor)).toEqual([3, 3]);
-  expect([10, 16].map(columnsFor)).toEqual([4, 4]);
-  expect([17, 40].map(columnsFor)).toEqual([5, 5]);
-  const l = layout([emp('a', 'idle', { seat: 11 })]);
-  expect(l.islands[0].cols).toBe(4);
-  expect(l.islands[0].rows).toBe(3);
-});
-
-const meas = (s: string, size: number) => [...s].length * size;
-const plateEmp = (status: Employee['status'], title = '登入流程重構') => emp('abcd1234', status, { title, activity: '編輯 view.ts' });
-
-test('plateMaxW：min(280, 120 + 160×倍率)', () => {
-  expect(plateMaxW(1)).toBe(280);
-  expect(plateMaxW(0.7)).toBe(232);
-  expect(plateMaxW(0.5)).toBe(200);
-});
-
-test('plateFit：只放標題（不接動作），放得下用 13px', () => {
-  expect(plateFit(plateEmp('working'), 1000, meas)).toEqual({ text: '登入流程重構', size: 13 });
-});
-
-test('plateFit：等你處理加「! 」、輪到你加「✓ 」', () => {
-  expect(plateFit(plateEmp('waiting'), 1000, meas).text).toBe('! 登入流程重構');
-  expect(plateFit(plateEmp('idle'), 1000, meas).text).toBe('✓ 登入流程重構');
-});
-
-test('plateFit：放不下先縮字 13 → 11', () => {
-  expect(plateFit(plateEmp('working'), 6 * 12, meas)).toEqual({ text: '登入流程重構', size: 12 });
-  expect(plateFit(plateEmp('working'), 6 * 11, meas)).toEqual({ text: '登入流程重構', size: 11 });
-});
-
-test('plateFit：11px 還放不下才截中間，前綴不截', () => {
-  const r = plateFit(plateEmp('waiting', 'ecn-bs5-handoff-2026-10-30.md 交接文件'), 20 * 11, meas);
-  expect(r.size).toBe(11);
-  expect(r.text).toMatch(/^! ecn.*….*交接文件$/);
-  expect(meas(r.text, 11)).toBeLessThanOrEqual(20 * 11);
-});
-
-test('nameplate 不再先截 24 字（寬度交給 plateFit）', () => {
+test('nameplate 不截字（寬度交給 CSS）', () => {
   expect(nameplate(emp('abcd', 'idle', { title: 'x'.repeat(40) }))).toBe('x'.repeat(40));
 });
-
-// 螢幕 px：同排鄰座在畫面上差 (+96, +48)、斜後方差 (+220, −14)；頭在名牌上緣上方 71
-const slot = (x: number, y: number, want: number) => ({ x, y, want, head: { x, y: y - 71, r: 12.5 } });
-
-test('plateWidths：沒有鄰座時拿想要的寬度，但不超過上限', () => {
-  expect(plateWidths([slot(0, 0, 150)], 1)).toEqual([150]);
-  expect(plateWidths([slot(0, 0, 400)], 1)).toEqual([280]);
-});
-
-test('plateWidths：上下錯開的同排鄰座不用分寬度', () => {
-  expect(plateWidths([slot(0, 0, 250), slot(96, 48, 250)], 1)).toEqual([250, 250]);
-});
-
-test('plateWidths：同一高度的鄰座，短的拿完整寬度、長的拿剩下的', () => {
-  const [a, b] = plateWidths([slot(0, 0, 100), slot(150, -14, 300)], 1);
-  expect(a).toBe(100);
-  expect(a / 2 + b / 2 + PLATE.gap).toBeCloseTo(150, 5);
-});
-
-test('plateWidths：兩塊都長就各拿一半', () => {
-  const [a, b] = plateWidths([slot(0, 0, 280), slot(220, -14, 280)], 1);
-  expect(a).toBeCloseTo(220 - PLATE.gap, 5);
-  expect(b).toBeCloseTo(220 - PLATE.gap, 5);
-});
-
-test('plateWidths：不蓋到別人的臉（只看卡片高）', () => {
-  const s = slot(0, 0, 280);
-  const face = { ...slot(96, 200, 50), head: { x: 96, y: 10, r: 12.5 } }; // 名牌在遠處，只有臉在旁邊
-  expect(plateWidths([s, face], 1)[0]).toBeCloseTo(2 * (96 - 12.5 - 2), 5);
-  const below = { ...face, head: { x: 96, y: PLATE.cardH + 13, r: 12.5 } }; // 臉在卡片下方，只會碰到底座
-  expect(plateWidths([s, below], 1)[0]).toBe(280);
-});
-
-test('plateWidths：倍率越小上限越小', () => {
-  expect(plateWidths([slot(0, 0, 400)], 0.7)).toEqual([232]);
-});
-test('signFit：能放就用最大字級', () => expect(signFit('claudeOffice', 1000, meas).size).toBe(SIGN_FONT.max));
-test('signFit：逐步縮小字級', () => {
-  const r = signFit('claudeOffice', 12 * 14, meas);
-  expect(r.size).toBe(14);
-  expect(r.text).toBe('claudeOffice');
-});
-test('signFit：最小字級仍放不下就截字', () => {
-  const r = signFit('claudeOffice', 60, meas);
-  expect(r.size).toBe(SIGN_FONT.min);
-  expect(r.text).toContain('…');
-  expect(meas(r.text, SIGN_FONT.min)).toBeLessThanOrEqual(60);
-});
-test('signMaxW', () => expect(signMaxW({ w: 124 } as Island)).toBe(124 + 44 - 24));
 
 const asst = (id: string, status: Assistant['status']): Assistant => ({ id, description: id, status, startedAt: 0 });
 

@@ -1,5 +1,5 @@
 // Claude 辦公室 · 扁平向量素材：每個素材是「圖形清單」，只用矩形（可圓角）、圓、橢圓、多邊形，加透明度。
-// 純資料、不依賴 Phaser；遊戲用 Graphics 的 fillRoundedRect / fillCircle / fillEllipse / fillPoints 逐一畫出。
+// 純資料、不依賴 DOM；sprites.ts 用 clay.ts（Canvas 2D）把它烘成圖片。
 // 移植自 docs/superpowers/specs/assets/flat-shapes.js，行為相同。a 省略為 1。
 
 import { toScreen } from './iso.js';
@@ -199,6 +199,30 @@ export function isoDesk(state: DeskState): FlatSprite {
   }
   const x = extent({ w: 0, h: 0, shapes: out });
   return { w: x.x1 - x.x0, h: x.y1 - x.y0, shapes: out, clay: 'box', shadow: { fx: 63, fy: 63, r: 28 } };
+}
+
+/** 正面桌（剖面大樓）：寬 80、桌面上緣 y 14、桌腳到 y 40；人坐在桌後中間，螢幕在桌面右側（x 56–78）不擋臉，螢幕光與指示燈用 LED[state]。 */
+export function deskFront(state: DeskState): FlatSprite {
+  const led = LED[state];
+  const top = state === 'waiting' ? mix(DESK_TOP, '#ff4d4d', 0.3) : DESK_TOP;
+  const out: Shape[] = [];
+  if (state === 'waiting') out.push(e(40, 39, 40, 4, '#ff4d4d', 0.22)); // 地上的紅光
+  out.push(
+    r(4, 18, 3, 22, 1, METAL[1]), r(73, 18, 3, 22, 1, METAL[1]), // 桌腳
+    r(2, 37.5, 8, 2.5, 1, METAL[0]), r(70, 37.5, 8, 2.5, 1, METAL[0]),
+    r(8, 19, 64, 16, 1.5, '#c9a77a'), r(8, 31, 64, 4, 1.5, '#b08f66'), // 前擋板（名牌貼在這裡）
+    r(0, 14, 80, 5, 2, top), r(2, 14.5, 76, 1.4, 0.7, lighter(top, 0.3)), // 桌面與亮邊
+    r(30, 12, 20, 2.4, 1, WHITE[1]), r(52, 12.4, 3, 1.8, 0.9, WHITE[0]), // 鍵盤、滑鼠
+    r(14, 11.5, 10, 2.5, 0.8, '#4a90d9'), // 筆記本
+    r(6, 6, 6, 8, 1.5, WHITE[0]), r(3.8, 8, 3, 4, 1.5, WHITE[2]), r(6.8, 6.6, 4.4, 1.4, 0.7, '#5a3d2e'), // 白杯
+    r(64, 11, 10, 3, 1, SILVER[1]), r(67.5, 5, 3, 7, 1, SILVER[2]), // 螢幕支架
+    r(55, -2, 24, 15, 2, '#30354a'), // 螢幕外框
+    r(56.5, -0.5, 21, 11, 1, state === 'empty' ? '#20263f' : mix(led, '#1d1a2e', 0.45)), // 螢幕
+  );
+  if (state !== 'empty') out.push(r(56.5, -0.5, 21, 11, 1, '#ffffff', 0.12), c(67, 5, state === 'waiting' ? 9 : 7, led, 0.18));
+  out.push(c(76.5, 11.6, 0.9, led)); // 指示燈
+  if (state === 'idle') out.push(e(9, 2.5, 1.5, 2.8, '#ffffff', 0.7), e(11.5, -2.5, 1.3, 2.4, '#ffffff', 0.5)); // 蒸氣
+  return { w: 80, h: 40, shapes: out, clay: 'box' };
 }
 
 export const FLOOR = '#2d3558'; // 房間地板色（島地毯、地墊以它混色）
