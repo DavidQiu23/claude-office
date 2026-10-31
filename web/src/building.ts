@@ -46,7 +46,8 @@ export class Building {
   private card = new InfoCard();
   private scrolled = false; // 第一次 reset 後是否已捲到底
   private live = false; // 第一次 reset 之後，新來的人才搭電梯走進來
-  private sig = ''; // 上次的樓層 key 順序
+  private sig = ''; // 上次的樓層 key 順序（字串，比對有沒有變）
+  private order: string[] = []; // 上次的樓層 key 順序（1F 在前），下次排樓層時還在的樓層維持這個順序
 
   constructor(root: HTMLElement, private store: OfficeStore, private panel: ElevatorPanel) {
     root.replaceChildren(div('sky'), roof(), this.stack, div('ground'));
@@ -89,13 +90,14 @@ export class Building {
         if (!this.store.employees.has(e.sessionId)) going.set(e.sessionId, e);
       }
     }
-    const next = buildingPlan(emps, [...going.values()], helpers, this.helperSeats, this.minDesks);
+    const next = buildingPlan(emps, [...going.values()], helpers, this.helperSeats, this.minDesks, this.order);
     const plan = next.plan;
     this.helperSeats = next.helperSeats;
     this.minDesks = next.minDesks;
     // 樓層增減或換順序才需要穩住畫面（只在這時讀版面）；瀏覽器在 scrollY 0 不會自己錨定，所以全部自己做
-    const sig = plan.map((f) => f.key).join('\n'), changed = sig !== this.sig;
+    const order = plan.map((f) => f.key), sig = order.join('\n'), changed = sig !== this.sig;
     this.sig = sig;
+    this.order = order;
     const root = document.documentElement;
     const stick = changed && atBottom(window.scrollY, root.scrollHeight, window.innerHeight);
     // 不在最底：記住第一個看得到的樓層（狀態列之下）的位置

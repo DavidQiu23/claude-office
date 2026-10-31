@@ -1,5 +1,5 @@
 // 助理從伺服器狀態到名牌的整條純邏輯：reduce → helperRoster → buildingPlan → plateText。
-// 照 scripts/simulate.ts 的 crm 段落跑兩輪（--loop 每輪用同樣的 session id 與 tool_use_id）
+// 助理的 tool_use_id 與描述照 scripts/simulate.ts 裡 shop0 派的三個 subagent（這裡改由 crm0 派）；跑兩輪，每輪用同樣的 session id 與 tool_use_id（simulate --loop 的做法）
 import { expect, test } from 'vitest';
 import { reduce } from '../src/state/reduce.js';
 import { emptyState, type HookEvent, type OfficeState } from '../src/state/types.js';

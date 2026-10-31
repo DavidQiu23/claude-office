@@ -1,6 +1,7 @@
 // 電梯面板：固定在視窗左側，一層一顆按鈕（最高樓在上），燈色 = 該層提示；看得到的樓層用半透明框圈起來；點按鈕捲到那層
 import { div } from './floor.js';
 import { visibleSpan, type Alert } from './floors.js';
+import { reduceMotion } from './motion.js';
 
 export interface ElevatorFloor { level: number; title: string; alert: Alert; el: HTMLElement }
 
@@ -10,16 +11,22 @@ export class ElevatorPanel {
   private btns: HTMLButtonElement[] = []; // 上到下
   private els: HTMLElement[] = []; // 與 btns 同序
   private visible = new Set<HTMLElement>();
-  private io = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      const el = e.target as HTMLElement;
-      if (e.isIntersecting) this.visible.add(el);
-      else this.visible.delete(el);
-    }
-    this.drawFrame();
-  }, { threshold: 0 });
+  private io: IntersectionObserver;
+  private barH = 0; // 黏在頂端的狀態列高度：只在狀態列底下的樓層不算看得到
 
   constructor(private root: HTMLElement) {
+    const bar = document.getElementById('top');
+    this.barH = bar?.offsetHeight ?? 0;
+    this.io = this.observer();
+    if (bar) {
+      // 狀態列高度變了（換行、字級、有沒有紅框）就用新的上緣重建觀察者
+      new ResizeObserver(() => {
+        const h = bar.offsetHeight;
+        if (h === this.barH) return;
+        this.barH = h;
+        this.reobserve();
+      }).observe(bar);
+    }
     this.frame.hidden = true;
     this.inner.append(this.frame);
     root.replaceChildren(this.inner);
@@ -27,8 +34,27 @@ export class ElevatorPanel {
     root.addEventListener('click', (ev) => {
       const b = ev.target instanceof Element ? ev.target.closest<HTMLButtonElement>('button') : null;
       const el = b && this.els[this.btns.indexOf(b)];
-      if (el) el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      if (el) el.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' });
     });
+  }
+
+  /** 上緣內縮狀態列的高度，樓層要露出狀態列之下才算看得到 */
+  private observer(): IntersectionObserver {
+    return new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const el = e.target as HTMLElement;
+        if (e.isIntersecting) this.visible.add(el);
+        else this.visible.delete(el);
+      }
+      this.drawFrame();
+    }, { threshold: 0, rootMargin: `-${this.barH}px 0px 0px 0px` });
+  }
+
+  private reobserve(): void {
+    this.io.disconnect();
+    this.visible.clear();
+    this.io = this.observer();
+    for (const el of this.els) this.io.observe(el); // 新觀察者第一次回報就會補上目前看得到的
   }
 
   update(floors: ElevatorFloor[]): void {

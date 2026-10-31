@@ -31,7 +31,7 @@ export const appearance = (sessionId: string): Look => {
 
 // 名牌：session 標題（沒有就用第一個 prompt），這些在 session 期間不會變，比最近的 prompt 好認。
 // 換行/連續空白壓成一格，避免名牌變多行；太長由 CSS 截成「…」
-export const oneLine =(s: string) => s.replace(/\s+/g, ' ').trim();
+export const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
 export const nameplate = (e: Employee): string => oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt);
 
 /** 資訊卡的助理清單：工作中排前（同組維持原順序），前 max 位成列，其餘歸入 extra */
@@ -85,5 +85,5 @@ export const roomKey = (e: Pick<Employee, 'cwd'>): string => e.cwd ?? '';
 export const projectColor = (key: string): string => PROJECT_COLORS[hash(key ?? '') % PROJECT_COLORS.length];
 
 /** 路徑最後兩層，同名資料夾用來區分 */
-export const shortPath =(cwd: string): string => cwd.split(/[\\/]+/).filter(Boolean).slice(-2).join('/');
+export const shortPath = (cwd: string): string => cwd.split(/[\\/]+/).filter(Boolean).slice(-2).join('/');
 

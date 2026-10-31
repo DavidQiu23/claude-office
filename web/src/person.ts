@@ -1,6 +1,7 @@
 // 一個人：人物圖（1.5 倍、椅背在圖裡）、姿勢、打字/走路換幀、輪到你的泡泡、水平走路。el 的 left = 人的中心 x（樓層座標）
 import type { Pose } from './flat.js';
 import { walkMs, walkPos, type Walk } from './floors.js';
+import { reduceMotion } from './motion.js';
 import { charImg, placeImg } from './sprites.js';
 import type { Look } from './view.js';
 
@@ -76,10 +77,11 @@ export class Person {
     placeImg(this.img, charImg(p, this.look));
   }
 
-  /** 兩個姿勢每 ms 交替 */
+  /** 兩個姿勢每 ms 交替（減少動態時只顯示第一格） */
   private loop(a: Pose, b: Pose, ms: number): void {
     let f = 0;
     this.pose(a);
+    if (reduceMotion()) return;
     this.timer = setInterval(() => this.pose((f = 1 - f) ? b : a), ms);
   }
 
@@ -126,11 +128,17 @@ export class Person {
     const go = (): void => {
       const from = this.x, ms = walkMs(from, x);
       this.setAct('walk');
-      void this.el.offsetWidth; // 先讓「停在 from、沒有 transition」（含剛取消 hidden）生效，transition 才會從這裡開始
-      this.el.style.transition = `left ${ms}ms linear`;
-      this.el.style.left = `${x}px`;
       this.x = x;
-      this.walk = { from, to: x, start: performance.now(), ms };
+      if (reduceMotion()) {
+        // 減少動態：直接放到目的地，沒有滑動；計時器照舊，所以到座位的時間與順序不變
+        this.el.style.transition = '';
+        this.el.style.left = `${x}px`;
+      } else {
+        void this.el.offsetWidth; // 先讓「停在 from、沒有 transition」（含剛取消 hidden）生效，transition 才會從這裡開始
+        this.el.style.transition = `left ${ms}ms linear`;
+        this.el.style.left = `${x}px`;
+        this.walk = { from, to: x, start: performance.now(), ms };
+      }
       // 用計時器而不是 transitionend：樓層 DOM 被搬動時 transition 會被取消、不會有 transitionend
       this.walkT = setTimeout(() => {
         this.stop();

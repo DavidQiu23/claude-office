@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { assignAssistantSeats, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate, helperRoster, HELPER_LINGER, type HelperTrack } from '../web/src/floors.js';
+import { assignAssistantSeats, buildingPlan, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate, helperRoster, HELPER_LINGER, type HelperTrack } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -29,6 +29,42 @@ test('floorPlan：中間一層的人走光後，上面往下遞補', () => {
   expect(floorPlan(es, [], none, none).map((x) => x.level)).toEqual([1, 2, 3]);
   const f = floorPlan(es.filter((e) => e.sessionId !== 'b'), [], none, none);
   expect(f.map((x) => [x.level, x.title])).toEqual([[1, 'a'], [2, 'c']]);
+});
+
+const proj = (id: string, name: string, arrivedAt: number): Employee => emp(id, 'working', { cwd: `/${name}`, folder: name, arrivedAt });
+const order = (f: Floor[]): string[] => f.map((x) => x.key);
+
+test('floorPlan：還有人的樓層不換位置，最早的 session 走了也一樣', () => {
+  // A 專案在 t=1 與 t=10 各有一位，B 專案在 t=5：1F A、2F B
+  const es = [proj('a1', 'A', 1), proj('a2', 'A', 10), proj('b', 'B', 5)];
+  const first = floorPlan(es, [], none, none);
+  expect(first.map((x) => [x.level, x.title])).toEqual([[1, 'A'], [2, 'B']]);
+  // t=1 的 session 離開：A 的最早時間變 10，仍然是 1F A、2F B
+  const after = floorPlan(es.filter((e) => e.sessionId !== 'a1'), [], none, none, order(first));
+  expect(after.map((x) => [x.level, x.title])).toEqual([[1, 'A'], [2, 'B']]);
+  // 沒有 prevOrder（頁面剛載入）才依最早到班排
+  expect(floorPlan(es.filter((e) => e.sessionId !== 'a1'), [], none, none).map((x) => x.title)).toEqual(['B', 'A']);
+});
+
+test('floorPlan：中間一層走光，上面的樓層往下一格，其餘維持順序', () => {
+  const es = [proj('a', 'A', 1), proj('b', 'B', 2), proj('c', 'C', 3)];
+  const first = floorPlan(es, [], none, none);
+  const f = floorPlan(es.filter((e) => e.sessionId !== 'b'), [], none, none, order(first));
+  expect(f.map((x) => [x.level, x.title])).toEqual([[1, 'A'], [2, 'C']]);
+});
+
+test('floorPlan：新樓層一律蓋在最上面，就算比既有的更早到班；新樓層之間依最早到班再依路徑', () => {
+  const first = floorPlan([proj('a', 'A', 10), proj('b', 'B', 20)], [], none, none);
+  const f = floorPlan([proj('a', 'A', 10), proj('b', 'B', 20), proj('n1', 'N1', 5), proj('n2', 'N2', 3), proj('n0', 'N0', 5)], [], none, none, order(first));
+  expect(f.map((x) => x.title)).toEqual(['A', 'B', 'N2', 'N0', 'N1']);
+  expect(f.map((x) => x.level)).toEqual([1, 2, 3, 4, 5]);
+});
+
+test('buildingPlan：prevOrder 一路傳到 floorPlan', () => {
+  const es = [proj('a1', 'A', 1), proj('a2', 'A', 10), proj('b', 'B', 5)];
+  const p1 = buildingPlan(es, [], [], none, none);
+  const p2 = buildingPlan(es.filter((e) => e.sessionId !== 'a1'), [], [], none, p1.minDesks, order(p1.plan));
+  expect(p2.plan.map((f) => f.title)).toEqual(['A', 'B']);
 });
 
 test('floorPlan：桌數 = max(最大座位+1, 助理座位+1, minDesks)，空座位 occ 為 null', () => {

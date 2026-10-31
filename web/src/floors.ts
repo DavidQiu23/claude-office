@@ -19,18 +19,22 @@ export interface Floor { key: string; level: number; title: string; color: strin
 export type Alert = 'waiting' | 'idle' | null;
 export type PlateTone = 'working' | 'waiting' | 'idle' | 'assistant' | 'done';
 
-/** 一個專案（cwd）一層樓，1F 在 index 0。minDesks：該層至少要留的桌數（人走了桌子不收，由呼叫端記） */
-export function floorPlan(employees: Employee[], helpers: Helper[], helperSeats: ReadonlyMap<string, number>, minDesks: ReadonlyMap<string, number>): Floor[] {
+/**
+ * 一個專案（cwd）一層樓，1F 在 index 0。minDesks：該層至少要留的桌數（人走了桌子不收，由呼叫端記）。
+ * prevOrder：上一次的樓層 key（1F 在前）。還在的樓層維持原本的相對順序（只有整層走光時上面才往下遞補），新樓層蓋在最上面；沒有 prevOrder（第一次、重新連線）就全部算新樓層
+ */
+export function floorPlan(employees: Employee[], helpers: Helper[], helperSeats: ReadonlyMap<string, number>, minDesks: ReadonlyMap<string, number>, prevOrder: readonly string[] = []): Floor[] {
   const groups = new Map<string, Employee[]>();
   for (const e of employees) {
     const k = roomKey(e);
     groups.set(k, [...(groups.get(k) ?? []), e]);
   }
-  // 先到的專案在低樓層（以最早到班時間），同時間依路徑
-  const keys = [...groups.keys()].sort((a, b) => {
-    const t = (k: string) => Math.min(...groups.get(k)!.map((e) => e.arrivedAt));
-    return t(a) - t(b) || a.localeCompare(b);
-  });
+  // 舊樓層照原順序；新樓層蓋在上面，先到的在低樓層（以最早到班時間），同時間依路徑
+  const kept = prevOrder.filter((k) => groups.has(k));
+  const old = new Set(kept);
+  const t = (k: string) => Math.min(...groups.get(k)!.map((e) => e.arrivedAt));
+  const fresh = [...groups.keys()].filter((k) => !old.has(k)).sort((a, b) => t(a) - t(b) || a.localeCompare(b));
+  const keys = [...kept, ...fresh];
   const names = keys.map((k) => groups.get(k)![0].folder);
   // 主人還在、又有座位的助理才放進大樓
   const placed = helpers.filter((h) => helperSeats.has(helperKey(h)) && employees.some((e) => e.sessionId === h.owner.sessionId));
@@ -185,13 +189,13 @@ export const withLeaving = (employees: Employee[], leaving: Employee[]): Employe
 
 /**
  * Building 每次 render 的樓層配置。going：走去電梯、store 已經沒有的人（含走出去的助理的主人），樓層留著但座位空出來；
- * 助理避開所有真員工的座位（含正在離開的，否則會被 vacate 一起清掉）。回傳的 helperSeats／minDesks 是下一次的輸入（拆掉的樓層從 minDesks 刪掉）
+ * 助理避開所有真員工的座位（含正在離開的，否則會被 vacate 一起清掉）。prevOrder 是上次 plan 的樓層 key。回傳的 helperSeats／minDesks 是下一次的輸入（拆掉的樓層從 minDesks 刪掉）
  */
-export function buildingPlan(employees: Employee[], going: Employee[], helpers: Helper[], prevSeats: ReadonlyMap<string, number>, minDesks: ReadonlyMap<string, number>):
+export function buildingPlan(employees: Employee[], going: Employee[], helpers: Helper[], prevSeats: ReadonlyMap<string, number>, minDesks: ReadonlyMap<string, number>, prevOrder: readonly string[] = []):
   { plan: Floor[]; helperSeats: Map<string, number>; minDesks: Map<string, number> } {
   const all = withLeaving(employees, going);
   const helperSeats = assignAssistantSeats(prevSeats, all, helpers);
-  const plan = vacate(floorPlan(all, helpers, helperSeats, minDesks), new Set(going.map((e) => e.sessionId)));
+  const plan = vacate(floorPlan(all, helpers, helperSeats, minDesks, prevOrder), new Set(going.map((e) => e.sessionId)));
   return { plan, helperSeats, minDesks: new Map(plan.map((f) => [f.key, f.desks])) };
 }
 

@@ -4,6 +4,7 @@ import { DOOR_X, edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, t
 import { furnitureSet, layoutSet, nightWindow, SIGN_MAX_W, SIGN_X, windowXs } from './furniture.js';
 import { placeImg, spriteImg } from './sprites.js';
 import { ElevatorDoor } from './door.js';
+import { reduceMotion } from './motion.js';
 
 export const DESK_SCALE = 1.25; // 正面桌素材寬 80 → 100px
 export const DESK_Y = 126; // 桌子素材原點（左上）的 y：桌面在 143.5、桌腳到 176
@@ -32,8 +33,6 @@ export const div = (cls: string): HTMLDivElement => {
   n.className = cls;
   return n;
 };
-
-const reduceMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** 看不到的人在等你：貼在樓層可見的左右緣，文字「! N ›」「‹ ✓ N」（waiting 紅、idle 琥珀） */
 class EdgeBtn {
@@ -67,6 +66,7 @@ export class FloorView {
   private hintL = new EdgeBtn('left');
   private hintR = new EdgeBtn('right');
   private raf = 0;
+  private ro = new ResizeObserver(() => this.schedule());
   readonly people = div('people');
   private inner = div('floor-in');
   private sign = div('sign');
@@ -92,7 +92,7 @@ export class FloorView {
     this.el.append(this.scroller, this.shadeL, this.shadeR, this.hintL.el, this.hintR.el);
     // 內容座標（電梯區從 0 開始）與 seatCenter 同一套；一次只讀一次版面
     this.scroller.addEventListener('scroll', () => this.refreshEdges(), { passive: true });
-    new ResizeObserver(() => this.schedule()).observe(this.scroller);
+    this.ro.observe(this.scroller);
     for (const h of [this.hintL, this.hintR]) h.el.addEventListener('click', () => this.scrollToSeat(h.target));
     // 滑過人物：依 data-key 找這層目前的佔用者
     const personOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>('.person') : null);
@@ -198,6 +198,7 @@ export class FloorView {
   }
 
   destroy(): void {
+    this.ro.disconnect();
     cancelAnimationFrame(this.raf);
     this.doorQ.cancel();
     this.el.remove();

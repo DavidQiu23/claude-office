@@ -7,13 +7,21 @@ import { PALETTE, type Look } from './view.js';
 export interface SpriteImg { url: string; x0: number; y0: number; w: number; h: number }
 
 export const OUTFITS: Outfit[] = ['tee', 'hoodie', 'shirt'];
-const cache = new Map<string, SpriteImg>();
+const cache = new Map<string, SpriteImg>(); // 桌子、家具、窗戶：種類有限，不設上限
+/** 人物圖（char- 開頭）的組合很多，另放一份 LRU，只留最近用到的這些張；Map 依寫入順序，最前面的最久沒用 */
+export const CHAR_CACHE_MAX = 300;
+const chars = new Map<string, SpriteImg>();
 
 /** 以 scale × ceil(devicePixelRatio) 的解析度烘圖，顯示大小 = 素材大小 × scale */
 export function spriteImg(key: string, make: () => FlatSprite, scale: number): SpriteImg {
   const id = `${key}@${scale}`;
-  const hit = cache.get(id);
-  if (hit) return hit;
+  const lru = key.startsWith('char-');
+  const store = lru ? chars : cache;
+  const hit = store.get(id);
+  if (hit) {
+    if (lru) { chars.delete(id); chars.set(id, hit); } // 命中就排到最後（最近使用）
+    return hit;
+  }
   const sp = make();
   const e = extent(sp);
   const x0 = Math.floor(e.x0), y0 = Math.floor(e.y0), x1 = Math.ceil(e.x1), y1 = Math.ceil(e.y1);
@@ -29,7 +37,8 @@ export function spriteImg(key: string, make: () => FlatSprite, scale: number): S
     drawClay(ctx, sp.shapes, sp.clay ?? 'box');
   }
   const img: SpriteImg = { url: cv.toDataURL(), x0: -x0 * scale, y0: -y0 * scale, w: (x1 - x0) * scale, h: (y1 - y0) * scale };
-  cache.set(id, img);
+  store.set(id, img);
+  if (lru && chars.size > CHAR_CACHE_MAX) chars.delete(chars.keys().next().value!); // 丟掉最久沒用的
   return img;
 }
 

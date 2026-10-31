@@ -103,6 +103,10 @@
     .person[data-act="up"] .fig { transform: translateY(-12px); }
     .person[data-act="idle"] .fig { animation: bob .9s ease-in-out infinite alternate; }
     @keyframes bob { to { transform: translateY(1.5px); } }
+    @media (prefers-reduced-motion: reduce) {
+      .person[data-act="idle"] .fig { animation: none; }
+      .elevator .door::before, .elevator .door::after { transition: none; }
+    }
     .desk { position: absolute; top: 0; width: 120px; height: 200px; }
     /* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色同舊畫面的 PLATE_COLORS */
     .plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; }
