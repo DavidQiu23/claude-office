@@ -1,14 +1,21 @@
 // 資訊卡（HTML 浮層）。內容一律用 textContent / DOM 建立，避免 prompt 內容被當成 HTML。
-import type { Employee } from '../../src/state/types.js';
+import type { Assistant, Employee } from '../../src/state/types.js';
 import { drawClay } from './clay.js';
 import { character, HAIR_COLORS } from './flat.js';
 import { OUTFITS } from './sprites.js';
-import { appearance, assistantList, formatTime, oneLine, PALETTE, projectColor, roomKey } from './view.js';
+import { helperKey } from './floors.js';
+import { appearance, assistantList, formatTime, nameplate, oneLine, PALETTE, projectColor, roomKey } from './view.js';
 
-const STATUS: Record<Employee['status'], { text: string; color: string; bg: string }> = {
+type Chip = { text: string; color: string; bg: string };
+const STATUS: Record<Employee['status'], Chip> = {
   working: { text: '工作中', color: '#46d983', bg: '#46d98322' },
   waiting: { text: '等你處理', color: '#ff6b6b', bg: '#ff4d4d26' },
   idle: { text: '輪到你', color: '#f2b83d', bg: '#f2b83d22' },
+};
+// 助理：工作中綠、完成琥珀（和主人卡片助理清單的圓點同色）
+const HELPER_STATUS: Record<Assistant['status'], Chip> = {
+  working: { text: '工作中', color: '#46d983', bg: '#46d98322' },
+  done: { text: '完成', color: '#f2b83d', bg: '#f2b83d22' },
 };
 const clampCss = (n: number): string => `display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;overflow:hidden;word-break:break-all`;
 
@@ -20,9 +27,9 @@ const el = (tag: string, css = '', text = ''): HTMLElement => {
   return n;
 };
 
-/** 這位員工的頭與肩膀（和桌上的人同一個外觀） */
-function avatarCanvas(e: Employee): HTMLCanvasElement {
-  const look = appearance(e.sessionId);
+/** 這個人的頭與肩膀（和桌上的人同一個外觀；key = 員工 sessionId 或助理 helperKey） */
+function avatarCanvas(key: string): HTMLCanvasElement {
+  const look = appearance(key);
   const shirt = '#' + (PALETTE[look.shirt] ?? PALETTE[0]!).toString(16).padStart(6, '0');
   const sprite = character({ pose: 'sit0', style: look.style, outfit: OUTFITS[look.outfit], glasses: look.glasses, hair: HAIR_COLORS[look.hair], shirt });
   const cv = document.createElement('canvas');
@@ -39,11 +46,32 @@ function avatarCanvas(e: Employee): HTMLCanvasElement {
   return cv;
 }
 
+/** 卡片頂部：頭像 + 標題（最多兩行）+ 狀態標籤 + 專案資料夾 */
+function cardHead(key: string, color: string, title: string, st: Chip, folderName: string): HTMLElement {
+  const avatar = el('div', `width:56px;height:56px;border-radius:16px;background:${color}33;border:1px solid ${color}88;overflow:hidden;flex:none`);
+  avatar.append(avatarCanvas(key));
+  const chip = el('span', `display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${st.bg};color:${st.color};font-size:12px;font-weight:700`);
+  chip.append(el('span', `width:7px;height:7px;border-radius:50%;background:${st.color}`), document.createTextNode(st.text));
+  const folder = el('span', 'font-size:12px;color:#8d95bd');
+  folder.append(el('span', `display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:5px`), document.createTextNode(folderName));
+  const row = el('div', 'display:flex;align-items:center;gap:8px;flex-wrap:wrap');
+  row.append(chip, folder);
+  const text = el('div', 'min-width:0;display:flex;flex-direction:column;gap:6px');
+  text.append(el('div', `font-size:16px;font-weight:700;line-height:1.35;${clampCss(2)}`, title), row);
+  const head = el('div', 'display:flex;gap:12px;align-items:center');
+  head.append(avatar, text);
+  return head;
+}
+
+const cardBody = (): HTMLElement => el('div', 'padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px');
+const cardFoot = (): HTMLElement => el('div', 'border-top:1px solid #ffffff14;padding-top:12px;display:flex;align-items:center;gap:8px');
+
 export class InfoCard {
   private box = document.createElement('div');
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   private err = '';
   id: string | null = null; // 目前顯示的員工 session id
+  helper: string | null = null; // 目前顯示的助理 helperKey（和 id 分開放，兩種 key 不會混在一起）
 
   constructor() {
     this.box.style.cssText =
@@ -58,10 +86,36 @@ export class InfoCard {
     clearTimeout(this.hideTimer);
     if (this.id !== e.sessionId) this.err = '';
     this.id = e.sessionId;
+    this.helper = null;
     this.fill(e);
+    this.place(left, top);
+  }
+
+  /** 助理的卡片：類型、描述、主人的任務標題、狀態、開始時間；沒有「請他下班」 */
+  showHelper(owner: Employee, a: Assistant, left: number, top: number): void {
+    clearTimeout(this.hideTimer);
+    this.id = null;
+    this.helper = helperKey({ owner, a });
+    this.fillHelper(owner, a);
+    this.place(left, top);
+  }
+
+  private place(left: number, top: number): void {
     this.box.style.display = 'block';
     this.box.style.left = `${Math.max(0, Math.min(left, window.innerWidth - 320))}px`;
     this.box.style.top = `${Math.max(0, Math.min(top, window.innerHeight - this.box.offsetHeight - 8))}px`;
+  }
+
+  /** 卡片外框：頂端一條專案色 */
+  private frame(color: string, body: HTMLElement): void {
+    this.box.replaceChildren(el('div', `height:5px;background:${color}`), body);
+  }
+
+  /** 一段「標題 + 文字」（文字最多 lines 行） */
+  private section(label: string, text: string, color: string, lines: number): HTMLElement {
+    const s = el('div');
+    s.append(this.label(label), el('div', `line-height:1.55;color:${color};${clampCss(lines)}`, text));
+    return s;
   }
 
   private label(text: string): HTMLElement {
@@ -70,25 +124,9 @@ export class InfoCard {
 
   fill(e: Employee): void {
     const color = projectColor(roomKey(e));
-    const st = STATUS[e.status];
-    const body = el('div', 'padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px');
-
-    // 頭像 + 標題 + 狀態標籤 + 專案資料夾
-    const avatar = el('div', `width:56px;height:56px;border-radius:16px;background:${color}33;border:1px solid ${color}88;overflow:hidden;flex:none`);
-    avatar.append(avatarCanvas(e));
-    const chip = el('span', `display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${st.bg};color:${st.color};font-size:12px;font-weight:700`);
-    chip.append(el('span', `width:7px;height:7px;border-radius:50%;background:${st.color}`), document.createTextNode(st.text));
-    const folder = el('span', 'font-size:12px;color:#8d95bd');
-    folder.append(el('span', `display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:5px`), document.createTextNode(e.folder));
+    const body = cardBody();
     const title = oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt) || '（無標題）';
-    const head = el('div', 'display:flex;gap:12px;align-items:center');
-    head.append(avatar, el('div', 'min-width:0;display:flex;flex-direction:column;gap:6px'));
-    head.lastElementChild!.append(el('div', `font-size:16px;font-weight:700;line-height:1.35;${clampCss(2)}`, title), (() => {
-      const row = el('div', 'display:flex;align-items:center;gap:8px;flex-wrap:wrap');
-      row.append(chip, folder);
-      return row;
-    })());
-    body.append(head);
+    body.append(cardHead(e.sessionId, color, title, STATUS[e.status], e.folder));
 
     // 目前在做什麼；等你批准時整塊變紅
     if (e.activity) {
@@ -97,13 +135,9 @@ export class InfoCard {
     }
 
     // prompt：第一個只在和最近的不同時才顯示
-    const last = el('div');
-    last.append(this.label('最近的 PROMPT'), el('div', `line-height:1.55;color:#c9cee8;${clampCss(3)}`, oneLine(e.lastPrompt) || '（無）'));
-    body.append(last);
+    body.append(this.section('最近的 PROMPT', oneLine(e.lastPrompt) || '（無）', '#c9cee8', 3));
     if (e.firstPrompt && oneLine(e.firstPrompt) !== oneLine(e.lastPrompt)) {
-      const first = el('div');
-      first.append(this.label('第一個 PROMPT'), el('div', `line-height:1.55;color:#8d95bd;${clampCss(1)}`, oneLine(e.firstPrompt)));
-      body.append(first);
+      body.append(this.section('第一個 PROMPT', oneLine(e.firstPrompt), '#8d95bd', 1));
     }
 
     // 助理：工作中排前，最多 4 位，其餘併成一行
@@ -155,11 +189,23 @@ export class InfoCard {
         if (cur) this.fill(cur);
       }
     };
-    const foot = el('div', 'border-top:1px solid #ffffff14;padding-top:12px;display:flex;align-items:center;gap:8px');
+    const foot = cardFoot();
     foot.append(left, btn);
     body.append(foot);
 
-    this.box.replaceChildren(el('div', `height:5px;background:${color}`), body);
+    this.frame(color, body);
+  }
+
+  fillHelper(owner: Employee, a: Assistant): void {
+    const color = projectColor(roomKey(owner));
+    const body = cardBody();
+    body.append(cardHead(helperKey({ owner, a }), color, oneLine(a.description) || '（無描述）', HELPER_STATUS[a.status], owner.folder));
+    body.append(this.section('類型', a.kind || '（未指定）', '#c9cee8', 1));
+    body.append(this.section('主人', nameplate(owner) || '（無標題）', '#c9cee8', 2));
+    const foot = cardFoot();
+    foot.append(el('span', 'flex:1;font-size:12px;color:#8d95bd', `開始 ${formatTime(a.startedAt)}`));
+    body.append(foot);
+    this.frame(color, body);
   }
 
   scheduleHide(): void {
@@ -171,5 +217,6 @@ export class InfoCard {
     clearTimeout(this.hideTimer);
     this.box.style.display = 'none';
     this.id = null;
+    this.helper = null;
   }
 }

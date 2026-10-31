@@ -99,6 +99,42 @@ export function assignAssistantSeats(prev: ReadonlyMap<string, number>, employee
   return out;
 }
 
+// ---- 助理在大樓裡的名單 ----
+export const HELPER_LINGER = 3000; // 助理完成後停留多久（ms）才走回電梯
+
+/** 一位在大樓裡的助理：owner 是最新的主人資料，doneAt = 第一次看到 done 的時間（工作中為 null） */
+export interface HelperTrack { owner: Employee; a: Assistant; doneAt: number | null }
+/** stay：這次坐在大樓裡的（依 helperKey）；out：上次在、這次要走回電梯的；gone：已經送走、但還列在主人清單上的（不再放進來）；next：最早到期的時間，沒有則 null */
+export interface Roster { stay: Map<string, HelperTrack>; out: string[]; gone: Set<string>; next: number | null }
+
+/**
+ * 誰在大樓裡：主人清單上工作中的 ＋ done 後 linger 內的（含已從清單清掉的）。
+ * 時間到、工作中卻從清單消失、或主人不在了，就放進 out。
+ */
+export function helperRoster(prev: ReadonlyMap<string, HelperTrack>, gone: ReadonlySet<string>, employees: Employee[], now: number, linger = HELPER_LINGER): Roster {
+  const stay = new Map<string, HelperTrack>(), out: string[] = [], still = new Set<string>(), seen = new Set<string>();
+  for (const owner of employees) {
+    for (const a of owner.assistants) {
+      const k = helperKey({ owner, a });
+      seen.add(k);
+      if (gone.has(k)) { still.add(k); continue; }
+      const doneAt = a.status === 'done' ? (prev.get(k)?.doneAt ?? now) : null;
+      if (doneAt !== null && now - doneAt >= linger) {
+        still.add(k);
+        if (prev.has(k)) out.push(k);
+      } else stay.set(k, { owner, a, doneAt });
+    }
+  }
+  for (const [k, t] of prev) {
+    if (seen.has(k)) continue;
+    const owner = employees.find((e) => e.sessionId === t.owner.sessionId);
+    if (owner && t.doneAt !== null && now - t.doneAt < linger) stay.set(k, { ...t, owner });
+    else out.push(k);
+  }
+  const ends = [...stay.values()].flatMap((t) => (t.doneAt === null ? [] : [t.doneAt + linger]));
+  return { stay, out, gone: still, next: ends.length ? Math.min(...ends) : null };
+}
+
 export interface EdgeHint { status: 'waiting' | 'idle'; count: number; target: number } // target = 座位 index
 
 /** 看不到（座位中心在可見範圍外）的真員工，左右兩側各自的提示：有 waiting 就 waiting，否則 idle；target 是離可見範圍最近的那位 */
@@ -146,6 +182,18 @@ export const withLeaving = (employees: Employee[], leaving: Employee[]): Employe
   const here = new Set(employees.map((e) => e.sessionId));
   return [...leaving.filter((l) => !here.has(l.sessionId)), ...employees];
 };
+
+/**
+ * Building 每次 render 的樓層配置。going：走去電梯、store 已經沒有的人（含走出去的助理的主人），樓層留著但座位空出來；
+ * 助理避開所有真員工的座位（含正在離開的，否則會被 vacate 一起清掉）。回傳的 helperSeats／minDesks 是下一次的輸入（拆掉的樓層從 minDesks 刪掉）
+ */
+export function buildingPlan(employees: Employee[], going: Employee[], helpers: Helper[], prevSeats: ReadonlyMap<string, number>, minDesks: ReadonlyMap<string, number>):
+  { plan: Floor[]; helperSeats: Map<string, number>; minDesks: Map<string, number> } {
+  const all = withLeaving(employees, going);
+  const helperSeats = assignAssistantSeats(prevSeats, all, helpers);
+  const plan = vacate(floorPlan(all, helpers, helperSeats, minDesks), new Set(going.map((e) => e.sessionId)));
+  return { plan, helperSeats, minDesks: new Map(plan.map((f) => [f.key, f.desks])) };
+}
 
 /** 走去電梯的人從座位拿掉：桌子變空、沒有名牌、不算電梯燈與邊緣提示，但樓層還在 */
 export function vacate(plan: Floor[], ids: ReadonlySet<string>): Floor[] {

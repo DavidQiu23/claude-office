@@ -117,11 +117,11 @@ export class FloorView {
       const d = this.desks[i]!;
       const st = deskState(s.occ);
       placeImg(d.img, spriteImg(`desk-${st}`, () => deskFront(st), DESK_SCALE), GEO.seatW / 2 - 40 * DESK_SCALE, DESK_Y);
-      d.plate.hidden = !s.occ;
-      if (!s.occ) return;
-      const { text, tone } = plateText(s.occ);
-      d.plate.className = `plate ${tone}`;
-      d.text.textContent = text;
+      // 名牌永遠等於這個座位目前的佔用者；空桌連字與底色一起清掉（藏起來的名牌也不留上一個人的「↳ ✓ 完成」）
+      const p = s.occ ? plateText(s.occ) : null;
+      d.plate.hidden = !p;
+      d.plate.className = p ? `plate ${p.tone}` : 'plate';
+      d.text.textContent = p ? p.text : '';
     });
     this.schedule(); // 寬度或狀態變了不會有 scroll 事件；等這一輪的寫入做完再讀版面
   }
