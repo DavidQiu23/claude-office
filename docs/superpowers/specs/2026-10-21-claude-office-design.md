@@ -77,7 +77,7 @@ Claude Code session ──(hook 事件)──▶ ① Hook 回報腳本
 - 端點：
   - `POST /events`：接收 hook 事件，交給狀態模型處理，再把產生的變化推送給所有連線中的網頁。
   - `GET /state`：回傳目前完整的辦公室狀態。
-  - `GET /stream`：SSE 串流，推送狀態變化。
+  - `GET /stream`：SSE 串流，連上時第一筆先送完整狀態（`reset`），之後推送狀態變化。
   - `POST /employees/:sessionId/dismiss`：「請他下班」，只從畫面移除員工。
   - 靜態檔案：提供前端網頁。
 - 每分鐘執行一次逾時檢查（見 5.4）。
@@ -113,8 +113,8 @@ interface Assistant {
 
 ### 3.4 前端辦公室畫面（`web/`）
 
-- 載入時先呼叫 `GET /state` 取得完整狀態，再連上 `GET /stream` 接收變化。
-- SSE 斷線時自動重連，重連後重新取一次完整狀態，避免漏掉變化。
+- 載入時連上 `GET /stream`，第一筆 `reset` 就是完整狀態，之後接收變化；快照與串流同一個連線，不會漏掉兩者之間的變化。
+- SSE 斷線時由 EventSource 自動重連，重連後第一筆一樣是完整狀態。
 - 詳見第 6 節。
 
 ### 3.5 安裝與移除指令（`src/installer/`）

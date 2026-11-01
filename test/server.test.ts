@@ -46,18 +46,32 @@ test('POST 事件後 GET /state 看得到員工', async () => {
   expect(list[0].sessionId).toBe('s1');
 });
 
-test('SSE 用戶端收到 upsert', async () => {
+/** 逐筆讀出 SSE 的 data 訊息 */
+const sse = (res: Response) => {
+  const reader = res.body!.getReader();
+  let buf = '';
+  return async () => {
+    while (!buf.includes('\n\n')) buf += new TextDecoder().decode((await reader.read()).value);
+    const i = buf.indexOf('\n\n');
+    expect(buf.startsWith('data: ')).toBe(true);
+    const msg = JSON.parse(buf.slice(6, i));
+    buf = buf.slice(i + 2);
+    return msg;
+  };
+};
+
+test('SSE 第一筆是目前狀態的 reset 快照，之後收到 upsert', async () => {
+  await start();
   const ac = new AbortController();
   const res = await fetch(base + '/stream', { signal: ac.signal });
   expect(res.headers.get('content-type')).toContain('text/event-stream');
   expect(res.headers.get('cache-control')).toBe('no-cache');
-  await until(() => app.clientCount() === 1);
-  await start();
-  const reader = res.body!.getReader();
-  let text = '';
-  while (!text.includes('\n\n')) text += new TextDecoder().decode((await reader.read()).value);
-  expect(text.startsWith('data: ')).toBe(true);
-  expect(JSON.parse(text.slice(6)).type).toBe('upsert');
+  const next = sse(res);
+  const first = await next();
+  expect(first.type).toBe('reset');
+  expect(first.employees.map((e: any) => e.sessionId)).toEqual(['s1']);
+  await post('/events', { hook_event_name: 'Stop', session_id: 's1', sentAt: clock + 1 });
+  expect((await next()).type).toBe('upsert');
   ac.abort();
 });
 
@@ -83,13 +97,11 @@ test('dismiss 後員工消失並推送 leave', async () => {
   await start();
   const ac = new AbortController();
   const res = await fetch(base + '/stream', { signal: ac.signal });
-  await until(() => app.clientCount() === 1);
+  const next = sse(res);
+  expect((await next()).type).toBe('reset');
   expect((await post('/employees/s1/dismiss', '')).status).toBe(204);
   expect(await employees()).toHaveLength(0);
-  const reader = res.body!.getReader();
-  let text = '';
-  while (!text.includes('\n\n')) text += new TextDecoder().decode((await reader.read()).value);
-  expect(JSON.parse(text.slice(6))).toEqual({ type: 'leave', sessionId: 's1' });
+  expect(await next()).toEqual({ type: 'leave', sessionId: 's1' });
   ac.abort();
   expect((await post('/employees/toString/dismiss', '')).status).toBe(204);
 });

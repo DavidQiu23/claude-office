@@ -26,33 +26,21 @@ export class OfficeStore {
   }
 }
 
-export const RECONNECT_MS = 2000;
-
+// 每次連上（含 EventSource 斷線後的自動重連）server 第一筆都是 reset 快照，所以不另外取 /state，也不會漏掉兩者之間的變化
 export function connect(store: OfficeStore, base = ''): void {
-  const retry = () => setTimeout(() => connect(store, base), RECONNECT_MS);
-  fetch(`${base}/state`)
-    .then((r) => r.json() as Promise<{ employees: Employee[] }>)
-    .then(({ employees }) => {
-      store.reset(employees);
-      const es = new EventSource(`${base}/stream`);
-      es.onmessage = (m) => {
-        let c: Change;
-        try {
-          c = JSON.parse(m.data) as Change;
-        } catch {
-          return; // 壞資料忽略
-        }
-        // apply 在 try 外：listener 的錯誤不該被當成壞資料吞掉
-        if (
-          (c?.type === 'upsert' && typeof c.employee === 'object' && c.employee !== null) ||
-          (c?.type === 'leave' && typeof c.sessionId === 'string')
-        )
-          store.apply(c);
-      };
-      es.onerror = () => {
-        es.close();
-        retry();
-      };
-    })
-    .catch(retry);
+  new EventSource(`${base}/stream`).onmessage = (m) => {
+    let c: Change | { type: 'reset'; employees: Employee[] };
+    try {
+      c = JSON.parse(m.data);
+    } catch {
+      return; // 壞資料忽略
+    }
+    // apply 在 try 外：listener 的錯誤不該被當成壞資料吞掉
+    if (c?.type === 'reset' && Array.isArray(c.employees)) store.reset(c.employees);
+    else if (
+      (c?.type === 'upsert' && typeof c.employee === 'object' && c.employee !== null) ||
+      (c?.type === 'leave' && typeof c.sessionId === 'string')
+    )
+      store.apply(c);
+  };
 }

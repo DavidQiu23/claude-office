@@ -121,13 +121,14 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
         });
       return void res.writeHead(204).end();
     }
-    if (method === 'GET' && path === '/state') {
-      const employees = Object.values(state.employees).sort((a, b) => a.seat - b.seat);
-      return void res.writeHead(200, { 'Content-Type': TYPES['.json'] }).end(JSON.stringify({ employees }));
-    }
+    const employees = () => Object.values(state.employees).sort((a, b) => a.seat - b.seat);
+    if (method === 'GET' && path === '/state')
+      return void res.writeHead(200, { 'Content-Type': TYPES['.json'] }).end(JSON.stringify({ employees: employees() }));
     if (method === 'GET' && path === '/stream') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       res.flushHeaders();
+      // 快照和加入 clients 在同一個 tick：之後的變化一定會送到，不會落在快照與串流之間
+      res.write(`data: ${JSON.stringify({ type: 'reset', employees: employees() })}\n\n`);
       clients.add(res);
       return void res.on('close', () => clients.delete(res));
     }
