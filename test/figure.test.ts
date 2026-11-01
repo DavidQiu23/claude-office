@@ -29,7 +29,7 @@ test('所有外觀組合都畫得出來', () => {
 });
 
 test('每個部件與漫符群組都在', () => {
-  const names = ['chair', 'fig', 'leg-l', 'leg-r', 'hair-back', 'arm-l', 'body', 'arm-r', 'head', 'fx-work', 'fx-wait', 'fx-turn', 'face-work', 'face-wait', 'face-turn'];
+  const names = ['chair', 'fig', 'leg-l', 'leg-r', 'hair-back', 'arm-l', 'body', 'arm-r', 'head', 'fx-work', 'fx-wait', 'fx-turn', 'fx-in', 'fx-out', 'face-work', 'face-wait', 'face-turn'];
   for (const l of looks) {
     const s = figureSvg(l);
     for (const n of names) expect(s, n).toMatch(new RegExp(`class="[^"]*\\b${n}\\b`));
@@ -111,4 +111,29 @@ test('「！」框（含脈動）不蓋住招牌，也不超出座位右緣', ()
 
 test('avatarSvg 對所有外觀都畫得出來', () => {
   for (const l of looks) expect(avatarSvg(l).startsWith('<svg')).toBe(true);
+});
+
+test('進出漫符不蓋住招牌，也在座位內', () => {
+  for (const k of ['in', 'out'] as const) {
+    expect(FX_BOXES[k].y0, k).toBeGreaterThanOrEqual(-29);
+    expect(FX_BOXES[k].x0, k).toBeGreaterThanOrEqual(-30);
+    expect(FX_BOXES[k].x1, k).toBeLessThanOrEqual(90);
+  }
+});
+
+test('進出漫符的文字', () => {
+  const s = figureSvg(looks[0]);
+  expect(s).toContain('到！');
+  expect(s).toContain('辛苦了～');
+});
+
+test('figure.css：data-fx 期間只顯示進出漫符，狀態漫符藏起來', () => {
+  const css = readFileSync('web/src/styles/figure.css', 'utf8');
+  expect(css).toMatch(/\.person \.fx-in, \.person \.fx-out \{ display: none; \}/);
+  expect(css).toContain('.person[data-fx="in"] .fx-in');
+  expect(css).toContain('.person[data-fx="out"] .fx-out');
+  expect(css).toMatch(/\.person\[data-fx\] \.fx-work, \.person\[data-fx\] \.fx-wait, \.person\[data-fx\] \.fx-turn \{ display: none !important; \}/);
+  // 動畫放在 .figure（不是 .fig，.fig 的 transform 給站起來用）
+  expect(css).toMatch(/\.person\[data-fx="in"\] \.figure \{ animation: fig-in 600ms/);
+  expect(css).toMatch(/\.person\[data-fx="out"\] \.figure \{ animation: fig-out 500ms/);
 });

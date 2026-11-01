@@ -150,6 +150,18 @@ const DROP: Pt = [11, 8]; // 汗滴頂點（站姿頭的左側，在集中線內
 const BUBBLE = { cx: 56, cy: -18, r: 11 };
 const SFX = { x: -24, y: 40, size: 14 }; // 「噠噠」
 const Z1 = { x: -4, y: -4, size: 13 }, Z2 = { x: 0, y: -14, size: 16 };
+/** 進出貼紙：白底墨線小框（左下一個小尾巴指向頭），和「！」框同在頭的右上方；文字置中 */
+const STICK_IN = { x: 44, y: -20, w: 42, h: 18, size: 13, text: '到！' };
+const STICK_OUT = { x: 40, y: -22, w: 48, h: 18, size: 11, text: '辛苦了～' };
+const RISE = 'M12 8 v-14 M19 2 v-16 M26 -2 v-12'; // 退場往上的速度線（頭的左上方）
+const RISE_PTS: Pt[] = [[12, 8], [12, -6], [19, 2], [19, -14], [26, -2], [26, -14]];
+type Stick = typeof STICK_IN;
+const tail = (s: Stick): Pt[] => [[s.x + 6, s.y + s.h], [s.x, s.y + s.h + 8], [s.x + 12, s.y + s.h]];
+const stickPts = (s: Stick): Pt[] => [[s.x, s.y], [s.x + s.w, s.y + s.h], ...tail(s),
+  ...textPts(s.x + s.w / 2 - (s.size * [...s.text].length) / 2, s.y + s.h - 5, s.size, s.size * [...s.text].length)];
+const sticker = (s: Stick) =>
+  tag('polygon', { points: [[s.x, s.y], [s.x + s.w, s.y], [s.x + s.w, s.y + s.h], ...tail(s).reverse(), [s.x, s.y + s.h]].map((p) => p.join(',')).join(' '), class: 'mk-thin', style: WHITE })
+  + text(s.x + s.w / 2, s.y + s.h - 5, s.size, s.text, fill('var(--fx)'), undefined, 'middle');
 
 /** 文字的大略外框：全形字寬 = 字級，半形 0.6 字級；基線以上一個字級、以下 0.25 */
 const textPts = (x: number, y: number, size: number, w: number): Pt[] => [[x, y - size], [x + w, y + size * 0.25]];
@@ -163,11 +175,13 @@ function boxOf(pts: Pt[], pad: number): Box {
 export const BURST_BOX: Box = boxOf(BURST_PULSE, 0);
 
 /** 漫符在人物座標裡的外框（人物座標 x 30 = 座位中心；座位 ±60 → x −30 到 90）；pad 涵蓋線寬 */
-export const FX_BOXES: Record<'work' | 'wait' | 'turn', Box> = {
+export const FX_BOXES: Record<'work' | 'wait' | 'turn' | 'in' | 'out', Box> = {
   work: boxOf([...textPts(SFX.x, SFX.y, SFX.size, SFX.size * 2), [1, 48], [6, 56], [54, 48], [59, 56]], 1),
   wait: boxOf([...LINES.flatMap((l): Pt[] => [[l.x1, l.y1], [l.x2, l.y2]]), ...BURST_PULSE, [DROP[0] - 4, DROP[1]], [DROP[0] + 4, DROP[1] + 9]], 1),
   turn: boxOf([[BUBBLE.cx - BUBBLE.r, BUBBLE.cy - BUBBLE.r], [BUBBLE.cx + BUBBLE.r, BUBBLE.cy + BUBBLE.r],
     ...textPts(Z1.x, Z1.y, Z1.size, Z1.size * 0.6), ...textPts(Z2.x, Z2.y, Z2.size, Z2.size * 0.6)], 1),
+  in: boxOf(stickPts(STICK_IN), 1),
+  out: boxOf([...stickPts(STICK_OUT), ...RISE_PTS], 1),
 };
 
 const FX = {
@@ -180,14 +194,17 @@ const FX = {
   turn: g('bubble', circle(BUBBLE.cx, BUBBLE.cy, BUBBLE.r, 'mk', fill('var(--turn)'))
     + path(`M${BUBBLE.cx - 5} ${BUBBLE.cy} l4 4 l7 -7`, undefined, 'fill:none;stroke:#4a3000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round'))
     + text(Z1.x, Z1.y, Z1.size, 'z', fill('var(--fx)'), 'z1') + text(Z2.x, Z2.y, Z2.size, 'Z', fill('var(--fx)'), 'z2'),
+  in: sticker(STICK_IN),
+  out: path(RISE, 'speed', FX_STROKE(1.4)) + sticker(STICK_OUT),
 };
 
-/** 一個人物：椅背、人（腿、後髮、左臂、身體、右臂、頭）、三種漫符；顯示哪個表情／漫符交給 CSS 依 data-act 決定 */
+/** 一個人物：椅背、人（腿、後髮、左臂、身體、右臂、頭）、三種狀態漫符與進出貼紙；顯示哪個表情／漫符交給 CSS 依 data-act／data-fx 決定 */
 export function figureSvg(look: Look): string {
   const fig = g('fig', leg('l') + leg('r') + g('hair-back', hair(look).back)
     + arm('l', look) + body(look) + arm('r', look) + head(look, ['work', 'wait', 'turn']));
   return tag('svg', { class: 'figure', xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' },
-    g('chair', rect(11, 36, 38, 36, 8, 'mk', CHAIR)) + fig + g('fx-work', FX.work) + g('fx-wait', FX.wait) + g('fx-turn', FX.turn));
+    g('chair', rect(11, 36, 38, 36, 8, 'mk', CHAIR)) + fig + g('fx-work', FX.work) + g('fx-wait', FX.wait) + g('fx-turn', FX.turn)
+    + g('fx-in', FX.in) + g('fx-out', FX.out));
 }
 
 /** 資訊卡頭像：頭與肩膀、睜眼（工作中的臉），viewBox 只框頭肩 */

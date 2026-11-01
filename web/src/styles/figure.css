@@ -1,4 +1,4 @@
-/* 漫畫人物（figure.ts 的 SVG 直接放在 .person 裡）：姿勢、表情、漫符、動畫與坐下站起的過場，全依 data-act。
+/* 漫畫人物（figure.ts 的 SVG 直接放在 .person 裡）：姿勢、表情、漫符、動畫與坐下站起的過場，全依 data-act；登場與退場依 data-fx。
    規則一律以 .person 開頭，資訊卡的頭像（avatarSvg，也有 face-work）不受影響 */
 .person { position: absolute; top: 74px; width: 60px; height: 84px; pointer-events: auto; }
 .person .figure { position: absolute; inset: 0; display: block; width: 60px; height: 84px; overflow: visible; }
@@ -11,7 +11,7 @@
 .person .head { transform-origin: 50% 90%; }
 .person .burst { transform-origin: 50% 50%; }
 /* 漫符超出人物框，不接滑鼠（資訊卡只認人） */
-.person .fx-work, .person .fx-wait, .person .fx-turn { pointer-events: none; }
+.person .fx-work, .person .fx-wait, .person .fx-turn, .person .fx-in, .person .fx-out { pointer-events: none; }
 
 /* 坐下／站起：data-act 一換就播 300ms（與 building.ts 的 STAND_MS 相同） */
 .person .fig, .person .leg, .person .chair { transition: transform 300ms ease-in-out, opacity 300ms ease-in-out; }
@@ -28,6 +28,17 @@
 .person[data-act="up"] .face-wait, .person[data-act="idle"] .face-turn,
 .person[data-act="work"] .fx-work, .person[data-act="up"] .fx-wait,
 .person[data-act="idle"] .fx-turn { display: inline; }
+
+/* 登場「到！」與退場「辛苦了～」：data-fx 期間只顯示進出貼紙，狀態漫符藏起來。
+   動畫放在 .figure（整張人物 SVG，含椅背），不放 .fig：.fig 的 transform 給站起來用。600／500 與 person.ts 的 ENTER_MS／EXIT_MS 同值 */
+.person .fx-in, .person .fx-out { display: none; }
+.person[data-fx="in"] .fx-in, .person[data-fx="out"] .fx-out { display: inline; }
+.person[data-fx] .fx-work, .person[data-fx] .fx-wait, .person[data-fx] .fx-turn { display: none !important; }
+.person .figure { transform-origin: 50% 100%; }
+.person[data-fx="in"] .figure { animation: fig-in 600ms ease-out; }
+.person[data-fx="out"] .figure { animation: fig-out 500ms ease-in forwards; }
+@keyframes fig-in { 0% { transform: scale(.6); } 55% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes fig-out { to { opacity: 0; transform: translateY(-16px); } }
 
 /* 工作中：兩手輪流上下（錯開半週期），「噠噠」閃 */
 .person[data-act="work"] .arm-l { animation: fig-type .42s ease-in-out infinite; }
