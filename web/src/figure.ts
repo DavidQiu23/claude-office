@@ -150,8 +150,8 @@ const propMug = () => g('prop-mug', rect(MUG.x, MUG.y, MUG.w, MUG.h, 1, 'mk-thin
 const propSheet = () => g('prop-sheet', rect(SHEET.x, SHEET.y, SHEET.w, SHEET.h, 0, 'mk-thin', WHITE));
 const propGlobe = () => g('prop-globe', circle(GLOBE.cx, GLOBE.cy, GLOBE.r, 'mk-thin', fill('#7fb3d5'))
   + path('M-12 55 q2 -3 4 -1 q1 2 -2 4 q-3 1 -2 -3z M-7 61 q2.5 -1 3.5 1 q-1 2.5 -3 2z', undefined, fill('#8bc48a'))
-  + g('meridians', ellipse(GLOBE.cx, GLOBE.cy, 3, GLOBE.r, undefined, 'fill:none;stroke:var(--fig-ink);stroke-width:.6')
-    + line(`M${GLOBE.cx - GLOBE.r} ${GLOBE.cy} h${GLOBE.r * 2}`, 'mk-thin'))
+  + line(`M${GLOBE.cx - GLOBE.r} ${GLOBE.cy} h${GLOBE.r * 2}`, 'mk-thin') // 赤道不動，只有經線左右晃
+  + g('meridians', ellipse(GLOBE.cx, GLOBE.cy, 3, GLOBE.r, undefined, 'fill:none;stroke:var(--fig-ink);stroke-width:.6'))
   + line(`M${GLOBE.cx} ${GLOBE.cy + GLOBE.r} v${n(GLOBE.base - GLOBE.cy - GLOBE.r)} M${GLOBE.cx - 4} ${GLOBE.base} h8`, 'mk'));
 
 const arm = (side: 'l' | 'r', look: Look, props = true) => {

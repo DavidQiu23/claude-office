@@ -23,6 +23,7 @@ export function poseFor(kind: ToolKind | null): WorkPose {
 /** 從池裡排除目前的 pose 後依 rand 挑一個（目前的不在池裡就全部可選） */
 export function pickNext<P extends Pose>(pool: readonly P[], current: Pose | null, rand: () => number): P {
   const rest = pool.filter((p) => p !== current);
+  if (!rest.length) return pool[0]; // 池裡只剩目前的：只好重複
   return rest[Math.floor(rand() * rest.length)];
 }
 

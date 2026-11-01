@@ -286,10 +286,10 @@
 | `work` | `edit` | `fx-work` | 子專案 1 的打字 |
 | `work` | `run` | `fx-run` | 兩手不動；`.head` `rotate(8deg)`；`code1`–`code3` 用 `translate` 從 0 往上移 4px 並淡出，週期 0.9s，三行錯開 0.3s |
 | `work` | `web` | `prop-globe` | `arm-l` 在 40° 和 60° 之間擺動 0.6s（左手撥地球儀，地球儀在左邊，用左手比右手自然）；`.meridians` 用 `translate` 左右 ±3px，1.2s |
-| `work` | `agent` | `prop-handset`、`fx-call` | `arm-l` `rotate(180deg)`（手在左耳）；`face-work` 的嘴巴這版不另外畫開合，只讓 `fx-call` 每 0.5s 閃一次 |
+| `work` | `agent` | `prop-handset`、`fx-call` | `arm-l` `rotate(158deg)`（手和聽筒在頭的左外側）；`face-work` 的嘴巴這版不另外畫開合，只讓 `fx-call` 每 0.5s 閃一次 |
 | `work` | `think` | `fx-think` | `arm-r` `rotate(120deg)`（手到下巴）；`.head` `rotate(-6deg)`；`dot1`–`dot3` 依序淡入，1.5s 一輪 |
-| `idle` | `stretch` | — | `arm-l` `rotate(-165deg)`、`arm-r` `rotate(165deg)`，3s 一輪：0–40% 舉起、身體 `translate: 0 -2px`，40–67% 放下，其餘停住 |
-| `idle` | `coffee` | `prop-mug` | `arm-r` 在 0° 和 115° 之間來回 2.4s；`.steam` 淡入淡出 |
+| `idle` | `stretch` | — | `arm-l` `rotate(165deg)`、`arm-r` `rotate(-165deg)`，3s 一輪：0–40% 舉起、身體 `translate: 0 -2px`，40–67% 放下，其餘停住 |
+| `idle` | `coffee` | `prop-mug` | `arm-r` 在 0° 和 100° 之間來回 2.4s；`.steam` 淡入淡出 |
 | `idle` | `phone` | `prop-mobile` | `arm-l` `rotate(-30deg)`、`arm-r` `rotate(30deg)`；`.head` `rotate(6deg)`；手機螢幕 opacity 1.2s 一閃 |
 | `idle` | `doze` | 子專案 1 的 zZ | 子專案 1 的點頭 |
 | `idle` | `cheer` | `fx-cheer` | `arm-l` `rotate(160deg)`、`arm-r` `rotate(-160deg)`（兩手往外舉成 V 字）；`.fig` 用 `translate` 往上彈 4px 一次（`animation: … 1s ease-out 1`）；`fx-cheer` 淡入 |

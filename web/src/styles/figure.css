@@ -77,8 +77,8 @@
 @keyframes fig-spin-arm { 0%, 100% { transform: rotate(40deg); } 50% { transform: rotate(60deg); } }
 @keyframes fig-meridian { 0%, 100% { translate: -3px 0; } 50% { translate: 3px 0; } }
 
-/* 派子代理（agent）：左手拿聽筒貼左耳，「嘟嚕嚕」閃 */
-.person[data-act="work"][data-pose="agent"] .arm-l { transform: rotate(180deg); }
+/* 派子代理（agent）：左手拿聽筒舉到頭的左外側，「嘟嚕嚕」閃 */
+.person[data-act="work"][data-pose="agent"] .arm-l { transform: rotate(158deg); }
 .person[data-act="work"][data-pose="agent"] .fx-call .sfx { animation: fig-sfx .5s steps(1) infinite; }
 
 /* 思考（think）：右手托下巴、頭微仰，三個點依序亮（負延遲：第二、三點比第一點晚 .5s、1s） */
@@ -111,19 +111,19 @@
 @keyframes fig-nod { 50% { transform: rotate(-6deg) translateY(1.5px); } }
 @keyframes fig-zz { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -12px); } }
 
-/* 伸懶腰（stretch）：3s 一輪，0～40% 兩手舉起、身體上提 2px，40～67% 放下，其餘停住。靜止時兩手舉著 */
-.person[data-act="idle"][data-pose="stretch"] .arm-l { transform: rotate(-165deg); animation: fig-stretch-l 3s ease-in-out infinite; }
-.person[data-act="idle"][data-pose="stretch"] .arm-r { transform: rotate(165deg); animation: fig-stretch-r 3s ease-in-out infinite; }
+/* 伸懶腰（stretch）：3s 一輪，0～40% 兩手往外舉起（左臂 165°、右臂 −165°）、身體上提 2px，40～67% 放下，其餘停住。靜止時兩手舉著 */
+.person[data-act="idle"][data-pose="stretch"] .arm-l { transform: rotate(165deg); animation: fig-stretch-l 3s ease-in-out infinite; }
+.person[data-act="idle"][data-pose="stretch"] .arm-r { transform: rotate(-165deg); animation: fig-stretch-r 3s ease-in-out infinite; }
 .person[data-act="idle"][data-pose="stretch"] .fig { animation: fig-stretch 3s ease-in-out infinite; }
-@keyframes fig-stretch-l { 0%, 67%, 100% { transform: rotate(0deg); } 40% { transform: rotate(-165deg); } }
-@keyframes fig-stretch-r { 0%, 67%, 100% { transform: rotate(0deg); } 40% { transform: rotate(165deg); } }
+@keyframes fig-stretch-l { 0%, 67%, 100% { transform: rotate(0deg); } 40% { transform: rotate(165deg); } }
+@keyframes fig-stretch-r { 0%, 67%, 100% { transform: rotate(0deg); } 40% { transform: rotate(-165deg); } }
 @keyframes fig-stretch { 0%, 67%, 100% { translate: 0 0; } 40% { translate: 0 -2px; } }
 
-/* 喝咖啡（coffee）：右手拿杯子舉到嘴邊再放下（0°～115°，2.4s），蒸氣淡入淡出 */
+/* 喝咖啡（coffee）：右手拿杯子舉到嘴邊再放下（0°～100°，2.4s），蒸氣淡入淡出 */
 .person[data-act="idle"][data-pose="coffee"] .arm-r { animation: fig-sip 2.4s ease-in-out infinite; }
 .person[data-act="idle"][data-pose="coffee"] .steam { animation: fig-steam 1.2s ease-in-out infinite; }
 .person[data-act="idle"][data-pose="coffee"] .steam + .steam { animation-delay: -.6s; }
-@keyframes fig-sip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(115deg); } }
+@keyframes fig-sip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(100deg); } }
 @keyframes fig-steam { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 
 /* 滑手機（phone）：兩手捧著手機、頭低下，螢幕一閃一閃 */

@@ -21,6 +21,7 @@ test('pickNext：不會跟目前的重複；目前的不在池裡就全部可選
   expect(pickNext(IDLE_POSES, 'stretch', () => 0)).toBe('coffee');
   expect(pickNext(IDLE_POSES, 'stretch', () => 0.999)).toBe('doze');
   expect(pickNext(IDLE_POSES, 'read', () => 0)).toBe('stretch');
+  expect(pickNext(['doze'] as const, 'doze', () => 0)).toBe('doze');
   for (let i = 0; i < 50; i++) expect(pickNext(UP_POSES, 'wave', Math.random)).not.toBe('wave');
 });
 test('dwellMs 與 holdLeft', () => {

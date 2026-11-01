@@ -3,7 +3,7 @@
 import { expect, test } from 'vitest';
 import { reduce } from '../src/state/reduce.js';
 import { emptyState, type HookEvent, type OfficeState } from '../src/state/types.js';
-import { buildingPlan, HELPER_LINGER, helperRoster, plateText, type Floor, type HelperTrack } from '../web/src/floors.js';
+import { buildingPlan, HELPER_MAX_LINGER, helperRoster, plateText, type Floor, type HelperTrack } from '../web/src/floors.js';
 
 const CWD = '/sim/crm';
 const ev = (n: string, hook_event_name: string, extra: Partial<HookEvent> = {}): Omit<HookEvent, 'sentAt'> => ({ hook_event_name, session_id: `${n}-sim`, cwd: CWD, ...extra });
@@ -69,8 +69,8 @@ test('助理名牌：兩輪重複的 tool_use_id，工作中都是「↳ …」�
       }
       if (i === 7) expect(plates(plan).slice(3).map((p) => p?.tone)).toEqual(['assistant', 'done', 'assistant']);
       if (i === round.length - 4) {
-        // 主人 Stop 之後再過 HELPER_LINGER：三個助理都走了，座位 3–5 的桌子留著、沒有名牌
-        now += HELPER_LINGER;
+        // 主人 Stop 之後再過 HELPER_MAX_LINGER（安全上限）：三個助理都走了，座位 3–5 的桌子留著、沒有名牌
+        now += HELPER_MAX_LINGER;
         const after = frame();
         expect(after[0].desks).toBe(6);
         expect(plates(after).slice(3)).toEqual([null, null, null]);

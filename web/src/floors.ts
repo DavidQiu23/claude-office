@@ -104,18 +104,22 @@ export function assignAssistantSeats(prev: ReadonlyMap<string, number>, employee
 }
 
 // ---- 助理在大樓裡的名單 ----
-export const HELPER_LINGER = 3000; // 助理完成後停留多久（ms）才走回電梯
+export const HELPER_MAX_LINGER = 20000; // 完成後最多停留多久（安全上限：遞文件被打斷、主人座位找不到時）
+export const HANDOFF_DX = -50;          // 遞文件時站在主人座位中心左邊 50
+/** 遞文件時站的 x：主人座位中心加上 HANDOFF_DX（站在他左邊，往右伸手） */
+export const handoffX = (ownerSeatX: number): number => ownerSeatX + HANDOFF_DX;
 
 /** 一位在大樓裡的助理：owner 是最新的主人資料，doneAt = 第一次看到 done 的時間（工作中為 null） */
 export interface HelperTrack { owner: Employee; a: Assistant; doneAt: number | null }
-/** stay：這次坐在大樓裡的（依 helperKey）；out：上次在、這次要走回電梯的；gone：已經送走、但還列在主人清單上的（不再放進來）；next：最早到期的時間，沒有則 null */
+/** stay：這次坐在大樓裡的（依 helperKey）；out：上次在、這次要走回電梯的；gone：已經送走、但還列在主人清單上的（不再放進來）；next：最早到安全上限的時間，沒有則 null */
 export interface Roster { stay: Map<string, HelperTrack>; out: string[]; gone: Set<string>; next: number | null }
 
 /**
- * 誰在大樓裡：主人清單上工作中的 ＋ done 後 linger 內的（含已從清單清掉的）。
- * 時間到、工作中卻從清單消失、或主人不在了，就放進 out。
+ * 誰在大樓裡：主人清單上工作中的 ＋ done 後還沒交完文件的（含已從清單清掉的；最多停留 maxLinger）。
+ * delivered：前端記下已經交完文件的助理（依 helperKey）。交完、到上限、工作中卻從清單消失、或主人不在了，就放進 out。
  */
-export function helperRoster(prev: ReadonlyMap<string, HelperTrack>, gone: ReadonlySet<string>, employees: Employee[], now: number, linger = HELPER_LINGER): Roster {
+export function helperRoster(prev: ReadonlyMap<string, HelperTrack>, gone: ReadonlySet<string>, employees: Employee[], now: number,
+  delivered: ReadonlySet<string> = new Set(), maxLinger = HELPER_MAX_LINGER): Roster {
   const stay = new Map<string, HelperTrack>(), out: string[] = [], still = new Set<string>(), seen = new Set<string>();
   for (const owner of employees) {
     for (const a of owner.assistants) {
@@ -123,7 +127,7 @@ export function helperRoster(prev: ReadonlyMap<string, HelperTrack>, gone: Reado
       seen.add(k);
       if (gone.has(k)) { still.add(k); continue; }
       const doneAt = a.status === 'done' ? (prev.get(k)?.doneAt ?? now) : null;
-      if (doneAt !== null && now - doneAt >= linger) {
+      if (doneAt !== null && (delivered.has(k) || now - doneAt >= maxLinger)) {
         still.add(k);
         if (prev.has(k)) out.push(k);
       } else stay.set(k, { owner, a, doneAt });
@@ -132,10 +136,10 @@ export function helperRoster(prev: ReadonlyMap<string, HelperTrack>, gone: Reado
   for (const [k, t] of prev) {
     if (seen.has(k)) continue;
     const owner = employees.find((e) => e.sessionId === t.owner.sessionId);
-    if (owner && t.doneAt !== null && now - t.doneAt < linger) stay.set(k, { ...t, owner });
+    if (owner && t.doneAt !== null && !delivered.has(k) && now - t.doneAt < maxLinger) stay.set(k, { ...t, owner });
     else out.push(k);
   }
-  const ends = [...stay.values()].flatMap((t) => (t.doneAt === null ? [] : [t.doneAt + linger]));
+  const ends = [...stay.values()].flatMap((t) => (t.doneAt === null ? [] : [t.doneAt + maxLinger]));
   return { stay, out, gone: still, next: ends.length ? Math.min(...ends) : null };
 }
 
