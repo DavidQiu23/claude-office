@@ -3,20 +3,16 @@ import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div, FloorView, lobby } from './floor.js';
-import { atBottom, buildingPlan, floorAlert, GEO, handoffX, helperKey, helperRoster, seatCenter, type Floor, type Helper, type HelperTrack, type Occupant } from './floors.js';
+import { atBottom, buildingPlan, floorAlert, GEO, helperKey, helperRoster, seatCenter, type Floor, type Helper, type HelperTrack, type Occupant } from './floors.js';
 import { Person, type Act } from './person.js';
-import { DELIVER_MS, shouldCheer } from './pose.js';
 import type { OfficeStore } from './sync.js';
 import { appearance } from './view.js';
 
 const ACT: Record<Employee['status'], Act> = { working: 'work', waiting: 'up', idle: 'idle' };
 const STAND_MS = 300; // 坐著要走之前先站起來多久
 
-/**
- * 在座位上或走在路上的人。occ = 上次套用的資料；x = 座位中心（走路的目的地）；out = 已走出電梯（或直接放好），false 時還藏在電梯裡等門開。
- * 完成的助理：hand = 'busy' 正走去主人桌旁或遞文件中、'done' 交完了等下一次 render 送走；handT = 遞文件 DELIVER_MS 的計時器
- */
-interface Rec { p: Person; floor: string; occ?: Occupant; x: number; out: boolean; hand?: 'busy' | 'done'; handT?: ReturnType<typeof setTimeout> }
+/** 在座位上或走在路上的人。occ = 上次套用的資料；x = 座位中心（走路的目的地）；out = 已走出電梯（或直接放好），false 時還藏在電梯裡等門開 */
+interface Rec { p: Person; floor: string; occ?: Occupant; x: number; out: boolean }
 /** 下班走去電梯的人。gone = 已進電梯（人物已移除），等門關好才拆那層 */
 interface Leaving { occ: Occupant; p: Person; floor: string; gone: boolean }
 /** 一群人：真員工依 sessionId、助理依 helperKey，分成兩群各自的 Map，兩種 key 不會撞在一起 */
@@ -62,8 +58,7 @@ export class Building {
   private gone = new Set<string>(); // 已送走、但還列在主人清單上的助理
   private helperSeats = new Map<string, number>(); // 上次的助理座位，下次分配的 prev
   private minDesks = new Map<string, number>(); // 依 floor key（roomKey）：這層至少要留的桌數，人走了桌子不收，拆樓才刪
-  private lingerT: ReturnType<typeof setTimeout> | undefined; // 最早一位完成的助理到安全上限（HELPER_MAX_LINGER）的時間
-  private ownerX = new Map<string, number>(); // 依 sessionId：這次 plan 裡真員工的座位中心（助理遞文件的目標）
+  private lingerT: ReturnType<typeof setTimeout> | undefined; // 最早一位完成的助理該走的時間
   private card = new InfoCard();
   private scrolled = false; // 第一次 reset 後是否已捲到底
   private live = false; // 第一次 reset 之後，新來的人才搭電梯走進來
@@ -164,12 +159,10 @@ export class Building {
     else this.empty.remove();
   }
 
-  /** 助理點名：誰在大樓裡（工作中、完成後還沒交完文件），交完或到安全上限的走回電梯；到上限再 render 一次 */
+  /** 助理點名：誰在大樓裡（工作中、完成後停留中），該走的走回電梯；時間到再 render 一次 */
   private rollCall(emps: Employee[]): Helper[] {
     const now = performance.now();
-    const delivered = new Set<string>();
-    for (const [k, rec] of this.helpers.people) if (rec.hand === 'done') delivered.add(k);
-    const r = helperRoster(this.track, this.gone, emps, now, delivered);
+    const r = helperRoster(this.track, this.gone, emps, now);
     this.track = r.stay;
     this.gone = r.gone;
     for (const k of r.out) this.leave(this.helpers, k);
@@ -185,8 +178,6 @@ export class Building {
 
   private placePeople(plan: Floor[], animate: boolean): void {
     const seen = { employee: new Set<string>(), assistant: new Set<string>() };
-    this.ownerX = new Map();
-    for (const f of plan) for (const s of f.seats) if (s.occ?.kind === 'employee') this.ownerX.set(s.occ.emp.sessionId, seatCenter(s.index));
     for (const f of plan) {
       const v = this.floors.get(f.key)!;
       for (const s of f.seats) {
@@ -215,7 +206,6 @@ export class Building {
           rec.p.el.hidden = false;
           rec.out = true;
           rec.x = x;
-          this.cancelHandoff(rec);
           rec.p.placeAt(x);
         } else if (!rec.out) rec.x = x; // 還在電梯裡：出來後走去最新的座位
         else if (rec.x !== x) {
@@ -227,16 +217,13 @@ export class Building {
           if (o.kind === 'employee') this.card.fill(o.emp);
           else this.card.fillHelper(o.owner, o.a);
         }
-        // 工作中變輪到你才歡呼（要在更新 rec.occ 之前比；走路中的人不歡呼）
-        const cheer = o.kind === 'employee' && rec.occ?.kind === 'employee' && shouldCheer(rec.occ.emp.status, o.emp.status);
         rec.occ = o;
-        if (rec.out && !rec.p.moving) this.settle(rec, cheer); // 走路中的狀態變化到座位再套用
+        if (rec.out && !rec.p.moving) this.settle(rec); // 走路中的狀態變化到座位再套用
       }
     }
     for (const c of [this.staff, this.helpers]) {
       for (const [id, rec] of c.people) {
         if (seen[c.kind].has(id)) continue;
-        clearTimeout(rec.handT);
         rec.p.destroy();
         c.people.delete(id);
         if (this.shown(c, id)) this.card.hide();
@@ -244,69 +231,21 @@ export class Building {
     }
   }
 
-  /** 坐下（或站著）：依最新狀態擺姿勢與泡泡。助理不舉手、沒有泡泡：工作中打字、完成就去遞文件。cheer：這次剛從工作中變輪到你 */
-  private settle(rec: Rec, cheer = false): void {
+  /** 坐下（或站著）：依最新狀態擺姿勢與泡泡。助理不舉手、沒有泡泡：工作中打字、完成就閒著 */
+  private settle(rec: Rec): void {
     const o = rec.occ;
     if (!o) return;
     if (o.kind === 'assistant') {
-      if (o.a.status === 'done') this.handoff(rec, helperKey({ owner: o.owner, a: o.a }));
-      else {
-        rec.p.setAct('work');
-        rec.p.pose.work(null);
-        rec.p.setBubble(false);
-      }
+      rec.p.setAct(o.a.status === 'done' ? 'idle' : 'work');
+      rec.p.setBubble(false);
       return;
     }
     rec.p.setAct(ACT[o.emp.status]);
     rec.p.setBubble(o.emp.status === 'idle');
-    if (o.emp.status === 'working') rec.p.pose.work(o.emp.toolKind);
-    else if (o.emp.status === 'waiting') rec.p.pose.up();
-    else if (cheer) rec.p.pose.cheer();
-    else rec.p.pose.idle();
   }
 
-  /**
-   * 完成的助理：站起來走到主人座位左邊，往右伸手遞文件 DELIVER_MS，交完記 hand = 'done' 再 render（rollCall 收進 delivered，送回電梯）。
-   * 遞文件中什麼都不做；找不到主人的座位就當作交完了
-   */
-  private handoff(rec: Rec, key: string): void {
-    const p = rec.p, o = rec.occ;
-    if (o?.kind !== 'assistant' || rec.hand === 'busy') return;
-    if (rec.hand === 'done') {
-      // 交完了，等下一次 render 送走
-      p.setAct('idle');
-      p.pose.still(null);
-      return;
-    }
-    const x = this.ownerX.get(o.owner.sessionId);
-    if (x === undefined) {
-      rec.hand = 'done';
-      setTimeout(() => this.render(), 0); // 正在 render 裡：不同步再 render 一次
-      return;
-    }
-    rec.hand = 'busy';
-    p.setBubble(false);
-    p.walkTo(handoffX(x), () => {
-      p.pose.still('deliver');
-      rec.handT = setTimeout(() => {
-        rec.handT = undefined;
-        if (this.helpers.people.get(key) !== rec) return; // 已經走了或重新連線
-        rec.hand = 'done';
-        this.render();
-      }, DELIVER_MS);
-    }, STAND_MS);
-  }
-
-  /** 走去 rec.x（坐著的先站起來；走路中直接轉向），到了坐下。完成的助理遞文件被打斷：到新座位後重新出發 */
-  /** 取消進行中的遞文件（計時器停掉，busy 歸零，之後 handoff 才能重新開始） */
-  private cancelHandoff(rec: Rec): void {
-    clearTimeout(rec.handT);
-    rec.handT = undefined;
-    if (rec.hand === 'busy') rec.hand = undefined;
-  }
-
+  /** 走去 rec.x（坐著的先站起來；走路中直接轉向），到了坐下 */
   private walk(rec: Rec): void {
-    this.cancelHandoff(rec);
     rec.p.setBubble(false);
     rec.p.walkTo(rec.x, () => this.settle(rec), rec.p.moving ? 0 : STAND_MS);
   }
@@ -326,11 +265,10 @@ export class Building {
     });
   }
 
-  /** 下班（助理：交完文件或到安全上限、工作中消失、主人下班）：站起來走回電梯，門開了進去，門關好才把他從樓層拿掉（那層沒人才拆） */
+  /** 下班（助理：完成後停留到時、工作中消失、主人下班）：站起來走回電梯，門開了進去，門關好才把他從樓層拿掉（那層沒人才拆） */
   private leave(c: Crowd, id: string): void {
     const rec = c.people.get(id);
     if (!rec) return;
-    clearTimeout(rec.handT); // 下班的人不再遞文件（Leaving 不帶計時器）
     c.people.delete(id);
     if (this.shown(c, id)) this.card.hide();
     const v = this.floors.get(rec.floor);
@@ -368,10 +306,7 @@ export class Building {
   /** 重新連線：所有人物（含正在下班的）與計時器都清掉、電梯門直接關上，接著的 render 會把大家直接放回座位（完成的助理從現在重新計時） */
   private clearPeople(): void {
     for (const c of [this.staff, this.helpers]) {
-      for (const r of c.people.values()) {
-        clearTimeout(r.handT);
-        r.p.destroy();
-      }
+      for (const r of c.people.values()) r.p.destroy();
       for (const l of c.leaving.values()) l.p.destroy();
       c.people.clear();
       c.leaving.clear();

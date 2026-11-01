@@ -1,4 +1,4 @@
-import type { HookEvent, ToolKind } from './types.js';
+import type { HookEvent } from './types.js';
 
 export const truncate = (text: string, max: number): string => {
   const chars = [...text]; // 以 code point 計算，emoji 不會被切半
@@ -35,31 +35,6 @@ export function describeTool(toolName: string, input: Record<string, unknown> | 
       return '提問中';
     default:
       return '使用 ' + toolName;
-  }
-}
-
-export function toolKindOf(toolName: string): ToolKind {
-  switch (toolName) {
-    case 'Read':
-    case 'Grep':
-    case 'Glob':
-    case 'LS':
-      return 'read';
-    case 'Edit':
-    case 'MultiEdit':
-    case 'Write':
-    case 'NotebookEdit':
-    case 'TodoWrite':
-      return 'edit';
-    case 'Bash':
-    case 'BashOutput':
-    case 'KillShell':
-      return 'run';
-    case 'WebSearch':
-    case 'WebFetch':
-      return 'web';
-    default:
-      return isSubagentTool(toolName) ? 'agent' : 'other';
   }
 }
 

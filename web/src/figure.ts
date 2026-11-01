@@ -129,35 +129,9 @@ function body(look: Look): string {
   return g('body', rect(17, 41, 26, 25, 8, 'mk', S) + rect(34, 43, 7, 21, 0, 'tone') + outfit);
 }
 
-// ── 道具：在 fig 裡（跟著身體動）或在手臂群組裡（跟著手臂轉）；顯示與否交給 CSS 依 data-act 決定 ──
-
-const DOC = { x: 20, y: 48, w: 18, h: 14 }; // 胸前的文件
-const MOBILE = { x: 26, y: 51, w: 8, h: 12 }; // 胸前的手機
-const HANDSET = { x: 14.5, y: 57, w: 4, h: 12 }; // 左手旁的電話聽筒
-const MUG = { x: 41, y: 60, w: 6, h: 7 }; // 右手旁的杯子
-const SHEET = { x: 40, y: 61, w: 10, h: 13 }; // 右手遞出去的文件
-const GLOBE = { cx: -8, cy: 58, r: 7, base: 69.5 }; // 桌上的地球儀，支架到桌面
-
-const propDoc = () => g('prop-doc', rect(DOC.x, DOC.y, DOC.w, DOC.h, 0, 'mk-thin', WHITE)
-  + line([3, 7, 11].map((dy, i) => `M${DOC.x + 3} ${DOC.y + dy - 0.5} h${i === 2 ? 8 : 12}`).join(' '), 'mk-thin'));
-const propMobile = () => g('prop-mobile', rect(MOBILE.x, MOBILE.y, MOBILE.w, MOBILE.h, 1.5, 'mk-thin', INK)
-  + rect(MOBILE.x + 1.2, MOBILE.y + 1.4, MOBILE.w - 2.4, MOBILE.h - 4.2, 0.6, undefined, fill('var(--screen-working)')));
-const propHandset = () => g('prop-handset', rect(HANDSET.x, HANDSET.y, HANDSET.w, HANDSET.h, 2, 'mk-thin', INK));
-const propMug = () => g('prop-mug', rect(MUG.x, MUG.y, MUG.w, MUG.h, 1, 'mk-thin', fill('#c9d8e8'))
-  + line(`M${MUG.x + MUG.w} ${MUG.y + 1.5} q2.6 0 2.6 2 t-2.6 2`, 'mk-thin')
-  + path(`M${MUG.x + 1.8} ${MUG.y - 2} q-1.5 -2 0 -4`, 'steam', FX_STROKE(1))
-  + path(`M${MUG.x + 4.4} ${MUG.y - 2} q1.5 -2 0 -4`, 'steam', FX_STROKE(1)));
-const propSheet = () => g('prop-sheet', rect(SHEET.x, SHEET.y, SHEET.w, SHEET.h, 0, 'mk-thin', WHITE));
-const propGlobe = () => g('prop-globe', circle(GLOBE.cx, GLOBE.cy, GLOBE.r, 'mk-thin', fill('#7fb3d5'))
-  + path('M-12 55 q2 -3 4 -1 q1 2 -2 4 q-3 1 -2 -3z M-7 61 q2.5 -1 3.5 1 q-1 2.5 -3 2z', undefined, fill('#8bc48a'))
-  + line(`M${GLOBE.cx - GLOBE.r} ${GLOBE.cy} h${GLOBE.r * 2}`, 'mk-thin') // 赤道不動，只有經線左右晃
-  + g('meridians', ellipse(GLOBE.cx, GLOBE.cy, 3, GLOBE.r, undefined, 'fill:none;stroke:var(--fig-ink);stroke-width:.6'))
-  + line(`M${GLOBE.cx} ${GLOBE.cy + GLOBE.r} v${n(GLOBE.base - GLOBE.cy - GLOBE.r)} M${GLOBE.cx - 4} ${GLOBE.base} h8`, 'mk'));
-
-const arm = (side: 'l' | 'r', look: Look, props = true) => {
+const arm = (side: 'l' | 'r', look: Look) => {
   const x = side === 'l' ? 12.5 : 39.5;
-  const held = !props ? '' : side === 'l' ? propHandset() : propMug() + propSheet();
-  return g(`arm arm-${side}`, rect(x, 44, 8, 19, 4, 'mk', fill(SHIRT_COLORS[look.shirt])) + circle(x + 4, 63, 3.4, 'mk-thin', SKIN) + held);
+  return g(`arm arm-${side}`, rect(x, 44, 8, 19, 4, 'mk', fill(SHIRT_COLORS[look.shirt])) + circle(x + 4, 63, 3.4, 'mk-thin', SKIN));
 };
 
 const leg = (side: 'l' | 'r') => {
@@ -183,12 +157,6 @@ const BURST_PULSE = burstAt(BURST_K * 1.12); // CSS 以框的中心放大到 1.1
 const DROP: Pt = [11, 8]; // 汗滴頂點（站姿頭的左側，在集中線內圈裡面）
 const BUBBLE = { cx: 56, cy: -18, r: 11 };
 const SFX = { x: -24, y: 40, size: 14 }; // 「噠噠」
-const READ = { x: -24, y: 40, size: 12 }; // 「沙沙」（在「噠噠」的位置）
-const RUN = { x0: 52, y0: 28, x1: 80, y1: 44 }; // 深色小框在螢幕正上方（桌子疊在人物上面，畫在螢幕位置會被擋住）
-const RUN_LINES = ['M56 33 h12', 'M56 37 h18', 'M56 41 h9'];
-const THINK: [number, number, number][] = [[46, 10, 1.5], [51, 5, 2], [57, -1, 2.5]];
-const CALL = { x: -24, y: 24, size: 9 }; // 「嘟嚕嚕」
-const CHEER = { x: 12, y: 6, size: 14 }; // 「耶！」
 const Z1 = { x: -4, y: -4, size: 13 }, Z2 = { x: 0, y: -14, size: 16 };
 
 /** 文字的大略外框：全形字寬 = 字級，半形 0.6 字級；基線以上一個字級、以下 0.25 */
@@ -203,18 +171,11 @@ function boxOf(pts: Pt[], pad: number): Box {
 export const BURST_BOX: Box = boxOf(BURST_PULSE, 0);
 
 /** 漫符在人物座標裡的外框（人物座標 x 30 = 座位中心；座位 ±60 → x −30 到 90）；pad 涵蓋線寬 */
-export const FX_BOXES: Record<'work' | 'wait' | 'turn' | 'read' | 'run' | 'think' | 'call' | 'cheer' | 'globe', Box> = {
+export const FX_BOXES: Record<'work' | 'wait' | 'turn', Box> = {
   work: boxOf([...textPts(SFX.x, SFX.y, SFX.size, SFX.size * 2), [1, 48], [6, 56], [54, 48], [59, 56]], 1),
   wait: boxOf([...LINES.flatMap((l): Pt[] => [[l.x1, l.y1], [l.x2, l.y2]]), ...BURST_PULSE, [DROP[0] - 4, DROP[1]], [DROP[0] + 4, DROP[1] + 9]], 1),
   turn: boxOf([[BUBBLE.cx - BUBBLE.r, BUBBLE.cy - BUBBLE.r], [BUBBLE.cx + BUBBLE.r, BUBBLE.cy + BUBBLE.r],
     ...textPts(Z1.x, Z1.y, Z1.size, Z1.size * 0.6), ...textPts(Z2.x, Z2.y, Z2.size, Z2.size * 0.6)], 1),
-  read: boxOf(textPts(READ.x, READ.y, READ.size, READ.size * 2), 1),
-  run: boxOf([[RUN.x0, RUN.y0], [RUN.x1, RUN.y1]], 1),
-  think: boxOf(THINK.flatMap(([x, y, r]): Pt[] => [[x - r, y - r], [x + r, y + r]]), 1),
-  call: boxOf(textPts(CALL.x, CALL.y, CALL.size, CALL.size * 3), 1),
-  cheer: boxOf(textPts(CHEER.x, CHEER.y, CHEER.size, CHEER.size * 2), 1),
-  globe: boxOf([[GLOBE.cx - GLOBE.r, GLOBE.cy - GLOBE.r], [GLOBE.cx + GLOBE.r, GLOBE.cy + GLOBE.r],
-    [GLOBE.cx - 4, GLOBE.base], [GLOBE.cx + 4, GLOBE.base]], 1),
 };
 
 const FX = {
@@ -227,26 +188,18 @@ const FX = {
   turn: g('bubble', circle(BUBBLE.cx, BUBBLE.cy, BUBBLE.r, 'mk', fill('var(--turn)'))
     + path(`M${BUBBLE.cx - 5} ${BUBBLE.cy} l4 4 l7 -7`, undefined, 'fill:none;stroke:#4a3000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round'))
     + text(Z1.x, Z1.y, Z1.size, 'z', fill('var(--fx)'), 'z1') + text(Z2.x, Z2.y, Z2.size, 'Z', fill('var(--fx)'), 'z2'),
-  read: text(READ.x, READ.y, READ.size, '沙沙', fill('var(--fx)'), 'sfx'),
-  run: rect(RUN.x0, RUN.y0, RUN.x1 - RUN.x0, RUN.y1 - RUN.y0, 2, 'mk-thin', fill('#1b2430'))
-    + RUN_LINES.map((d, i) => path(d, `code${i + 1}`, 'fill:none;stroke:var(--code);stroke-width:1.6;stroke-linecap:round')).join(''),
-  think: THINK.map(([x, y, r], i) => circle(x, y, r, `dot${i + 1}`, fill('var(--fx)'))).join(''),
-  call: text(CALL.x, CALL.y, CALL.size, '嘟嚕嚕', fill('var(--fx)'), 'sfx'),
-  cheer: text(CHEER.x, CHEER.y, CHEER.size, '耶！', fill('var(--fx)'), 'sfx'),
 };
 
-/** 一個人物：椅背、人（腿、後髮、左臂、身體、胸前文件與手機、右臂、頭）、桌上地球儀、各種漫符；顯示哪個表情／漫符交給 CSS 依 data-act 決定 */
+/** 一個人物：椅背、人（腿、後髮、左臂、身體、右臂、頭）、三種漫符；顯示哪個表情／漫符交給 CSS 依 data-act 決定 */
 export function figureSvg(look: Look): string {
   const fig = g('fig', leg('l') + leg('r') + g('hair-back', hair(look).back)
-    + arm('l', look) + body(look) + propDoc() + propMobile() + arm('r', look) + head(look, ['work', 'wait', 'turn']));
+    + arm('l', look) + body(look) + arm('r', look) + head(look, ['work', 'wait', 'turn']));
   return tag('svg', { class: 'figure', xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' },
-    g('chair', rect(11, 36, 38, 36, 8, 'mk', CHAIR)) + fig + propGlobe()
-    + g('fx-work', FX.work) + g('fx-wait', FX.wait) + g('fx-turn', FX.turn)
-    + g('fx-read', FX.read) + g('fx-run', FX.run) + g('fx-think', FX.think) + g('fx-call', FX.call) + g('fx-cheer', FX.cheer));
+    g('chair', rect(11, 36, 38, 36, 8, 'mk', CHAIR)) + fig + g('fx-work', FX.work) + g('fx-wait', FX.wait) + g('fx-turn', FX.turn));
 }
 
 /** 資訊卡頭像：頭與肩膀、睜眼（工作中的臉），viewBox 只框頭肩 */
 export function avatarSvg(look: Look): string {
   return tag('svg', { class: 'avatar', xmlns: 'http://www.w3.org/2000/svg', viewBox: '6 3 48 48' },
-    g('hair-back', hair(look).back) + arm('l', look, false) + body(look) + arm('r', look, false) + head(look, ['work']));
+    g('hair-back', hair(look).back) + arm('l', look) + body(look) + arm('r', look) + head(look, ['work']));
 }

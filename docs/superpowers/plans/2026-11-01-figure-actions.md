@@ -1,5 +1,7 @@
 # 人物動作（子專案 2，前端）Implementation Plan
 
+> **已撤回（2026-11-01）**：使用者決定每個狀態只保留一個動作（工作中打字、輪到你打瞌睡、等你處理舉手），不歡呼、助理完成後不遞文件。本文件與實作計畫只留作紀錄，程式已回到子專案 1 的動作，伺服器的 `toolKind` 也已移除。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 人物工作中依 `toolKind` 換動作（至少維持 1.5 秒），等待時輪流做小動作，完成時歡呼，助理完成後走到主人桌旁遞文件再離開。

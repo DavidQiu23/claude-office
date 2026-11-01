@@ -1,4 +1,4 @@
-import { describeTool, folderName, isWaitingNotification, isSubagentTool, toolKindOf } from './describe.js';
+import { describeTool, folderName, isWaitingNotification, isSubagentTool } from './describe.js';
 import type { Assistant, Change, Employee, HookEvent, OfficeState } from './types.js';
 
 export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; changes: Change[] } {
@@ -32,7 +32,6 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       transcriptPath: '',
       status: 'idle',
       activity: null,
-      toolKind: null,
       seat,
       arrivedAt: e.sentAt,
       lastEventAt: e.sentAt,
@@ -56,17 +55,13 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
         if (!emp.firstPrompt) emp.firstPrompt = emp.lastPrompt;
         if (top) {
           emp.activity = null;
-          emp.toolKind = 'think';
           finish();
         }
         break;
       case 'PreToolUse':
         // AskUserQuestion：Claude 在問問題等你選，和權限詢問一樣算「等你回覆」；回答後的 PostToolUse 會回到工作中
         emp.status = e.tool_name === 'AskUserQuestion' ? 'waiting' : 'working';
-        if (top) {
-          emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
-          if (e.tool_name !== 'AskUserQuestion') emp.toolKind = toolKindOf(e.tool_name ?? '');
-        }
+        if (top) emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
         break;
       case 'PermissionRequest':
         // 要跳權限詢問了：PreToolUse 在權限判斷之前就會觸發，所以這裡才是真正開始等你（Notification 還要再等約 6 秒）
@@ -75,9 +70,6 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
         break;
       case 'PostToolUse':
       case 'PostToolUseFailure':
-        emp.status = 'working';
-        if (top) emp.toolKind = 'think'; // 工具用完，Claude 在想下一步
-        break;
       case 'ElicitationResult':
         emp.status = 'working';
         break;
@@ -92,7 +84,6 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
         emp.status = 'idle';
         if (top) {
           emp.activity = null;
-          emp.toolKind = null;
           finish();
         }
         break;

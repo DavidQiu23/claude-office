@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { assignAssistantSeats, buildingPlan, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate, helperRoster, HELPER_MAX_LINGER, HANDOFF_DX, handoffX, type HelperTrack } from '../web/src/floors.js';
+import { assignAssistantSeats, buildingPlan, edgeHints, floorAlert, floorPlan, floorWidth, helperKey, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate, helperRoster, HELPER_LINGER, type HelperTrack } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -278,36 +278,36 @@ test('helperRoster：工作中的助理在大樓裡，主人換成最新的資�
   expect(r.next).toBeNull();
 });
 
-test('helperRoster：第一次看到 done 記時間，停留到 HELPER_MAX_LINGER 後走出去並記在 gone', () => {
-  expect(HELPER_MAX_LINGER).toBe(20000);
+test('helperRoster：第一次看到 done 記時間，停留 HELPER_LINGER 後走出去並記在 gone', () => {
+  expect(HELPER_LINGER).toBe(3000);
   const w = asst({ id: 't1' }), d = asst({ id: 't1', status: 'done' });
   const o0 = emp('o', 'working', { assistants: [w] }), o1 = emp('o', 'working', { assistants: [d] });
   const r1 = helperRoster(new Map([track(o0, w)]), new Set(), [o1], 1000);
   expect(r1.stay.get('o/t1')?.doneAt).toBe(1000);
-  expect(r1.next).toBe(1000 + HELPER_MAX_LINGER);
+  expect(r1.next).toBe(4000);
   // 之後的 render 不重記時間
-  const r2 = helperRoster(r1.stay, r1.gone, [o1], 20999);
+  const r2 = helperRoster(r1.stay, r1.gone, [o1], 3999);
   expect(r2.stay.get('o/t1')?.doneAt).toBe(1000);
   expect(r2.out).toEqual([]);
-  const r3 = helperRoster(r2.stay, r2.gone, [o1], 21000);
+  const r3 = helperRoster(r2.stay, r2.gone, [o1], 4000);
   expect(keysOf(r3.stay)).toEqual([]);
   expect(r3.out).toEqual(['o/t1']);
   expect([...r3.gone]).toEqual(['o/t1']);
   // 還列在清單上（伺服器下一個事件才清掉 done）也不會再進來
-  const r4 = helperRoster(r3.stay, r3.gone, [o1], 22000);
+  const r4 = helperRoster(r3.stay, r3.gone, [o1], 5000);
   expect(keysOf(r4.stay)).toEqual([]);
   expect(r4.out).toEqual([]);
   expect([...r4.gone]).toEqual(['o/t1']);
   // 從清單消失後 gone 也清掉
-  expect([...helperRoster(r4.stay, r4.gone, [emp('o')], 23000).gone]).toEqual([]);
+  expect([...helperRoster(r4.stay, r4.gone, [emp('o')], 6000).gone]).toEqual([]);
 });
 
-test('helperRoster：done 從清單消失（伺服器清掉）沒交完文件仍停留到上限', () => {
+test('helperRoster：done 從清單消失（伺服器清掉）仍停留到時間到', () => {
   const d = asst({ id: 't1', status: 'done' }), o = emp('o', 'working', { assistants: [d] }), o2 = emp('o', 'idle');
   const r = helperRoster(new Map([track(o, d, 1000)]), new Set(), [o2], 2000);
   expect(r.stay.get('o/t1')).toEqual({ owner: o2, a: d, doneAt: 1000 });
-  expect(r.next).toBe(21000);
-  expect(helperRoster(r.stay, r.gone, [o2], 21000).out).toEqual(['o/t1']);
+  expect(r.next).toBe(4000);
+  expect(helperRoster(r.stay, r.gone, [o2], 4000).out).toEqual(['o/t1']);
 });
 
 test('helperRoster：工作中卻從清單消失、或主人不在了，立刻走出去', () => {
@@ -324,7 +324,7 @@ test('helperRoster：重新整理時第一次看到的 done 從現在開始算',
   const d = asst({ id: 't1', status: 'done' }), o = emp('o', 'working', { assistants: [d] });
   const r = helperRoster(new Map(), new Set(), [o], 500);
   expect(r.stay.get('o/t1')?.doneAt).toBe(500);
-  expect(r.next).toBe(20500);
+  expect(r.next).toBe(3500);
 });
 
 test('helperRoster：next 是最早到期的時間；不同主人的助理分開', () => {
@@ -332,7 +332,7 @@ test('helperRoster：next 是最早到期的時間；不同主人的助理分開
   const o = emp('o', 'working', { assistants: [a] }), p = emp('p', 'working', { assistants: [b] });
   const r = helperRoster(new Map([track(o, a, 2000), track(p, b, 1000)]), new Set(), [o, p], 2500);
   expect(keysOf(r.stay)).toEqual(['o/t1', 'p/t1']);
-  expect(r.next).toBe(21000);
+  expect(r.next).toBe(4000);
 });
 
 test('helperRoster：主人回來（同一個 session）時，gone 已清掉的工作中助理重新進來', () => {
@@ -340,24 +340,4 @@ test('helperRoster：主人回來（同一個 session）時，gone 已清掉的�
   const away = helperRoster(new Map([track(o, a)]), new Set(), [], 0);
   expect(away.out).toEqual(['o/t1']);
   expect(keysOf(helperRoster(away.stay, away.gone, [o], 10).stay)).toEqual(['o/t1']);
-});
-
-test('helperRoster：交完文件就離開，不必等到上限', () => {
-  const d = asst({ id: 't1', status: 'done' }), o = emp('o', 'working', { assistants: [d] });
-  const r1 = helperRoster(new Map([track(o, d, 1000)]), new Set(), [o], 2000);
-  expect(keysOf(r1.stay)).toEqual(['o/t1']);
-  const r2 = helperRoster(r1.stay, r1.gone, [o], 2500, new Set(['o/t1']));
-  expect(r2.out).toEqual(['o/t1']);
-  expect([...r2.gone]).toEqual(['o/t1']);
-});
-
-test('helperRoster：已從清單消失、交完文件的助理也離開', () => {
-  const d = asst({ id: 't1', status: 'done' }), o = emp('o', 'working', { assistants: [d] }), o2 = emp('o', 'idle');
-  const r = helperRoster(new Map([track(o, d, 1000)]), new Set(), [o2], 2000, new Set(['o/t1']));
-  expect(r.out).toEqual(['o/t1']);
-});
-
-test('handoffX：站在主人座位中心左邊 50', () => {
-  expect(HANDOFF_DX).toBe(-50);
-  expect(handoffX(seatCenter(2))).toBe(seatCenter(2) - 50);
 });

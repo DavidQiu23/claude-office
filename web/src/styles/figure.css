@@ -1,4 +1,4 @@
-/* 漫畫人物（figure.ts 的 SVG 直接放在 .person 裡）：姿勢、表情、漫符、動畫與坐下站起的過場，全依 data-act／data-pose／data-bubble。
+/* 漫畫人物（figure.ts 的 SVG 直接放在 .person 裡）：姿勢、表情、漫符、動畫與坐下站起的過場，全依 data-act／data-bubble。
    規則一律以 .person 開頭，資訊卡的頭像（avatarSvg，也有 face-work）不受影響 */
 .person { position: absolute; top: 74px; width: 60px; height: 84px; pointer-events: auto; }
 .person .figure { position: absolute; inset: 0; display: block; width: 60px; height: 84px; overflow: visible; }
@@ -11,9 +11,8 @@
 .person .leg { transform-origin: 50% 5%; }
 .person .head { transform-origin: 50% 90%; }
 .person .burst { transform-origin: 50% 50%; }
-/* 漫符與桌上的地球儀超出人物框，不接滑鼠（資訊卡只認人） */
-.person .fx-work, .person .fx-wait, .person .fx-turn, .person .fx-read, .person .fx-run, .person .fx-think,
-.person .fx-call, .person .fx-cheer, .person .prop-globe { pointer-events: none; }
+/* 漫符超出人物框，不接滑鼠（資訊卡只認人） */
+.person .fx-work, .person .fx-wait, .person .fx-turn { pointer-events: none; }
 
 /* 坐下／站起：data-act 一換就播 300ms（與 building.ts 的 STAND_MS 相同） */
 .person .fig, .person .leg, .person .chair { transition: transform 300ms ease-in-out, opacity 300ms ease-in-out; }
@@ -28,121 +27,32 @@
 .person .fx-work, .person .fx-wait, .person .fx-turn { display: none; }
 .person[data-act="work"] .face-work, .person[data-act="walk"] .face-work, .person[data-act="stand"] .face-work,
 .person[data-act="up"] .face-wait, .person[data-act="idle"] .face-turn,
-.person[data-act="work"][data-pose="edit"] .fx-work, .person[data-act="up"] .fx-wait,
+.person[data-act="work"] .fx-work, .person[data-act="up"] .fx-wait,
 .person[data-act="idle"][data-bubble="on"] .fx-turn { display: inline; }
 
-/* 道具與工具漫符：預設全藏，依 data-pose 只露對應的一組 */
-.person .prop-doc, .person .prop-mobile, .person .prop-handset, .person .prop-mug, .person .prop-sheet, .person .prop-globe,
-.person .fx-read, .person .fx-run, .person .fx-think, .person .fx-call, .person .fx-cheer { display: none; }
-.person[data-act="work"][data-pose="read"] .prop-doc, .person[data-act="work"][data-pose="read"] .fx-read,
-.person[data-act="work"][data-pose="run"] .fx-run,
-.person[data-act="work"][data-pose="web"] .prop-globe,
-.person[data-act="work"][data-pose="agent"] .prop-handset, .person[data-act="work"][data-pose="agent"] .fx-call,
-.person[data-act="work"][data-pose="think"] .fx-think,
-.person[data-act="idle"][data-pose="coffee"] .prop-mug,
-.person[data-act="idle"][data-pose="phone"] .prop-mobile,
-.person[data-act="idle"][data-pose="cheer"] .fx-cheer,
-.person[data-act="stand"][data-pose="deliver"] .prop-sheet { display: inline; }
-
-/* 坐著伸懶腰、喝咖啡、滑手機是醒著的：用工作的臉，不用閉眼的臉（歡呼與打瞌睡仍用閉眼弧線） */
-.person[data-act="idle"][data-pose="stretch"] .face-work, .person[data-act="idle"][data-pose="coffee"] .face-work,
-.person[data-act="idle"][data-pose="phone"] .face-work { display: inline; }
-.person[data-act="idle"][data-pose="stretch"] .face-turn, .person[data-act="idle"][data-pose="coffee"] .face-turn,
-.person[data-act="idle"][data-pose="phone"] .face-turn { display: none; }
-
-/* 打字（edit）：兩手輪流上下（錯開半週期），「噠噠」閃 */
-.person[data-act="work"][data-pose="edit"] .arm-l { animation: fig-type .42s ease-in-out infinite; }
-.person[data-act="work"][data-pose="edit"] .arm-r { animation: fig-type .42s ease-in-out .21s infinite; }
-.person[data-act="work"][data-pose="edit"] .sfx { animation: fig-sfx .84s steps(1) infinite; }
+/* 工作中：兩手輪流上下（錯開半週期），「噠噠」閃 */
+.person[data-act="work"] .arm-l { animation: fig-type .42s ease-in-out infinite; }
+.person[data-act="work"] .arm-r { animation: fig-type .42s ease-in-out .21s infinite; }
+.person[data-act="work"] .sfx { animation: fig-sfx .84s steps(1) infinite; }
 @keyframes fig-type { 50% { transform: translateY(-3px); } }
 @keyframes fig-sfx { 50% { opacity: .25; } }
 
-/* 讀檔（read）：低頭，左手按著文件，右手翻頁（20°～60°），「沙沙」閃。靜止時右手停在中間 40° */
-.person[data-act="work"][data-pose="read"] .head { transform: rotate(4deg); }
-.person[data-act="work"][data-pose="read"] .arm-l { transform: rotate(-30deg); }
-.person[data-act="work"][data-pose="read"] .arm-r { transform: rotate(40deg); animation: fig-flip 1.2s ease-in-out infinite; }
-.person[data-act="work"][data-pose="read"] .fx-read .sfx { animation: fig-sfx 1.2s steps(1) infinite; }
-@keyframes fig-flip { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(60deg); } }
-
-/* 跑指令（run）：兩手不動、頭微低，終端機的三行字依序往上飄並淡出（負延遲：一開始就錯開） */
-.person[data-act="work"][data-pose="run"] .head { transform: rotate(8deg); }
-.person[data-act="work"][data-pose="run"] .code1 { animation: fig-code .9s ease-out infinite; }
-.person[data-act="work"][data-pose="run"] .code2 { animation: fig-code .9s ease-out -.3s infinite; }
-.person[data-act="work"][data-pose="run"] .code3 { animation: fig-code .9s ease-out -.6s infinite; }
-@keyframes fig-code { 0% { translate: 0 0; opacity: 1; } 100% { translate: 0 -4px; opacity: 0; } }
-
-/* 上網（web）：左手撥地球儀（40°～60°，靜止時 50°），經線左右晃 */
-.person[data-act="work"][data-pose="web"] .arm-l { transform: rotate(50deg); animation: fig-spin-arm .6s ease-in-out infinite; }
-.person[data-act="work"][data-pose="web"] .meridians { animation: fig-meridian 1.2s ease-in-out infinite; }
-@keyframes fig-spin-arm { 0%, 100% { transform: rotate(40deg); } 50% { transform: rotate(60deg); } }
-@keyframes fig-meridian { 0%, 100% { translate: -3px 0; } 50% { translate: 3px 0; } }
-
-/* 派子代理（agent）：左手拿聽筒舉到頭的左外側，「嘟嚕嚕」閃 */
-.person[data-act="work"][data-pose="agent"] .arm-l { transform: rotate(158deg); }
-.person[data-act="work"][data-pose="agent"] .fx-call .sfx { animation: fig-sfx .5s steps(1) infinite; }
-
-/* 思考（think）：右手托下巴、頭微仰，三個點依序亮（負延遲：第二、三點比第一點晚 .5s、1s） */
-.person[data-act="work"][data-pose="think"] .arm-r { transform: rotate(120deg); }
-.person[data-act="work"][data-pose="think"] .head { transform: rotate(-6deg); }
-.person[data-act="work"][data-pose="think"] .dot1 { animation: fig-dot 1.5s ease-in-out infinite; }
-.person[data-act="work"][data-pose="think"] .dot2 { animation: fig-dot 1.5s ease-in-out -1s infinite; }
-.person[data-act="work"][data-pose="think"] .dot3 { animation: fig-dot 1.5s ease-in-out -.5s infinite; }
-@keyframes fig-dot { 0%, 100% { opacity: 0; } 30%, 70% { opacity: 1; } }
-
-/* 等你處理：站起來，右臂舉到頭上（靜止時停在 180°，減少動態時照樣舉手），只有 wave 揮動；hop 身體跳兩下。
-   集中線淡入淡出、「！」框脈動、汗滴往下滑。身體位移用獨立的 translate 屬性（.fig 的 transform 留給坐下站起的過場） */
-.person[data-act="up"] .arm-r { transform: rotate(180deg); }
-.person[data-act="up"][data-pose="wave"] .arm-r { animation: fig-wave .8s ease-in-out infinite; }
-.person[data-act="up"][data-pose="hop"] .fig { animation: fig-hop 1.2s ease-out infinite; }
+/* 等你處理：站起來，右臂舉到頭上揮動（靜止時停在 175°，減少動態時照樣舉手）；集中線淡入淡出、「！」框脈動、汗滴往下滑 */
+.person[data-act="up"] .arm-r { transform: rotate(175deg); animation: fig-wave .8s ease-in-out infinite; }
 .person[data-act="up"] .lines { animation: fig-lines 1.6s ease-in-out infinite; }
 .person[data-act="up"] .burst { animation: fig-pop 1.6s ease-in-out infinite; }
 .person[data-act="up"] .drop { animation: fig-drop 1.6s ease-in infinite; }
 @keyframes fig-wave { 0%, 100% { transform: rotate(160deg); } 50% { transform: rotate(195deg); } }
-@keyframes fig-hop { 0%, 10%, 20%, 30%, 100% { translate: 0 0; } 5%, 25% { translate: 0 -6px; } }
 @keyframes fig-lines { 50% { opacity: .35; } }
 @keyframes fig-pop { 50% { transform: scale(1.12); } }
 @keyframes fig-drop { 0% { opacity: 0; transform: translateY(-3px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(5px); } }
 
-/* 輪到你：預設只有泡泡（完成的助理）。打瞌睡（doze）閉眼點頭、zZ 輪流往上飄；其他等待小動作藏起 zZ */
-.person[data-act="idle"]:not([data-pose="doze"]) .z1, .person[data-act="idle"]:not([data-pose="doze"]) .z2 { display: none; }
-.person[data-act="idle"][data-pose="doze"] .head { animation: fig-nod 2.6s ease-in-out infinite; }
-.person[data-act="idle"][data-pose="doze"] .z1 { animation: fig-zz 2.6s ease-out infinite; }
-.person[data-act="idle"][data-pose="doze"] .z2 { animation: fig-zz 2.6s ease-out 1.3s infinite; }
+/* 輪到你：閉眼點頭；zZ 輪流往上飄（泡泡與 zZ 只在 data-bubble="on" 時顯示，完成的助理只閉眼點頭） */
+.person[data-act="idle"] .head { animation: fig-nod 2.6s ease-in-out infinite; }
+.person[data-act="idle"][data-bubble="on"] .z1 { animation: fig-zz 2.6s ease-out infinite; }
+.person[data-act="idle"][data-bubble="on"] .z2 { animation: fig-zz 2.6s ease-out 1.3s infinite; }
 @keyframes fig-nod { 50% { transform: rotate(-6deg) translateY(1.5px); } }
 @keyframes fig-zz { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -12px); } }
-
-/* 伸懶腰（stretch）：3s 一輪，0～40% 兩手往外舉起（左臂 165°、右臂 −165°）、身體上提 2px，40～67% 放下，其餘停住。靜止時兩手舉著 */
-.person[data-act="idle"][data-pose="stretch"] .arm-l { transform: rotate(165deg); animation: fig-stretch-l 3s ease-in-out infinite; }
-.person[data-act="idle"][data-pose="stretch"] .arm-r { transform: rotate(-165deg); animation: fig-stretch-r 3s ease-in-out infinite; }
-.person[data-act="idle"][data-pose="stretch"] .fig { animation: fig-stretch 3s ease-in-out infinite; }
-@keyframes fig-stretch-l { 0%, 67%, 100% { transform: rotate(0deg); } 40% { transform: rotate(165deg); } }
-@keyframes fig-stretch-r { 0%, 67%, 100% { transform: rotate(0deg); } 40% { transform: rotate(-165deg); } }
-@keyframes fig-stretch { 0%, 67%, 100% { translate: 0 0; } 40% { translate: 0 -2px; } }
-
-/* 喝咖啡（coffee）：右手拿杯子舉到嘴邊再放下（0°～100°，2.4s），蒸氣淡入淡出 */
-.person[data-act="idle"][data-pose="coffee"] .arm-r { animation: fig-sip 2.4s ease-in-out infinite; }
-.person[data-act="idle"][data-pose="coffee"] .steam { animation: fig-steam 1.2s ease-in-out infinite; }
-.person[data-act="idle"][data-pose="coffee"] .steam + .steam { animation-delay: -.6s; }
-@keyframes fig-sip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(100deg); } }
-@keyframes fig-steam { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-
-/* 滑手機（phone）：兩手捧著手機、頭低下，螢幕一閃一閃 */
-.person[data-act="idle"][data-pose="phone"] .arm-l { transform: rotate(-30deg); }
-.person[data-act="idle"][data-pose="phone"] .arm-r { transform: rotate(30deg); }
-.person[data-act="idle"][data-pose="phone"] .head { transform: rotate(6deg); }
-.person[data-act="idle"][data-pose="phone"] .prop-mobile rect:last-child { animation: fig-screen 1.2s ease-in-out infinite; }
-@keyframes fig-screen { 50% { opacity: .35; } }
-
-/* 歡呼（cheer）：兩手往外舉成 V 字，身體往上彈一次，「耶！」淡入 */
-.person[data-act="idle"][data-pose="cheer"] .arm-l { transform: rotate(160deg); }
-.person[data-act="idle"][data-pose="cheer"] .arm-r { transform: rotate(-160deg); }
-.person[data-act="idle"][data-pose="cheer"] .fig { animation: fig-cheer 1s ease-out 1; }
-.person[data-act="idle"][data-pose="cheer"] .fx-cheer .sfx { animation: fig-fade-in .3s ease-out both; }
-@keyframes fig-cheer { 0%, 100% { translate: 0 0; } 40% { translate: 0 -4px; } }
-@keyframes fig-fade-in { from { opacity: 0; } }
-
-/* 遞文件（deliver）：站著，右手往右平伸，手上的文件跟著手臂 */
-.person[data-act="stand"][data-pose="deliver"] .arm-r { transform: rotate(-80deg); }
 
 /* 走路：腿與手臂交錯擺 ±16°（左腿配右手），身體每步上下 1.5px。
    用獨立的 translate／rotate 屬性而不是 transform：走到座位那一刻動畫拿掉時，.fig 與腿的 transform 才會照常播坐下過場 */
