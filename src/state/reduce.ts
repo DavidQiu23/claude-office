@@ -12,7 +12,6 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
     return { state: { ...state, employees: rest }, changes: [{ type: 'leave', sessionId: id }] };
   }
 
-  let seq = state.seq;
   let emp: Employee;
   if (existing) {
     emp = { ...existing };
@@ -91,10 +90,9 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   }
 
   // 助理配對不受事件先後影響
-  if (e.hook_event_name === 'PreToolUse' && isSubagentTool(e.tool_name)) {
-    const aid = e.tool_use_id ?? 'seq-' + ++seq;
+  if (e.hook_event_name === 'PreToolUse' && isSubagentTool(e.tool_name) && e.tool_use_id) {
     assistants.push({
-      id: aid,
+      id: e.tool_use_id,
       description: String(e.tool_input?.description ?? ''),
       status: 'working',
       startedAt: e.sentAt,
@@ -104,7 +102,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   } else if (e.hook_event_name === 'PostToolUse' && e.tool_name === 'SendMessage' && typeof e.tool_response?.resumedAgentId === 'string') {
     // SendMessage 叫回已停下的 subagent：它在背景重新工作，SubagentStop 才完成（還在跑的只會回 queued，不另加）
     assistants.push({
-      id: e.tool_use_id ?? 'seq-' + ++seq,
+      id: e.tool_use_id ?? e.tool_response.resumedAgentId,
       description: String(e.tool_input?.summary ?? ''),
       status: 'working',
       startedAt: e.sentAt,
@@ -116,17 +114,14 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
     assistants = assistants.map((a) =>
       a.id !== e.tool_use_id ? a : launched ? { ...a, background: true, agentId: String(e.tool_response?.agentId ?? '') } : { ...a, status: 'done' },
     );
-  } else if (e.hook_event_name === 'SubagentStop' && e.agent_id && assistants.some((a) => a.agentId === e.agent_id)) {
+  } else if (e.hook_event_name === 'SubagentStop' && e.agent_id) {
     assistants = assistants.map((a) => (a.agentId === e.agent_id ? { ...a, status: 'done' } : a));
-  } else if (e.hook_event_name === 'SubagentStop' && !e.tool_use_id) {
-    const i = assistants.findIndex((a) => a.status === 'working' && a.id.startsWith('seq-'));
-    if (i >= 0) assistants[i] = { ...assistants[i], status: 'done' };
   }
 
   emp.assistants = assistants;
   emp.lastEventAt = Math.max(emp.lastEventAt, e.sentAt);
   return {
-    state: { ...state, seq, employees: { ...state.employees, [id]: emp } },
+    state: { ...state, employees: { ...state.employees, [id]: emp } },
     changes: [{ type: 'upsert', employee: emp }],
   };
 }

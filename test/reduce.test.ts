@@ -121,11 +121,9 @@ test('完成的助理在下一個事件時被移除', () => {
   ]);
   expect(state.employees.s1.assistants).toEqual([]);
 });
-test('沒有 tool_use_id 時以 SubagentStop 先進先出配對', () => {
-  let r = run([ev('PreToolUse', { tool_name: 'Task' }), ev('PreToolUse', { tool_name: 'Task' })]);
-  expect(r.state.employees.s1.assistants.map((x) => x.id)).toEqual(['seq-1', 'seq-2']);
-  r = run([ev('SubagentStop')], r.state);
-  expect(r.state.employees.s1.assistants.map((x) => x.status)).toEqual(['done', 'working']);
+test('沒有 tool_use_id 的派出不建立助理', () => {
+  const { state } = run([ev('PreToolUse', { tool_name: 'Task' }), ev('SubagentStop')]);
+  expect(state.employees.s1.assistants).toEqual([]);
 });
 test('缺少 session_id 的事件被忽略', () => {
   const s = emptyState();

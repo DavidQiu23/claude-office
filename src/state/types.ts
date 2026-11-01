@@ -17,7 +17,7 @@ export interface HookEvent {
 export type EmployeeStatus = 'working' | 'waiting' | 'idle';
 
 export interface Assistant {
-  id: string;                  // tool_use_id，或 `seq-<n>`
+  id: string;                  // tool_use_id（SendMessage 叫回的助理沒有時用 agentId）
   description: string;
   status: 'working' | 'done';
   startedAt: number;
@@ -44,11 +44,10 @@ export interface Employee {
 
 export interface OfficeState {
   employees: Record<string, Employee>;
-  seq: number;                 // 產生 `seq-<n>` 用
 }
 
 export type Change =
   | { type: 'upsert'; employee: Employee }
   | { type: 'leave'; sessionId: string };
 
-export const emptyState = (): OfficeState => ({ employees: {}, seq: 0 });
+export const emptyState = (): OfficeState => ({ employees: {} });

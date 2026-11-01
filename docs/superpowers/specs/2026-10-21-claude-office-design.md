@@ -161,7 +161,7 @@ interface Assistant {
 
 - `PreToolUse` 且工具為 `Task` 或 `Agent`：新增助理，`description` 取自工具參數中的任務描述，狀態為工作中。
 - 對應的 `PostToolUse`：助理狀態變**完成**，3 秒後移除。
-- 以工具呼叫 ID 配對助理。若事件沒有提供 ID，改用 `SubagentStop` 事件，依先進先出順序配對。
+- 以工具呼叫 ID 配對助理。（原本沒有 ID 時以 `SubagentStop` 先進先出配對，2026-11-01 移除：實測一律有 `tool_use_id`，見 `docs/findings.md` §2。）
 
 ### 4.4 事件順序
 
