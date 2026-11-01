@@ -1,5 +1,6 @@
 // 一個人：漫畫人物 SVG（椅背、姿勢群組、漫符都在 SVG 裡）、水平走路。el 的 left = 人的中心 x（樓層座標）
 // 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act／data-bubble 決定，這裡只設屬性
+import { div } from './dom.js';
 import { figureSvg, FIG } from './figure.js';
 import { walkMs, walkPos, type Walk } from './floors.js';
 import { reduceMotion } from './motion.js';
@@ -8,14 +9,13 @@ import type { Look } from './view.js';
 export type Act = 'work' | 'up' | 'idle' | 'walk' | 'stand';
 
 export class Person {
-  readonly el = document.createElement('div');
+  readonly el = div('person');
   private act: Act | null = null;
   private x = 0; // 停著的位置；走路中是目的地
   private walk: Walk | null = null;
   private walkT: ReturnType<typeof setTimeout> | undefined; // 站起來或走路的計時器，到了才呼叫 done
 
   constructor(look: Look) {
-    this.el.className = 'person';
     this.el.innerHTML = figureSvg(look); // figure.ts 產生、不含使用者資料
     this.el.style.marginLeft = `${-FIG.w / 2}px`;
     this.setAct('work');

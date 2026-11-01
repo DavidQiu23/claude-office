@@ -1,19 +1,16 @@
 import type { Employee } from '../../src/state/types.js';
-import { nameplate, platePrefix, projectColor, roomKey, shortPath } from './view.js';
+import { nameplate, platePrefix, projectColor, roomKey, shortPath, workingCount } from './view.js';
 
 // ---- 剖面大樓的尺寸（CSS px）----
 export const GEO = { floorH: 200, slab: 8, elevatorW: 80, seatW: 120, furnitureW: 200, groundH: 72, panelW: 40, gutter: 56, rightMargin: 16 } as const;
 
 /** 第 i 個座位的中心 x（樓層內座標） */
 export const seatCenter = (i: number): number => GEO.elevatorW + i * GEO.seatW + GEO.seatW / 2;
-/** 樓層寬：至少撐滿可用寬，桌子多就往右長 */
-export const floorWidth = (desks: number, avail: number): number => Math.max(avail, GEO.elevatorW + desks * GEO.seatW + GEO.furnitureW);
 
 /** 座位只坐真員工；助理只是主人名牌旁的小標 */
 export interface Seat { index: number; occ: Employee | null }
 export interface Floor { key: string; level: number; title: string; color: string; desks: number; seats: Seat[] }
 export type Alert = 'waiting' | 'idle' | null;
-export type PlateTone = Employee['status'];
 
 /**
  * 一個專案（cwd）一層樓，1F 在 index 0。minDesks：該層至少要留的桌數（人走了桌子不收，由呼叫端記）。
@@ -47,12 +44,13 @@ export function floorAlert(f: Floor): Alert {
   return has('waiting') ? 'waiting' : has('idle') ? 'idle' : null;
 }
 
-/** 全部樓層共用的寬度：桌數最多那層要的寬（放不下時整棟樓變寬、整頁橫向捲動） */
-export const buildingWidth = (plan: Floor[], avail: number): number => floorWidth(Math.max(0, ...plan.map((f) => f.desks)), avail);
+/** 全部樓層共用的寬度：至少撐滿可用寬，桌數最多那層放不下就往右長（整棟樓變寬、整頁橫向捲動）；沒有樓層（空大廳）就是可用寬 */
+export const buildingWidth = (plan: Floor[], avail: number): number =>
+  plan.length ? Math.max(avail, GEO.elevatorW + Math.max(...plan.map((f) => f.desks)) * GEO.seatW + GEO.furnitureW) : avail;
 
-/** 桌上名牌：標題加狀態前綴、底色依狀態；helpers 是工作中的助理數（名牌旁的「↳N」，0 不顯示） */
-export function plateText(e: Employee): { text: string; tone: PlateTone; helpers: number } {
-  return { text: platePrefix(e) + nameplate(e), tone: e.status, helpers: e.assistants.filter((a) => a.status === 'working').length };
+/** 桌上名牌：標題加狀態前綴（底色直接依 e.status）；helpers 是工作中的助理數（名牌旁的「↳N」，0 不顯示） */
+export function plateText(e: Employee): { text: string; helpers: number } {
+  return { text: platePrefix(e) + nameplate(e), helpers: workingCount(e.assistants) };
 }
 
 /** 電梯面板的框：看得到的樓層按鈕（flags 依面板上到下）從第一顆到最後一顆；一顆都沒有回 null */

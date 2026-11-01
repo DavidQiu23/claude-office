@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { reduce } from '../src/state/reduce.js';
 import { emptyState } from '../src/state/types.js';
 import type { Change, HookEvent, OfficeState } from '../src/state/types.js';
+import { workingCount } from '../web/src/view.js';
 
 let t = 0;
 const ev = (name: string, extra: Partial<HookEvent> = {}): HookEvent => ({
@@ -275,4 +276,20 @@ test('SendMessage 叫回已停下的 subagent 時多一位背景助理，Subagen
   expect(state.employees.s1.assistants[0].status).toBe('done');
   const queued = ev('PostToolUse', { tool_name: 'SendMessage', tool_use_id: 'toolu_q', tool_response: { success: true, message: 'Message queued' } });
   expect(run([queued], state).state.employees.s1.assistants).toEqual([]);
+});
+
+test('工作中的助理數：派三個 3、前景完成一個 2、背景啟動仍 2、主人 Stop 後只剩背景的 1、SubagentStop 後 0', () => {
+  const spawn = (id: string, background = false) =>
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: id, tool_input: { description: id, ...(background ? { run_in_background: true } : {}) } });
+  let state = run([ev('UserPromptSubmit'), spawn('t1'), spawn('t2'), spawn('t3', true)]).state;
+  const working = () => workingCount(state.employees.s1.assistants);
+  expect(working()).toBe(3);
+  ({ state } = run([ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 't1' })], state));
+  expect(working()).toBe(2);
+  ({ state } = run([ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 't3', tool_response: { status: 'async_launched', agentId: 'ag1' } })], state));
+  expect(working()).toBe(2);
+  ({ state } = run([ev('Stop')], state));
+  expect(working()).toBe(1);
+  ({ state } = run([ev('SubagentStop', { agent_id: 'ag1' })], state));
+  expect(working()).toBe(0);
 });

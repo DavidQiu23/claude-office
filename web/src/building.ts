@@ -2,7 +2,8 @@
 import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
-import { div, FloorView, lobby } from './floor.js';
+import { div } from './dom.js';
+import { FloorView, lobby } from './floor.js';
 import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
@@ -12,7 +13,7 @@ const ACT: Record<Employee['status'], Act> = { working: 'work', waiting: 'up', i
 const STAND_MS = 300; // 坐著要走之前先站起來多久
 
 /** 在座位上或走在路上的人。emp = 上次套用的資料；x = 座位中心（走路的目的地）；out = 已走出電梯（或直接放好），false 時還藏在電梯裡等門開 */
-interface Rec { p: Person; floor: string; emp?: Employee; x: number; out: boolean }
+interface Rec { p: Person; floor: string; emp: Employee; x: number; out: boolean }
 /** 下班走去電梯的人。gone = 已進電梯（人物已移除），等門關好才拆那層 */
 interface Leaving { emp: Employee; p: Person; floor: string; gone: boolean }
 
@@ -45,6 +46,7 @@ export class Building {
   private floors = new Map<string, FloorView>(); // 依 floor key
   private people = new Map<string, Rec>(); // 依 sessionId
   private leaving = new Map<string, Leaving>(); // 走去電梯、store 已經沒有的人
+  private minW = ''; // 上次寫進 body 的最小寬度，沒變就不寫
   private minDesks = new Map<string, number>(); // 依 floor key（roomKey）：這層至少要留的桌數，人走了桌子不收，拆樓才刪
   private card = new InfoCard();
   private scrolled = false; // 第一次 reset 後是否已捲到底
@@ -62,14 +64,18 @@ export class Building {
       // 打開頁面（第一次載入完成）捲到最底看 1F；之後重連的 reset 不動使用者的捲動位置
       if (c.type === 'reset' && !this.scrolled) {
         this.scrolled = true;
-        window.scrollTo(window.scrollX, document.documentElement.scrollHeight);
+        window.scrollTo({ top: document.documentElement.scrollHeight }); // 沒給 left：不動橫向捲動位置
       }
     });
-    // 視窗變寬變窄、或直向捲軸出現時，樓層寬跟著重算；觀察 <html>，因為樓層變寬後 .floors 不再跟著視窗變
+    // 視窗變寬變窄、或直向捲軸出現時，樓層寬跟著重算；觀察 <html>，因為樓層變寬後 .floors 不再跟著視窗變。
+    // 狀態列寬（--view-w）只跟視窗寬有關，也在這裡更新
     let w = -1;
     new ResizeObserver(() => {
       const a = this.avail();
-      if (a !== w) { w = a; this.render(); }
+      if (a === w) return;
+      w = a;
+      document.documentElement.style.setProperty('--view-w', `${document.documentElement.clientWidth}px`);
+      this.render();
     }).observe(document.documentElement);
     // 頁面捲動時，卡片的位置就不對了，先藏起來
     document.addEventListener('scroll', () => this.card.hide(), true);
@@ -94,7 +100,7 @@ export class Building {
     this.sig = sig;
     this.order = order;
     const root = document.documentElement;
-    const stick = changed && atBottom(window.scrollY, root.scrollHeight, window.innerHeight);
+    const stick = changed && atBottom(window.scrollY, root.scrollHeight, root.clientHeight); // clientHeight 不含橫向捲軸
     // 不在最底：記住第一個看得到的樓層（狀態列之下）的位置
     let anchor: { el: HTMLElement; top: number } | null = null;
     if (changed && !stick) {
@@ -105,7 +111,7 @@ export class Building {
       }
     }
     this.layoutFloors(plan);
-    if (stick) window.scrollTo(window.scrollX, root.scrollHeight); // 保留橫向捲動位置
+    if (stick) window.scrollTo({ top: root.scrollHeight }); // 沒給 left：不動橫向捲動位置
     else if (anchor?.el.isConnected) window.scrollBy(0, anchor.el.getBoundingClientRect().top - anchor.top);
     this.placePeople(plan, animate);
     this.panel.update(plan.map((f) => ({ level: f.level, title: f.title, alert: floorAlert(f), el: this.floors.get(f.key)!.el })));
@@ -114,10 +120,10 @@ export class Building {
   private layoutFloors(plan: Floor[]): void {
     const keep = new Set(plan.map((f) => f.key));
     for (const [k, v] of this.floors) if (!keep.has(k)) { v.destroy(); this.floors.delete(k); }
-    // 各層同寬；放不下時整棟樓變寬（body 撐開、整頁橫向捲動），狀態列維持視窗寬
-    const root = document.documentElement, width = buildingWidth(plan, this.avail());
-    document.body.style.minWidth = `${width + GEO.gutter + GEO.rightMargin}px`;
-    root.style.setProperty('--view-w', `${root.clientWidth}px`);
+    // 各層同寬；放不下時整棟樓變寬（body 撐開、整頁橫向捲動），狀態列由 --view-w 維持視窗寬
+    const width = buildingWidth(plan, this.avail());
+    const minW = `${width + GEO.gutter + GEO.rightMargin}px`;
+    if (minW !== this.minW) document.body.style.minWidth = this.minW = minW;
     // DOM 由上到下 = 樓號由大到小；位置對了就不搬
     let prev: Element | null = null;
     for (const f of [...plan].reverse()) {
@@ -149,12 +155,13 @@ export class Building {
         const x = seatCenter(s.index);
         seen.add(id);
         let rec = this.people.get(id);
+        const before = rec?.emp; // 新來或剛回來的人沒有上一份資料
         if (!rec) {
           rec = this.comeBack(id, f.key);
           if (!rec) {
             const p = new Person(appearance(id));
             p.el.dataset.key = id; // floor.ts 依 data-key 找這個座位的員工
-            rec = { p, floor: '', x, out: false };
+            rec = { p, floor: '', emp: e, x, out: false };
           }
           this.people.set(id, rec); // 先登記再搭電梯：開門回呼用 people 判斷是不是同一個人
           if (animate && !rec.out) this.enter(id, rec, v, f.key);
@@ -173,7 +180,7 @@ export class Building {
           this.walk(rec);
         }
         // 只在這個人的資料變了才重畫卡片
-        if (this.card.id === id && rec.emp !== e) this.card.fill(e);
+        if (this.card.id === id && before !== e) this.card.fill(e);
         rec.emp = e;
         if (rec.out && !rec.p.moving) this.settle(rec); // 走路中的狀態變化到座位再套用
       }
@@ -188,7 +195,6 @@ export class Building {
 
   /** 坐下（或站著）：依最新狀態擺姿勢與泡泡 */
   private settle(rec: Rec): void {
-    if (!rec.emp) return;
     rec.p.setAct(ACT[rec.emp.status]);
     rec.p.setBubble(rec.emp.status === 'idle');
   }
@@ -221,7 +227,7 @@ export class Building {
     this.people.delete(id);
     if (this.card.id === id) this.card.hide();
     const v = this.floors.get(rec.floor);
-    if (!rec.out || !rec.emp || !v) {
+    if (!rec.out || !v) {
       rec.p.destroy(); // 還沒走出電梯：直接不見
       return;
     }

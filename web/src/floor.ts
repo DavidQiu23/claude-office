@@ -3,6 +3,7 @@ import type { Employee } from '../../src/state/types.js';
 import { DOOR_X, GEO, plateText, seatCenter, type Floor } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
 import { GLASS, OBJECTS, PANO, type DeskState, type ObjectId } from './objects.js';
+import { div, el } from './dom.js';
 import { ElevatorDoor } from './door.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -51,12 +52,6 @@ function windowEl(x: number): SVGSVGElement {
 const deskState = (e: Employee | null): DeskState => (e ? e.status : 'empty');
 
 interface DeskEl { el: HTMLElement; use: SVGUseElement; plate: HTMLElement; text: HTMLElement; helpers: HTMLElement }
-
-export const div = (cls: string): HTMLDivElement => {
-  const n = document.createElement('div');
-  n.className = cls;
-  return n;
-};
 
 export class FloorView {
   /** 寬度由 building.ts 統一給（各層同寬），不自己捲動 */
@@ -110,15 +105,13 @@ export class FloorView {
     this.doorNum.textContent = String(f.level);
     while (this.desks.length > f.desks) this.desks.pop()!.el.remove();
     while (this.desks.length < f.desks) {
-      const el = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = document.createElement('span');
-      const helpers = document.createElement('b');
-      helpers.className = 'helpers';
+      const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = el('span'), helpers = el('b', 'helpers');
       helpers.title = '工作中的助理';
       plate.append(text, helpers);
-      el.append(pic, plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上
-      el.style.left = `${seatCenter(this.desks.length) - GEO.seatW / 2}px`; // 一格寬 120
-      this.deskRow.append(el);
-      this.desks.push({ el, use: pic.firstElementChild as SVGUseElement, plate, text, helpers });
+      desk.append(pic, plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上
+      desk.style.left = `${seatCenter(this.desks.length) - GEO.seatW / 2}px`; // 一格寬 120
+      this.deskRow.append(desk);
+      this.desks.push({ el: desk, use: pic.firstElementChild as SVGUseElement, plate, text, helpers });
     }
     f.seats.forEach((s, i) => {
       const d = this.desks[i]!;
@@ -127,7 +120,7 @@ export class FloorView {
       // 名牌永遠等於這個座位目前的員工；空桌連字與底色一起清掉。「↳N」是工作中的助理數，0 不顯示
       const p = s.occ ? plateText(s.occ) : null;
       d.plate.hidden = !p;
-      d.plate.className = p ? `plate ${p.tone}` : 'plate';
+      d.plate.className = s.occ ? `plate ${s.occ.status}` : 'plate';
       d.text.textContent = p ? p.text : '';
       d.helpers.hidden = !p?.helpers;
       d.helpers.textContent = p?.helpers ? `↳${p.helpers}` : '';
@@ -177,16 +170,11 @@ export class FloorView {
 
 /** 沒有人上班：一層空的大廳，中間一張紙條寫兩行提示 */
 export function lobby(): HTMLElement {
-  const el = div('floor lobby'), inner = div('floor-in'), elev = div('elevator'), msg = div('lobby-msg'), note = div('note');
-  const num = div('door-num');
-  num.textContent = '1';
-  elev.append(num, div('door'));
-  const a = document.createElement('b'), b = document.createElement('span');
-  a.textContent = '目前沒有人上班';
-  b.textContent = '開一個 Claude Code session 就會出現';
-  note.append(a, b);
+  const room = div('floor lobby'), inner = div('floor-in'), elev = div('elevator'), msg = div('lobby-msg'), note = div('note');
+  elev.append(el('div', 'door-num', '1'), div('door'));
+  note.append(el('b', '', '目前沒有人上班'), el('span', '', '開一個 Claude Code session 就會出現'));
   msg.append(note);
   inner.append(div('wall'), div('ground-strip'), div('slab'), elev, msg);
-  el.append(inner);
-  return el;
+  room.append(inner);
+  return room;
 }

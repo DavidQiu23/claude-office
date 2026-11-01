@@ -1,5 +1,5 @@
 // 電梯面板：固定在視窗左側，一層一顆按鈕（最高樓在上），燈色 = 該層提示；看得到的樓層用半透明框圈起來；點按鈕捲到那層
-import { div } from './floor.js';
+import { div } from './dom.js';
 import { visibleSpan, type Alert } from './floors.js';
 import { reduceMotion } from './motion.js';
 
@@ -37,7 +37,7 @@ export class ElevatorPanel {
       if (!el) return;
       // 只上下捲到那層置中，不動橫向捲動位置（scrollIntoView 會連橫向一起捲）
       const r = el.getBoundingClientRect();
-      window.scrollBy({ top: r.top + r.height / 2 - innerHeight / 2, behavior: reduceMotion() ? 'auto' : 'smooth' });
+      window.scrollBy({ top: r.top + r.height / 2 - document.documentElement.clientHeight / 2, behavior: reduceMotion() ? 'auto' : 'smooth' }); // clientHeight 不含橫向捲軸
     });
   }
 

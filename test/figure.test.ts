@@ -13,6 +13,10 @@ for (let style = 0; style < 6; style++)
 
 const base: Look = { hair: 1, shirt: 2, style: 0, outfit: 0, glasses: false };
 
+/** CSS 檔裡某個選擇器那條規則的內容（大括號之間） */
+const rule = (file: string, sel: string): string =>
+  readFileSync(file, 'utf8').match(new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
+
 test('tag 與 esc：略過 undefined、自我關閉、跳脫', () => {
   expect(esc(`a&<b>"`)).toBe('a&amp;&lt;b&gt;&quot;');
   expect(tag('rect', { x: 1, y: undefined, class: 'a"b' })).toBe('<rect x="1" class="a&quot;b"/>');
@@ -61,21 +65,13 @@ test('figure.css 的狀態規則：漫符只在對應狀態顯示，減少動態
   expect(reduce).not.toMatch(/display/);
 });
 
-test('名牌小標「↳N」不縮、文字可截短；沒有助理名牌與助理人物的樣式', () => {
-  const css = readFileSync('web/src/styles/building.css', 'utf8');
-  const rule = (sel: string) => css.match(new RegExp(`${sel.replace(/[.>]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
-  expect(rule('.plate > .helpers')).toMatch(/flex: none/);
-  expect(rule('.plate > span')).toMatch(/min-width: 0/);
-  expect(css).not.toMatch(/\.plate\.(assistant|done)/);
-  expect(readFileSync('web/src/styles/figure.css', 'utf8')).not.toMatch(/data-kind="assistant"/);
+test('名牌小標「↳N」不縮，名牌太長時縮的是文字', () => {
+  expect(rule('web/src/styles/building.css', '.plate > .helpers')).toMatch(/flex: none/);
+  expect(rule('web/src/styles/building.css', '.plate > span')).toMatch(/min-width: 0/);
 });
 
-test('樓層不再各自左右捲：沒有捲動容器、暗影與邊緣提示；狀態列橫向捲動時釘在左邊、維持視窗寬', () => {
-  const css = readFileSync('web/src/styles/building.css', 'utf8');
-  expect(css).not.toMatch(/\.floor-scroll|\.shade|\.edge-hint/);
-  const top = readFileSync('web/src/styles/ui.css', 'utf8').match(/#top \{([^}]*)\}/)?.[1] ?? '';
-  expect(top).toMatch(/left: 0/);
-  expect(top).toMatch(/width: var\(--view-w/);
+test('狀態列在整頁橫向捲動時釘在左邊', () => {
+  expect(rule('web/src/styles/ui.css', '#top')).toMatch(/left: 0/);
 });
 
 test('同一個外觀每次相同', () => {

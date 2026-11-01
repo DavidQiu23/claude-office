@@ -1,21 +1,14 @@
 // 資訊卡（HTML 浮層）。內容一律用 textContent / DOM 建立，避免 prompt 內容被當成 HTML；樣式在 styles/ui.css。
 import type { Employee } from '../../src/state/types.js';
+import { el } from './dom.js';
 import { avatarSvg } from './figure.js';
-import { appearance, assistantList, formatTime, oneLine, projectColor, roomKey } from './view.js';
+import { appearance, assistantList, formatTime, nameplate, oneLine, projectColor, roomKey } from './view.js';
 
 interface Chip { text: string; cls: string }
 const STATUS: Record<Employee['status'], Chip> = {
   working: { text: '工作中', cls: 'chip-working' },
   waiting: { text: '等你處理', cls: 'chip-waiting' },
   idle: { text: '輪到你', cls: 'chip-idle' },
-};
-
-/** 小 DOM 工具：建立元素、套 class、放文字 */
-const el = (tag: string, cls = '', text = ''): HTMLElement => {
-  const n = document.createElement(tag);
-  if (cls) n.className = cls;
-  if (text) n.textContent = text;
-  return n;
 };
 
 /** 這個人的頭與肩膀（和桌上的人同一個外觀；key = 員工 sessionId）。avatarSvg 是程式產生、不含使用者資料的字串 */
@@ -36,17 +29,13 @@ function cardHead(key: string, title: string, st: Chip, folderName: string): HTM
   return head;
 }
 
-const cardBody = (): HTMLElement => el('div', 'card-body');
-const cardFoot = (): HTMLElement => el('div', 'card-foot');
-
 export class InfoCard {
-  private box = document.createElement('div');
+  private box = el('div', 'card');
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   private err = '';
   id: string | null = null; // 目前顯示的員工 session id
 
   constructor() {
-    this.box.className = 'card';
     this.box.onmouseenter = () => clearTimeout(this.hideTimer);
     this.box.onmouseleave = () => this.scheduleHide();
     document.body.append(this.box);
@@ -85,8 +74,8 @@ export class InfoCard {
 
   fill(e: Employee): void {
     const color = projectColor(roomKey(e));
-    const body = cardBody();
-    const title = oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt) || '（無標題）';
+    const body = el('div', 'card-body');
+    const title = nameplate(e) || '（無標題）';
     body.append(cardHead(e.sessionId, title, STATUS[e.status], e.folder));
 
     // 目前在做什麼；等你批准時整塊變紅
@@ -148,7 +137,7 @@ export class InfoCard {
         if (cur) this.fill(cur);
       }
     };
-    const foot = cardFoot();
+    const foot = el('div', 'card-foot');
     foot.append(left, btn);
     body.append(foot);
 
