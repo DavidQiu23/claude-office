@@ -2,7 +2,6 @@
    規則一律以 .person 開頭，資訊卡的頭像（avatarSvg，也有 face-work）不受影響 */
 .person { position: absolute; top: 74px; width: 60px; height: 84px; pointer-events: auto; }
 .person .figure { position: absolute; inset: 0; display: block; width: 60px; height: 84px; overflow: visible; }
-.person[data-kind="assistant"] .figure { transform: scale(.85); transform-origin: 50% 100%; }
 
 /* 部件以自己的外框為基準旋轉／縮放：手臂轉肩膀、腿轉髖部 */
 .person .fig, .person .chair, .person .arm, .person .leg, .person .head,

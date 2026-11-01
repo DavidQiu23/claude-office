@@ -1,19 +1,13 @@
 // 資訊卡（HTML 浮層）。內容一律用 textContent / DOM 建立，避免 prompt 內容被當成 HTML；樣式在 styles/ui.css。
-import type { Assistant, Employee } from '../../src/state/types.js';
+import type { Employee } from '../../src/state/types.js';
 import { avatarSvg } from './figure.js';
-import { helperKey } from './floors.js';
-import { appearance, assistantList, formatTime, nameplate, oneLine, projectColor, roomKey } from './view.js';
+import { appearance, assistantList, formatTime, oneLine, projectColor, roomKey } from './view.js';
 
 interface Chip { text: string; cls: string }
 const STATUS: Record<Employee['status'], Chip> = {
   working: { text: '工作中', cls: 'chip-working' },
   waiting: { text: '等你處理', cls: 'chip-waiting' },
   idle: { text: '輪到你', cls: 'chip-idle' },
-};
-// 助理：工作中綠、完成琥珀（和主人卡片助理清單的圓點同色）
-const HELPER_STATUS: Record<Assistant['status'], Chip> = {
-  working: { text: '工作中', cls: 'chip-working' },
-  done: { text: '完成', cls: 'chip-done' },
 };
 
 /** 小 DOM 工具：建立元素、套 class、放文字 */
@@ -24,7 +18,7 @@ const el = (tag: string, cls = '', text = ''): HTMLElement => {
   return n;
 };
 
-/** 這個人的頭與肩膀（和桌上的人同一個外觀；key = 員工 sessionId 或助理 helperKey）。avatarSvg 是程式產生、不含使用者資料的字串 */
+/** 這個人的頭與肩膀（和桌上的人同一個外觀；key = 員工 sessionId）。avatarSvg 是程式產生、不含使用者資料的字串 */
 function avatar(key: string): HTMLElement {
   const box = el('div', 'card-avatar');
   box.innerHTML = avatarSvg(appearance(key));
@@ -50,7 +44,6 @@ export class InfoCard {
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   private err = '';
   id: string | null = null; // 目前顯示的員工 session id
-  helper: string | null = null; // 目前顯示的助理 helperKey（和 id 分開放，兩種 key 不會混在一起）
 
   constructor() {
     this.box.className = 'card';
@@ -63,17 +56,7 @@ export class InfoCard {
     clearTimeout(this.hideTimer);
     if (this.id !== e.sessionId) this.err = '';
     this.id = e.sessionId;
-    this.helper = null;
     this.fill(e);
-    this.place(left, top);
-  }
-
-  /** 助理的卡片：類型、描述、主人的任務標題、狀態、開始時間；沒有「請他下班」 */
-  showHelper(owner: Employee, a: Assistant, left: number, top: number): void {
-    clearTimeout(this.hideTimer);
-    this.id = null;
-    this.helper = helperKey({ owner, a });
-    this.fillHelper(owner, a);
     this.place(left, top);
   }
 
@@ -172,18 +155,6 @@ export class InfoCard {
     this.frame(color, body);
   }
 
-  fillHelper(owner: Employee, a: Assistant): void {
-    const color = projectColor(roomKey(owner));
-    const body = cardBody();
-    body.append(cardHead(helperKey({ owner, a }), oneLine(a.description) || '（無描述）', HELPER_STATUS[a.status], owner.folder));
-    body.append(this.section('類型', a.kind || '（未指定）', false, 1));
-    body.append(this.section('主人', nameplate(owner) || '（無標題）', false, 2));
-    const foot = cardFoot();
-    foot.append(el('span', 'card-foot-text', `開始 ${formatTime(a.startedAt)}`));
-    body.append(foot);
-    this.frame(color, body);
-  }
-
   scheduleHide(): void {
     clearTimeout(this.hideTimer);
     this.hideTimer = setTimeout(() => this.hide(), 250);
@@ -193,6 +164,5 @@ export class InfoCard {
     clearTimeout(this.hideTimer);
     this.box.style.display = 'none';
     this.id = null;
-    this.helper = null;
   }
 }

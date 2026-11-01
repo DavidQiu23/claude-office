@@ -61,6 +61,15 @@ test('figure.css 的狀態規則：漫符只在對應狀態顯示，減少動態
   expect(reduce).not.toMatch(/display/);
 });
 
+test('名牌小標「↳N」不縮、文字可截短；沒有助理名牌與助理人物的樣式', () => {
+  const css = readFileSync('web/src/styles/building.css', 'utf8');
+  const rule = (sel: string) => css.match(new RegExp(`${sel.replace(/[.>]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
+  expect(rule('.plate > .helpers')).toMatch(/flex: none/);
+  expect(rule('.plate > span')).toMatch(/min-width: 0/);
+  expect(css).not.toMatch(/\.plate\.(assistant|done)/);
+  expect(readFileSync('web/src/styles/figure.css', 'utf8')).not.toMatch(/data-kind="assistant"/);
+});
+
 test('同一個外觀每次相同', () => {
   expect(figureSvg(appearance('abc'))).toBe(figureSvg(appearance('abc')));
 });

@@ -1,5 +1,6 @@
 // 一層樓：後牆（招牌「NF 專案名」、窗景與家具）、地板、樓板、左邊電梯門（門上樓號）、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
-import { DOOR_X, edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, type EdgeHint, type Floor, type Occupant } from './floors.js';
+import type { Employee } from '../../src/state/types.js';
+import { DOOR_X, edgeHints, floorWidth, GEO, plateText, seatCenter, type EdgeHint, type Floor } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
 import { GLASS, OBJECTS, PANO, type DeskState, type ObjectId } from './objects.js';
 import { ElevatorDoor } from './door.js';
@@ -48,15 +49,9 @@ function windowEl(x: number): SVGSVGElement {
   return win;
 }
 
-const deskState = (o: Occupant | null): DeskState => {
-  if (!o) return 'empty';
-  if (o.kind === 'assistant') return o.a.status === 'working' ? 'working' : 'empty';
-  return o.emp.status;
-};
-/** 人物元素的 data-key：員工是 sessionId，助理是 helperKey */
-export const occKey = (o: Occupant): string => (o.kind === 'employee' ? o.emp.sessionId : helperKey({ owner: o.owner, a: o.a }));
+const deskState = (e: Employee | null): DeskState => (e ? e.status : 'empty');
 
-interface DeskEl { el: HTMLElement; use: SVGUseElement; plate: HTMLElement; text: HTMLElement }
+interface DeskEl { el: HTMLElement; use: SVGUseElement; plate: HTMLElement; text: HTMLElement; helpers: HTMLElement }
 
 export const div = (cls: string): HTMLDivElement => {
   const n = document.createElement('div');
@@ -113,7 +108,7 @@ export class FloorView {
   private door = div('door');
   private doorQ = new ElevatorDoor((open) => this.elev.classList.toggle('open', open));
 
-  constructor(hooks: { hover(o: Occupant, at: DOMRect): void; unhover(): void }) {
+  constructor(hooks: { hover(e: Employee, at: DOMRect): void; unhover(): void }) {
     this.elev.append(this.doorNum, this.door);
     this.sign.style.left = `${SIGN_X}px`;
     this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
@@ -129,8 +124,8 @@ export class FloorView {
     this.people.addEventListener('mouseover', (ev) => {
       const p = personOf(ev.target);
       if (!p || p.contains(ev.relatedTarget as Node | null)) return;
-      const o = this.f?.seats.find((s) => s.occ && occKey(s.occ) === p.dataset.key)?.occ;
-      if (o) hooks.hover(o, p.getBoundingClientRect());
+      const e = this.f?.seats.find((s) => s.occ?.sessionId === p.dataset.key)?.occ;
+      if (e) hooks.hover(e, p.getBoundingClientRect());
     });
     this.people.addEventListener('mouseout', (ev) => {
       const p = personOf(ev.target);
@@ -153,21 +148,26 @@ export class FloorView {
     while (this.desks.length > f.desks) this.desks.pop()!.el.remove();
     while (this.desks.length < f.desks) {
       const el = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = document.createElement('span');
-      plate.append(text);
+      const helpers = document.createElement('b');
+      helpers.className = 'helpers';
+      helpers.title = '工作中的助理';
+      plate.append(text, helpers);
       el.append(pic, plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上
       el.style.left = `${seatCenter(this.desks.length) - GEO.seatW / 2}px`; // 一格寬 120
       this.deskRow.append(el);
-      this.desks.push({ el, use: pic.firstElementChild as SVGUseElement, plate, text });
+      this.desks.push({ el, use: pic.firstElementChild as SVGUseElement, plate, text, helpers });
     }
     f.seats.forEach((s, i) => {
       const d = this.desks[i]!;
       const st = deskState(s.occ);
       d.use.setAttribute('href', `#desk-${st}`); // 狀態變了就換 symbol
-      // 名牌永遠等於這個座位目前的佔用者；空桌連字與底色一起清掉（藏起來的名牌也不留上一個人的「↳ ✓ 完成」）
+      // 名牌永遠等於這個座位目前的員工；空桌連字與底色一起清掉。「↳N」是工作中的助理數，0 不顯示
       const p = s.occ ? plateText(s.occ) : null;
       d.plate.hidden = !p;
       d.plate.className = p ? `plate ${p.tone}` : 'plate';
       d.text.textContent = p ? p.text : '';
+      d.helpers.hidden = !p?.helpers;
+      d.helpers.textContent = p?.helpers ? `↳${p.helpers}` : '';
     });
     this.schedule(); // 寬度或狀態變了不會有 scroll 事件；等這一輪的寫入做完再讀版面
   }

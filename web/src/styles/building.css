@@ -89,15 +89,16 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .furniture { top: 0; right: 0; width: 200px; height: 200px; pointer-events: none; }
 .obj { position: absolute; display: block; overflow: visible; }
 .desk { position: absolute; top: 0; width: 120px; height: 200px; }
-/* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色依狀態：工作中米白（--plate）、等你處理紅、輪到你琥珀、助理與完成淡綠 */
-.plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; }
-.plate > span { max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: 1.4px solid var(--fig-ink); border-radius: 3px;
+/* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色依狀態：工作中米白（--plate）、等你處理紅、輪到你琥珀。
+   右邊的「↳N」是工作中的助理數（淡綠），不縮，名牌太長時縮的是文字 */
+.plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; gap: 3px; }
+.plate > span { min-width: 0; max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: 1.4px solid var(--fig-ink); border-radius: 3px;
   font: bold 13px/17px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plate.working > span { background: var(--plate); color: #3b3020; }
 .plate.waiting > span { background: var(--waiting); color: #fff; }
 .plate.idle > span { background: var(--turn); color: #4a3000; }
-.plate.assistant > span, .plate.done > span { background: #dfeedd; color: #2f4a32; }
-.plate.done > span { opacity: .75; }
+.plate > .helpers { flex: none; box-sizing: border-box; height: 19px; padding: 0 4px; border: 1.4px solid var(--fig-ink); border-radius: 3px; background: #dfeedd; color: #2f4a32;
+  font: bold 12px/16px system-ui, "Microsoft JhengHei", sans-serif; }
 /* 沒有人上班：空大廳，兩行字寫在貼在牆上的紙條（微微歪 −2°） */
 .lobby-msg { left: 80px; right: 0; top: 40px; display: flex; justify-content: center; }
 .lobby-msg .note { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 22px; border: 1.6px solid var(--ink); border-radius: 4px;
