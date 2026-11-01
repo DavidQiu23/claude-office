@@ -125,7 +125,7 @@ npm run simulate -- --loop
 ## 疑難排解
 
 - **畫面一直是空的**：確認 `npm start` 還在跑，網址的 port 與設定一致；已開著的 session 要等下一個事件。
-- **`port 47823 已被占用…`**：伺服器會結束。訊息裡寫的是 Windows 路徑；macOS / Linux 請改 `~/.claude-office/config.json`，換一個 port。
+- **`port 47823 已被占用，請在 … 修改 port`**：伺服器會結束。訊息裡會寫出這台機器上設定檔的完整路徑，在那裡換一個 port。
 - **改了 port 沒反應**：重新啟動伺服器。
 - **`settings.json 不是合法的 JSON，已中止，未做任何修改`**：先修好 `~/.claude/settings.json` 的格式，再執行一次 `install-hooks`。
 - **`送不出事件。伺服器沒開？請先 npm start`**：`simulate` 找不到伺服器，先啟動 `npm start`。

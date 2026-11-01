@@ -1,13 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
+import { CONFIG_FILE } from '../config.js';
 import { dismiss, setTitle, sweep } from '../state/maintenance.js';
 import { reduce } from '../state/reduce.js';
 import { readAiTitle, readContinuedIn } from './title.js';
 import { emptyState, type Change, type HookEvent } from '../state/types.js';
 
-export const portInUseMessage = (port: number): string =>
-  `port ${port} 已被占用，請在 %USERPROFILE%\\.claude-office\\config.json 修改 port`;
+/** file 預設是這台機器上設定檔的完整路徑（macOS／Linux 是 ~/.claude-office/config.json，Windows 是 %USERPROFILE%\.claude-office\config.json） */
+export const portInUseMessage = (port: number, file: string = CONFIG_FILE()): string =>
+  `port ${port} 已被占用，請在 ${file} 修改 port`;
 
 const MAX_BODY = 1024 * 1024;
 const TYPES: Record<string, string> = {

@@ -5,6 +5,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, afterEach, beforeEach, expect, test } from 'vitest';
 import { createApp, portInUseMessage } from '../src/server/app.js';
+import { CONFIG_FILE } from '../src/config.js';
 
 let app: ReturnType<typeof createApp>;
 let base: string;
@@ -128,10 +129,12 @@ test('sweepNow 移除逾時員工', async () => {
   expect(await employees()).toHaveLength(0);
 });
 
-test('portInUseMessage 字面輸出反斜線與實際 port', () => {
-  expect(portInUseMessage(1234)).toBe(
-    "port 1234 已被占用，請在 %USERPROFILE%\\.claude-office\\config.json 修改 port",
+test('portInUseMessage 寫出實際 port 與這台機器上設定檔的完整路徑', () => {
+  expect(portInUseMessage(1234, '/home/me/.claude-office/config.json')).toBe(
+    'port 1234 已被占用，請在 /home/me/.claude-office/config.json 修改 port',
   );
+  expect(portInUseMessage(1234)).toBe(`port 1234 已被占用，請在 ${CONFIG_FILE()} 修改 port`);
+  expect(CONFIG_FILE('/home/me')).toBe(join('/home/me', '.claude-office', 'config.json'));
 });
 
 test.each([
