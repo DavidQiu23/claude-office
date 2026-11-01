@@ -5,6 +5,7 @@ import type { ElevatorPanel } from './elevator.js';
 import { div, FloorView, lobby } from './floor.js';
 import { atBottom, buildingPlan, floorAlert, GEO, helperKey, helperRoster, seatCenter, type Floor, type Helper, type HelperTrack, type Occupant } from './floors.js';
 import { Person, type Act } from './person.js';
+import { shouldCheer } from './pose.js';
 import type { OfficeStore } from './sync.js';
 import { appearance } from './view.js';
 
@@ -217,8 +218,10 @@ export class Building {
           if (o.kind === 'employee') this.card.fill(o.emp);
           else this.card.fillHelper(o.owner, o.a);
         }
+        // 工作中變輪到你才歡呼（要在更新 rec.occ 之前比；走路中的人不歡呼）
+        const cheer = o.kind === 'employee' && rec.occ?.kind === 'employee' && shouldCheer(rec.occ.emp.status, o.emp.status);
         rec.occ = o;
-        if (rec.out && !rec.p.moving) this.settle(rec); // 走路中的狀態變化到座位再套用
+        if (rec.out && !rec.p.moving) this.settle(rec, cheer); // 走路中的狀態變化到座位再套用
       }
     }
     for (const c of [this.staff, this.helpers]) {
@@ -231,17 +234,27 @@ export class Building {
     }
   }
 
-  /** 坐下（或站著）：依最新狀態擺姿勢與泡泡。助理不舉手、沒有泡泡：工作中打字、完成就閒著 */
-  private settle(rec: Rec): void {
+  /** 坐下（或站著）：依最新狀態擺姿勢與泡泡。助理不舉手、沒有泡泡：工作中打字、完成就閒著。cheer：這次剛從工作中變輪到你 */
+  private settle(rec: Rec, cheer = false): void {
     const o = rec.occ;
     if (!o) return;
     if (o.kind === 'assistant') {
-      rec.p.setAct(o.a.status === 'done' ? 'idle' : 'work');
+      if (o.a.status === 'done') {
+        rec.p.setAct('idle');
+        rec.p.pose.still(null); // 之後換成遞文件
+      } else {
+        rec.p.setAct('work');
+        rec.p.pose.work(null);
+      }
       rec.p.setBubble(false);
       return;
     }
     rec.p.setAct(ACT[o.emp.status]);
     rec.p.setBubble(o.emp.status === 'idle');
+    if (o.emp.status === 'working') rec.p.pose.work(o.emp.toolKind);
+    else if (o.emp.status === 'waiting') rec.p.pose.up();
+    else if (cheer) rec.p.pose.cheer();
+    else rec.p.pose.idle();
   }
 
   /** 走去 rec.x（坐著的先站起來；走路中直接轉向），到了坐下 */

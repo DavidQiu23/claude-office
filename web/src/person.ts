@@ -3,12 +3,14 @@
 import { figureSvg, FIG } from './figure.js';
 import { walkMs, walkPos, type Walk } from './floors.js';
 import { reduceMotion } from './motion.js';
+import { PoseDriver } from './pose.js';
 import type { Look } from './view.js';
 
 export type Act = 'work' | 'up' | 'idle' | 'walk' | 'stand';
 
 export class Person {
   readonly el = document.createElement('div');
+  readonly pose: PoseDriver; // 工具動作、等待小動作、歡呼（只設 data-pose，造型在 figure.css）
   private act: Act | null = null;
   private x = 0; // 停著的位置；走路中是目的地
   private walk: Walk | null = null;
@@ -18,8 +20,13 @@ export class Person {
     this.el.className = 'person';
     this.el.innerHTML = figureSvg(look); // figure.ts 產生、不含使用者資料
     this.el.style.marginLeft = `${-FIG.w / 2}px`;
+    this.pose = new PoseDriver((p) => {
+      if (p) this.el.dataset.pose = p;
+      else delete this.el.dataset.pose;
+    });
     this.setAct('work');
     this.setBubble(false);
+    this.pose.work(null); // 預設打字
   }
 
   /** 只設 data-act；姿勢、表情、漫符與坐下站起的過場由 CSS 接手 */
@@ -60,6 +67,7 @@ export class Person {
     this.placeAt(this.at);
     const go = (): void => {
       const from = this.x, ms = walkMs(from, x);
+      this.pose.still(null); // 走路時沒有道具
       this.setAct('walk');
       this.x = x;
       if (reduceMotion()) {
@@ -81,6 +89,7 @@ export class Person {
       }, ms);
     };
     if (standMs > 0) {
+      this.pose.still(null); // 站起來：道具收起來、輪替停止
       this.setAct('stand');
       this.walkT = setTimeout(go, standMs);
     } else go();
@@ -94,6 +103,7 @@ export class Person {
 
   destroy(): void {
     this.stop();
+    this.pose.stop();
     this.el.remove();
   }
 }

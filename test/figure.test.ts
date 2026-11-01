@@ -25,7 +25,8 @@ test('所有外觀組合都畫得出來', () => {
 });
 
 test('每個部件與漫符群組都在', () => {
-  const names = ['chair', 'fig', 'leg-l', 'leg-r', 'hair-back', 'arm-l', 'body', 'arm-r', 'head', 'fx-work', 'fx-wait', 'fx-turn', 'face-work', 'face-wait', 'face-turn'];
+  const names = ['chair', 'fig', 'leg-l', 'leg-r', 'hair-back', 'arm-l', 'body', 'arm-r', 'head', 'fx-work', 'fx-wait', 'fx-turn', 'face-work', 'face-wait', 'face-turn',
+    'prop-doc', 'prop-mobile', 'prop-handset', 'prop-mug', 'prop-sheet', 'prop-globe', 'fx-read', 'fx-run', 'fx-think', 'fx-call', 'fx-cheer'];
   for (const l of looks) {
     const s = figureSvg(l);
     for (const n of names) expect(s, n).toMatch(new RegExp(`class="[^"]*\\b${n}\\b`));
@@ -51,9 +52,18 @@ test('figure.css 的狀態規則：漫符只在對應狀態顯示，減少動態
   expect(css).toMatch(/\.person \.fx-work, \.person \.fx-wait, \.person \.fx-turn \{ display: none; \}/);
   // 顯示條件：工作中的 fx-work、站起來的 fx-wait、坐著且有泡泡的 fx-turn
   const shown = css.match(/([^{}]*)\{ display: inline; \}/g)?.join('\n') ?? '';
-  expect(shown).toContain('.person[data-act="work"] .fx-work');
+  expect(shown).toContain('.person[data-act="work"][data-pose="edit"] .fx-work');
   expect(shown).toContain('.person[data-act="up"] .fx-wait');
   expect(shown).toContain('.person[data-act="idle"][data-bubble="on"] .fx-turn');
+  // 道具與漫符依 data-pose 顯示
+  expect(shown).toContain('.person[data-act="work"][data-pose="read"] .prop-doc');
+  expect(shown).toContain('.person[data-act="work"][data-pose="web"] .prop-globe');
+  expect(shown).toContain('.person[data-act="idle"][data-pose="coffee"] .prop-mug');
+  expect(shown).toContain('.person[data-act="stand"][data-pose="deliver"] .prop-sheet');
+  expect(css).toMatch(/\.person\[data-act="idle"\]\[data-pose="doze"\] \.head \{ animation: fig-nod/);
+  expect(css).toMatch(/\.person\[data-act="up"\]\[data-pose="wave"\] \.arm-r \{[^}]*fig-wave/);
+  // 位移不用 transform（.fig 的 transform 留給坐下站起的過場）
+  for (const k of ['fig-hop', 'fig-cheer', 'fig-stretch']) expect(css).toMatch(new RegExp(`@keyframes ${k} \\{[^@]*translate:`));
   // 減少動態：只停動畫與過場，不動 display
   const reduce = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
   expect(reduce).toMatch(/animation: none/);
@@ -88,6 +98,31 @@ test('漫符在自己的座位內', () => {
     expect(b.x0).toBeLessThan(b.x1);
     expect(b.y0).toBeLessThan(b.y1);
   }
+  for (const k of ['read', 'run', 'think', 'call', 'cheer', 'globe'] as const) expect(FX_BOXES[k].y0, k).toBeGreaterThanOrEqual(-29);
+});
+
+test('手上的道具跟著手臂轉：聽筒在左臂、杯子與遞出的文件在右臂', () => {
+  const s = figureSvg(base);
+  const armL = s.slice(s.indexOf('class="arm arm-l"'), s.indexOf('class="body"'));
+  const armR = s.slice(s.indexOf('class="arm arm-r"'), s.indexOf('class="head"'));
+  expect(armL).toContain('prop-handset');
+  expect(armR).toContain('prop-mug');
+  expect(armR).toContain('prop-sheet');
+  expect(s.indexOf('prop-globe')).toBeGreaterThan(s.indexOf('class="head"'));
+});
+
+test('頭像不帶道具', () => {
+  expect(avatarSvg(base)).not.toContain('prop-');
+});
+
+test('FX_BOXES 涵蓋新漫符與地球儀', () => {
+  expect(Object.keys(FX_BOXES).sort()).toEqual(['call', 'cheer', 'globe', 'read', 'run', 'think', 'turn', 'wait', 'work']);
+  expect(FX_BOXES.globe.y1).toBeLessThanOrEqual(70.5);
+});
+
+test('--code 日夜都有', () => {
+  const css = readFileSync('web/src/styles/theme.css', 'utf8');
+  expect(css.match(/--code: #[0-9a-f]{6};/g)).toHaveLength(2);
 });
 
 test('「！」框（含脈動）不蓋住招牌，也不超出座位右緣', () => {
