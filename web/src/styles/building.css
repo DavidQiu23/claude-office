@@ -39,22 +39,8 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
   background: linear-gradient(90deg, var(--seam) 0 12px, transparent 12px) 60px 11px / 48px 1.2px repeat-x,
     linear-gradient(90deg, var(--seam) 0 12px, transparent 12px) 36px 35px / 48px 1.2px repeat-x, var(--ground);
   --seam: color-mix(in srgb, var(--text-sub) 40%, var(--ground)); }
-/* 一層樓：高 200（含 8 樓板）；外層不捲，暗影與邊緣提示疊在上面；內容比可用寬寬時 .floor-scroll 自己左右捲 */
+/* 一層樓：高 200（含 8 樓板）；寬度由 building.ts 給，各層同寬，不自己捲動 */
 .floor { position: relative; height: 200px; }
-.floor-scroll { height: 200px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
-/* 兩側暗影 22px（那一側還有內容才顯示）；提示垂直置中在人物那排（y 74~158），貼可見範圍左右緣 */
-.shade { position: absolute; top: 0; width: 22px; height: 192px; pointer-events: none; z-index: 2; }
-/* 暗影：墨色 35% 漸到透明（白天淡褐、夜晚深藍黑） */
-.shade.left { left: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--ink) 35%, transparent), transparent); }
-.shade.right { right: 0; background: linear-gradient(270deg, color-mix(in srgb, var(--ink) 35%, transparent), transparent); }
-/* 邊緣提示：墨線框圓角標籤 */
-.edge-hint { position: absolute; top: 102px; z-index: 3; box-sizing: border-box; height: 28px; padding: 0 11px; border: 1.6px solid var(--ink); border-radius: 14px; cursor: pointer; white-space: nowrap;
-  font: bold 13px/24.8px system-ui, "Microsoft JhengHei", sans-serif; }
-.edge-hint.left { left: 6px; }
-.edge-hint.right { right: 6px; }
-.edge-hint.waiting { background: var(--waiting); color: #fff; }
-.edge-hint.idle { background: var(--turn); color: #4a3000; }
-.edge-hint:hover { filter: brightness(1.12); }
 .floor-in { position: relative; height: 200px; min-width: 100%; }
 .floor-in > div { position: absolute; }
 /* 後牆：20px 寬直條紋，加一片固定在 x 210~303 的鉛筆排線（只跟樓層座標有關，重畫不跳動） */

@@ -34,7 +34,10 @@ export class ElevatorPanel {
     root.addEventListener('click', (ev) => {
       const b = ev.target instanceof Element ? ev.target.closest<HTMLButtonElement>('button') : null;
       const el = b && this.els[this.btns.indexOf(b)];
-      if (el) el.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' });
+      if (!el) return;
+      // 只上下捲到那層置中，不動橫向捲動位置（scrollIntoView 會連橫向一起捲）
+      const r = el.getBoundingClientRect();
+      window.scrollBy({ top: r.top + r.height / 2 - innerHeight / 2, behavior: reduceMotion() ? 'auto' : 'smooth' });
     });
   }
 

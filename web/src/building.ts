@@ -3,7 +3,7 @@ import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div, FloorView, lobby } from './floor.js';
-import { atBottom, buildingPlan, floorAlert, GEO, seatCenter, type Floor } from './floors.js';
+import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
 import { appearance } from './view.js';
@@ -62,16 +62,16 @@ export class Building {
       // 打開頁面（第一次載入完成）捲到最底看 1F；之後重連的 reset 不動使用者的捲動位置
       if (c.type === 'reset' && !this.scrolled) {
         this.scrolled = true;
-        window.scrollTo(0, document.documentElement.scrollHeight);
+        window.scrollTo(window.scrollX, document.documentElement.scrollHeight);
       }
     });
-    // 視窗變寬變窄、或直向捲軸出現時，樓層寬跟著重算
+    // 視窗變寬變窄、或直向捲軸出現時，樓層寬跟著重算；觀察 <html>，因為樓層變寬後 .floors 不再跟著視窗變
     let w = -1;
     new ResizeObserver(() => {
       const a = this.avail();
       if (a !== w) { w = a; this.render(); }
-    }).observe(this.stack);
-    // 頁面或任何樓層捲動時，卡片的位置就不對了，先藏起來
+    }).observe(document.documentElement);
+    // 頁面捲動時，卡片的位置就不對了，先藏起來
     document.addEventListener('scroll', () => this.card.hide(), true);
     this.render();
   }
@@ -105,7 +105,7 @@ export class Building {
       }
     }
     this.layoutFloors(plan);
-    if (stick) window.scrollTo(0, root.scrollHeight);
+    if (stick) window.scrollTo(window.scrollX, root.scrollHeight); // 保留橫向捲動位置
     else if (anchor?.el.isConnected) window.scrollBy(0, anchor.el.getBoundingClientRect().top - anchor.top);
     this.placePeople(plan, animate);
     this.panel.update(plan.map((f) => ({ level: f.level, title: f.title, alert: floorAlert(f), el: this.floors.get(f.key)!.el })));
@@ -114,8 +114,11 @@ export class Building {
   private layoutFloors(plan: Floor[]): void {
     const keep = new Set(plan.map((f) => f.key));
     for (const [k, v] of this.floors) if (!keep.has(k)) { v.destroy(); this.floors.delete(k); }
-    const avail = this.avail();
-    // DOM 由上到下 = 樓號由大到小；位置對了就不搬（搬動會重設該層的左右捲動）
+    // 各層同寬；放不下時整棟樓變寬（body 撐開、整頁橫向捲動），狀態列維持視窗寬
+    const root = document.documentElement, width = buildingWidth(plan, this.avail());
+    document.body.style.minWidth = `${width + GEO.gutter + GEO.rightMargin}px`;
+    root.style.setProperty('--view-w', `${root.clientWidth}px`);
+    // DOM 由上到下 = 樓號由大到小；位置對了就不搬
     let prev: Element | null = null;
     for (const f of [...plan].reverse()) {
       let v = this.floors.get(f.key);
@@ -126,7 +129,7 @@ export class Building {
         });
         this.floors.set(f.key, v);
       }
-      v.update(f, avail);
+      v.update(f, width);
       const want: ChildNode | null = prev ? prev.nextSibling : this.stack.firstChild;
       if (v.el !== want) this.stack.insertBefore(v.el, want);
       prev = v.el;

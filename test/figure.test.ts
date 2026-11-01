@@ -70,6 +70,14 @@ test('名牌小標「↳N」不縮、文字可截短；沒有助理名牌與助�
   expect(readFileSync('web/src/styles/figure.css', 'utf8')).not.toMatch(/data-kind="assistant"/);
 });
 
+test('樓層不再各自左右捲：沒有捲動容器、暗影與邊緣提示；狀態列橫向捲動時釘在左邊、維持視窗寬', () => {
+  const css = readFileSync('web/src/styles/building.css', 'utf8');
+  expect(css).not.toMatch(/\.floor-scroll|\.shade|\.edge-hint/);
+  const top = readFileSync('web/src/styles/ui.css', 'utf8').match(/#top \{([^}]*)\}/)?.[1] ?? '';
+  expect(top).toMatch(/left: 0/);
+  expect(top).toMatch(/width: var\(--view-w/);
+});
+
 test('同一個外觀每次相同', () => {
   expect(figureSvg(appearance('abc'))).toBe(figureSvg(appearance('abc')));
 });

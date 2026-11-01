@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildingPlan, edgeHints, floorAlert, floorPlan, floorWidth, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate } from '../web/src/floors.js';
+import { buildingPlan, buildingWidth, floorAlert, floorPlan, floorWidth, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -116,22 +116,11 @@ test('seatCenter、floorWidth', () => {
   expect(floorWidth(9, 1000)).toBe(80 + 9 * 120 + 200);
 });
 
-// ---- 邊緣提示 ----
-test('edgeHints：只算看不到的真員工，紅色優先，target 是最近的那位', () => {
-  const view = { left: seatCenter(2) - 60, right: seatCenter(5) + 60 };
-  const build = (s8: Employee['status']) => floorOf(
-    ee('waiting'), null, null, null, null, null, null, ee('idle'), emp('x8', s8),
-  );
-  expect(edgeHints(build('waiting'), view)).toEqual({ left: { status: 'waiting', count: 1, target: 0 }, right: { status: 'waiting', count: 1, target: 8 } });
-  expect(edgeHints(build('working'), view).right).toEqual({ status: 'idle', count: 1, target: 7 });
-});
-
-test('edgeHints：同側多位時 waiting 計人數，target 取離可見範圍最近的 waiting', () => {
-  const view = { left: seatCenter(4) - 60, right: seatCenter(5) + 60 };
-  const f = floorOf(ee('waiting'), ee('idle'), ee('waiting'), ee('working'), null, null, ee('idle'), ee('working'));
-  expect(edgeHints(f, view)).toEqual({ left: { status: 'waiting', count: 2, target: 2 }, right: { status: 'idle', count: 1, target: 6 } });
-  // 全看得到 → 都是 null
-  expect(edgeHints(f, { left: 0, right: 99999 })).toEqual({ left: null, right: null });
+test('buildingWidth：各層共用桌數最多那層的寬度，沒有樓層時是可用寬', () => {
+  const f = (desks: number): Floor => ({ ...floorOf(), desks });
+  expect(buildingWidth([f(3), f(9)], 1000)).toBe(80 + 9 * 120 + 200);
+  expect(buildingWidth([f(3), f(2)], 1000)).toBe(1000);
+  expect(buildingWidth([], 1000)).toBe(1000);
 });
 
 test('visibleSpan：框住第一顆到最後一顆看得到的按鈕，都看不到是 null', () => {
@@ -187,4 +176,11 @@ test('withLeaving：新人坐上正在離開的人的座位時新人優先；同
 test('vacate：沒有人在離開時原樣回傳', () => {
   const plan = floorPlan([emp('a')], none);
   expect(vacate(plan, new Set())).toBe(plan);
+});
+
+test('building.ts 捲到最底時保留橫向捲動位置：不用 scrollTo(0, …)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('web/src/building.ts', 'utf8');
+  expect(src).not.toMatch(/scrollTo\(\s*0\s*,/);
+  expect(src).toMatch(/scrollTo\(\s*window\.scrollX\s*,/);
 });

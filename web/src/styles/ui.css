@@ -1,5 +1,6 @@
-/* 狀態列：紙卡，圖例＋比例條；外框跟著最緊急的狀態變色（等你處理紅、輪到你琥珀、其餘一般墨線）；沒有陰影 */
-#top { position: sticky; top: 0; z-index: 20; padding: 12px 16px 10px 56px; background: var(--page-bg); }
+/* 狀態列：紙卡，圖例＋比例條；外框跟著最緊急的狀態變色（等你處理紅、輪到你琥珀、其餘一般墨線）；沒有陰影。
+   整頁橫向捲動時釘在左邊，寬度維持視窗寬（--view-w 由 building.ts 設） */
+#top { position: sticky; top: 0; left: 0; z-index: 20; box-sizing: border-box; width: var(--view-w, auto); padding: 12px 16px 10px 56px; background: var(--page-bg); }
 #summary { padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 6px;
   background: var(--paper); color: var(--text); border: 1.6px solid var(--ink); border-radius: 8px; }
 #summary.turn { border: 2.6px solid var(--turn); }

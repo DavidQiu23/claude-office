@@ -6,7 +6,7 @@ export const GEO = { floorH: 200, slab: 8, elevatorW: 80, seatW: 120, furnitureW
 
 /** 第 i 個座位的中心 x（樓層內座標） */
 export const seatCenter = (i: number): number => GEO.elevatorW + i * GEO.seatW + GEO.seatW / 2;
-/** 樓層寬：至少撐滿可用寬，桌子多就往右長（放不下的由該層自己捲動） */
+/** 樓層寬：至少撐滿可用寬，桌子多就往右長 */
 export const floorWidth = (desks: number, avail: number): number => Math.max(avail, GEO.elevatorW + desks * GEO.seatW + GEO.furnitureW);
 
 /** 座位只坐真員工；助理只是主人名牌旁的小標 */
@@ -47,28 +47,12 @@ export function floorAlert(f: Floor): Alert {
   return has('waiting') ? 'waiting' : has('idle') ? 'idle' : null;
 }
 
+/** 全部樓層共用的寬度：桌數最多那層要的寬（放不下時整棟樓變寬、整頁橫向捲動） */
+export const buildingWidth = (plan: Floor[], avail: number): number => floorWidth(Math.max(0, ...plan.map((f) => f.desks)), avail);
+
 /** 桌上名牌：標題加狀態前綴、底色依狀態；helpers 是工作中的助理數（名牌旁的「↳N」，0 不顯示） */
 export function plateText(e: Employee): { text: string; tone: PlateTone; helpers: number } {
   return { text: platePrefix(e) + nameplate(e), tone: e.status, helpers: e.assistants.filter((a) => a.status === 'working').length };
-}
-
-export interface EdgeHint { status: 'waiting' | 'idle'; count: number; target: number } // target = 座位 index
-
-/** 看不到（座位中心在可見範圍外）的員工，左右兩側各自的提示：有 waiting 就 waiting，否則 idle；target 是離可見範圍最近的那位 */
-export function edgeHints(f: Floor, view: { left: number; right: number }): { left: EdgeHint | null; right: EdgeHint | null } {
-  const statusOf = (i: number): Employee['status'] => f.seats[i].occ?.status ?? 'working';
-  const side = (hidden: number[], nearest: (xs: number[]) => number): EdgeHint | null => {
-    for (const status of ['waiting', 'idle'] as const) {
-      const hit = hidden.filter((i) => statusOf(i) === status);
-      if (hit.length) return { status, count: hit.length, target: nearest(hit) };
-    }
-    return null;
-  };
-  const emps = f.seats.filter((s) => s.occ).map((s) => s.index);
-  return {
-    left: side(emps.filter((i) => seatCenter(i) < view.left), (xs) => Math.max(...xs)),
-    right: side(emps.filter((i) => seatCenter(i) > view.right), (xs) => Math.min(...xs)),
-  };
 }
 
 /** 電梯面板的框：看得到的樓層按鈕（flags 依面板上到下）從第一顆到最後一顆；一顆都沒有回 null */
@@ -107,7 +91,7 @@ export function buildingPlan(employees: Employee[], going: Employee[], minDesks:
   return { plan, minDesks: new Map(plan.map((f) => [f.key, f.desks])) };
 }
 
-/** 走去電梯的人從座位拿掉：桌子變空、沒有名牌、不算電梯燈與邊緣提示，但樓層還在 */
+/** 走去電梯的人從座位拿掉：桌子變空、沒有名牌、不算電梯燈，但樓層還在 */
 export function vacate(plan: Floor[], ids: ReadonlySet<string>): Floor[] {
   if (!ids.size) return plan;
   return plan.map((f) => ({ ...f, seats: f.seats.map((s) => (s.occ && ids.has(s.occ.sessionId) ? { ...s, occ: null } : s)) }));
