@@ -1,5 +1,5 @@
 // 電梯門的排隊與計時（不碰 DOM，可用 vitest 假計時器測）：開 300ms → 叫等著的人 → 停一下 → 關 300ms → resolve
-export const DOOR_MS = 300; // 電梯門開或關一次；index.html 的 .door 的 transition 同值
+export const DOOR_MS = 300; // 電梯門開或關一次；styles/building.css 的 .door 門板 transition 同值
 export const DOOR_HOLD = 500; // 門開著停多久：人從門中心走出門框（26 + 人半寬 30）約 470ms
 
 export type DoorState = 'closed' | 'opening' | 'open' | 'closing';

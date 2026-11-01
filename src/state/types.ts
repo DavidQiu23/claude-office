@@ -11,7 +11,6 @@ export interface HookEvent {
   notification_type?: string;
   message?: string;
   agent_id?: string;           // subagent 內部事件才有（docs/findings.md §1）
-  agent_type?: string;         // subagent 內部事件才有（docs/findings.md §1）
   sentAt: number;              // hook 腳本附上的 Date.now()
 }
 

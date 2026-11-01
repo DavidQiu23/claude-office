@@ -1,5 +1,5 @@
 // 一個人：漫畫人物 SVG（椅背、姿勢群組、漫符都在 SVG 裡）、水平走路。el 的 left = 人的中心 x（樓層座標）
-// 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act／data-bubble 決定，這裡只設屬性
+// 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act 決定，這裡只設屬性
 import { div } from './dom.js';
 import { figureSvg, FIG } from './figure.js';
 import { walkMs, walkPos, type Walk } from './floors.js';
@@ -19,7 +19,6 @@ export class Person {
     this.el.innerHTML = figureSvg(look); // figure.ts 產生、不含使用者資料
     this.el.style.marginLeft = `${-FIG.w / 2}px`;
     this.setAct('work');
-    this.setBubble(false);
   }
 
   /** 只設 data-act；姿勢、表情、漫符與坐下站起的過場由 CSS 接手 */
@@ -27,11 +26,6 @@ export class Person {
     if (a === this.act) return;
     this.act = a;
     this.el.dataset.act = a;
-  }
-
-  /** 只設 data-bubble；泡泡與 zZ 只在 data-act="idle" 且 data-bubble="on" 時顯示 */
-  setBubble(on: boolean): void {
-    this.el.dataset.bubble = on ? 'on' : 'off';
   }
 
   /** 畫面上目前的 x：走路中依時間內插（不讀版面） */

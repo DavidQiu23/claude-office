@@ -193,15 +193,13 @@ export class Building {
     }
   }
 
-  /** 坐下（或站著）：依最新狀態擺姿勢與泡泡 */
+  /** 坐下（或站著）：依最新狀態擺姿勢 */
   private settle(rec: Rec): void {
     rec.p.setAct(ACT[rec.emp.status]);
-    rec.p.setBubble(rec.emp.status === 'idle');
   }
 
   /** 走去 rec.x（坐著的先站起來；走路中直接轉向），到了坐下 */
   private walk(rec: Rec): void {
-    rec.p.setBubble(false);
     rec.p.walkTo(rec.x, () => this.settle(rec), rec.p.moving ? 0 : STAND_MS);
   }
 
@@ -215,7 +213,6 @@ export class Building {
       rec.out = true;
       rec.p.el.hidden = false;
       rec.p.placeAt(v.doorX);
-      rec.p.setBubble(false);
       rec.p.walkTo(rec.x, () => this.settle(rec)); // 一出電梯就走，不必先站起來
     });
   }
@@ -234,7 +231,6 @@ export class Building {
     const lv: Leaving = { emp: rec.emp, p: rec.p, floor: rec.floor, gone: false };
     this.leaving.set(id, lv);
     const mine = () => this.leaving.get(id) === lv; // 回頭上班或重新連線後，這趟下班就作廢
-    rec.p.setBubble(false);
     rec.p.walkTo(v.doorX, () => {
       void v.openDoor(() => {
         if (!mine()) return;

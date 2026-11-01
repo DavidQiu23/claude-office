@@ -170,7 +170,7 @@ export class FloorView {
 
 /** 沒有人上班：一層空的大廳，中間一張紙條寫兩行提示 */
 export function lobby(): HTMLElement {
-  const room = div('floor lobby'), inner = div('floor-in'), elev = div('elevator'), msg = div('lobby-msg'), note = div('note');
+  const room = div('floor'), inner = div('floor-in'), elev = div('elevator'), msg = div('lobby-msg'), note = div('note');
   elev.append(el('div', 'door-num', '1'), div('door'));
   note.append(el('b', '', '目前沒有人上班'), el('span', '', '開一個 Claude Code session 就會出現'));
   msg.append(note);

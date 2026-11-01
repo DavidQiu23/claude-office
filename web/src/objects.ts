@@ -7,24 +7,24 @@ import { circle, ellipse, fill, line, path, rect, tag } from './svg.js';
 export type DeskState = 'empty' | 'working' | 'waiting' | 'idle';
 export type FurnitureId = 'waterCooler' | 'vending' | 'plant' | 'bookshelf' | 'copier' | 'sofa' | 'floorLamp' | 'sideTable';
 export type ObjectId = `desk-${DeskState}` | 'window' | FurnitureId;
-/** 原點 = 底邊中點；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}`；standX = 人使用它時站的 x 偏移（子專案 2 用） */
-export interface ObjectSpec { w: number; h: number; standX: number }
+/** 原點 = 底邊中點；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}` */
+export interface ObjectSpec { w: number; h: number }
 
-const DESK: ObjectSpec = { w: 112, h: 76, standX: 0 }; // 放在座位中心、底邊在樓層 y 192
+const DESK: ObjectSpec = { w: 112, h: 76 }; // 放在座位中心、底邊在樓層 y 192
 export const OBJECTS: Record<ObjectId, ObjectSpec> = {
   'desk-empty': DESK,
   'desk-working': DESK,
   'desk-waiting': DESK,
   'desk-idle': DESK,
-  window: { w: 70, h: 52, standX: 0 },
-  waterCooler: { w: 28, h: 78, standX: 0 },
-  vending: { w: 56, h: 112, standX: 10 }, // 站在投幣口與按鈕前
-  plant: { w: 34, h: 74, standX: -22 }, // 站在旁邊澆水
-  bookshelf: { w: 60, h: 104, standX: 0 },
-  copier: { w: 50, h: 68, standX: 0 },
-  sofa: { w: 92, h: 46, standX: 0 },
-  floorLamp: { w: 28, h: 102, standX: 0 },
-  sideTable: { w: 30, h: 37, standX: 0 },
+  window: { w: 70, h: 52 },
+  waterCooler: { w: 28, h: 78 },
+  vending: { w: 56, h: 112 },
+  plant: { w: 34, h: 74 },
+  bookshelf: { w: 60, h: 104 },
+  copier: { w: 50, h: 68 },
+  sofa: { w: 92, h: 46 },
+  floorLamp: { w: 28, h: 102 },
+  sideTable: { w: 30, h: 37 },
 };
 
 // ── 小工具（共用的圖形在 svg.ts） ──

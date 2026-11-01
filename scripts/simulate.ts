@@ -59,7 +59,7 @@ const script = [
   prompt('tools0', '寫一支批次匯入客戶資料的腳本'),
   prompt('docs0', '改寫安裝說明，補上常見問題'),
 
-  // --- crm：一層擠滿 8 人（座位 0–7，要左右捲）；crm6 輪到你，最後進場的 crm7 坐在最右邊 ---
+  // --- crm：一層擠滿 8 人（座位 0–7，視窗窄時整頁橫向捲動）；crm6 輪到你，最後進場的 crm7 坐在最右邊 ---
   ...CRM.slice(0, 6).map((n, i) => quick(prompt(n, `處理客戶需求單第 ${i + 1} 批`))),
   quick(ev('crm6', 'Stop')),
   hold(prompt('crm7', '處理客戶需求單第 8 批'), 500),
@@ -76,7 +76,7 @@ const script = [
   hold(ev('docs0', 'SessionEnd'), 2000),
   prompt('mobile0', '調整行動版首頁的版面'),
 
-  // --- 最右邊的 crm7 走到座位後等你處理，停 3.5 秒讓畫面看得到（視窗較窄時他在畫面外，邊緣會有提示）---
+  // --- 最右邊的 crm7 走到座位後等你處理，停 3.5 秒讓畫面看得到（視窗較窄時他在畫面外，看電梯燈號與狀態列）---
   hold(ev('crm7', 'Notification', { notification_type: 'permission_prompt', message: 'Claude needs your permission to use Bash' }), 3500),
 
   // --- 全部下班（--loop 時重來）；走最遠的 crm7 先出發，最後停一下讓大家走進電梯 ---

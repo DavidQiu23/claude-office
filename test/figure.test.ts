@@ -53,11 +53,11 @@ test('figure.css 的狀態規則：漫符只在對應狀態顯示，減少動態
   const css = readFileSync('web/src/styles/figure.css', 'utf8');
   // 預設全藏
   expect(css).toMatch(/\.person \.fx-work, \.person \.fx-wait, \.person \.fx-turn \{ display: none; \}/);
-  // 顯示條件：工作中的 fx-work、站起來的 fx-wait、坐著且有泡泡的 fx-turn
+  // 顯示條件：工作中的 fx-work、站起來的 fx-wait、坐著的 fx-turn
   const shown = css.match(/([^{}]*)\{ display: inline; \}/g)?.join('\n') ?? '';
   expect(shown).toContain('.person[data-act="work"] .fx-work');
   expect(shown).toContain('.person[data-act="up"] .fx-wait');
-  expect(shown).toContain('.person[data-act="idle"][data-bubble="on"] .fx-turn');
+  expect(shown).toContain('.person[data-act="idle"] .fx-turn');
   // 減少動態：只停動畫與過場，不動 display
   const reduce = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
   expect(reduce).toMatch(/animation: none/);

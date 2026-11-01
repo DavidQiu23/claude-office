@@ -105,7 +105,7 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
       const ev = body as Record<string, any>;
       if (typeof ev.session_id !== 'string' || !ev.session_id) return void res.writeHead(400).end();
       // 型別不符的欄位視為不存在，避免 reduce 內部丟錯
-      for (const k of ['cwd', 'transcript_path', 'prompt', 'tool_name', 'tool_use_id', 'notification_type', 'message', 'agent_id', 'agent_type'])
+      for (const k of ['cwd', 'transcript_path', 'prompt', 'tool_name', 'tool_use_id', 'notification_type', 'message', 'agent_id'])
         if (typeof ev[k] !== 'string') delete ev[k];
       if (typeof ev.hook_event_name !== 'string') ev.hook_event_name = '';
       if (typeof ev.tool_input !== 'object' || ev.tool_input === null || Array.isArray(ev.tool_input)) delete ev.tool_input;

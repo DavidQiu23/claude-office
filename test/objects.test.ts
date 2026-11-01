@@ -20,7 +20,6 @@ test('每個物件都有正的寬高', () => {
   for (const [id, o] of Object.entries(OBJECTS)) {
     expect(o.w, id).toBeGreaterThan(0);
     expect(o.h, id).toBeGreaterThan(0);
-    expect(Number.isFinite(o.standX), id).toBe(true);
   }
 });
 
