@@ -1,7 +1,7 @@
 // Claude 辦公室 · 剖面大樓的右端家具組與後牆窗的位置。家具與窗的圖在 objects.ts（SVG symbol），這裡只管排哪幾件、怎麼擺。
 
 import { GEO } from './floors.js';
-import { OBJECTS, type FurnitureId } from './objects.js';
+import { GLASS, OBJECTS, PANO, type FurnitureId } from './objects.js';
 
 // ---------- 家具組（右端家具區） ----------
 export interface FurnItem { id: FurnitureId }
@@ -49,4 +49,14 @@ export function windowXs(width: number): number[] {
   const out: number[] = [];
   for (let x = WIN.first; x + WIN.half <= width - GEO.furnitureW; x += WIN.step) out.push(x);
   return out;
+}
+
+/** 窗景的上下：每高一層往上看 step；topLevel 以上固定在最高的視角 */
+export const VIEW = { step: 50, topLevel: 5 } as const;
+
+/** 中心在 x 的窗、在第 level 層時，玻璃露出的那塊全景的左上角（全景座標）。
+ *  所有窗是開在同一片風景上的洞：左右跟著窗在樓層裡的位置（超過全景寬就從頭接），上下跟著樓層（1F 看到最底下的街道） */
+export function windowView(x: number, level: number): { x: number; y: number } {
+  const l = Math.min(Math.max(level, 1), VIEW.topLevel);
+  return { x: (((x + GLASS.x) % PANO.w) + PANO.w) % PANO.w, y: PANO.h - GLASS.h - (l - 1) * VIEW.step };
 }

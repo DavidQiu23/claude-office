@@ -1,7 +1,7 @@
 import { describe, it, test, expect } from 'vitest';
 import { GEO } from '../web/src/floors.js';
 import * as F from '../web/src/furniture.js';
-import { OBJECTS, type ObjectId } from '../web/src/objects.js';
+import { GLASS, OBJECTS, PANO, type ObjectId } from '../web/src/objects.js';
 
 const width = (it: { id: ObjectId }): number => OBJECTS[it.id].w;
 
@@ -73,5 +73,41 @@ describe('後牆窗', () => {
     expect(F.SIGN_X).toBeGreaterThanOrEqual(GEO.elevatorW);
     expect(F.SIGN_MAX_W).toBeGreaterThanOrEqual(200);
     expect(F.SIGN_X + F.SIGN_MAX_W).toBeLessThan(F.WIN.first - F.WIN.half);
+  });
+});
+
+describe('窗景：每扇窗是開在同一片風景上的洞', () => {
+  it('同一層相鄰的窗看到的是同一片風景、往右挪 240 的地方', () => {
+    const a = F.windowView(380, 1), b = F.windowView(620, 1);
+    expect(b.x - a.x).toBe(240);
+    expect(b.y).toBe(a.y);
+  });
+
+  it('1F 看到風景的最底部（對面大樓與街道），越高層看得越高', () => {
+    expect(F.windowView(380, 1).y + GLASS.h).toBe(PANO.h);
+    for (let l = 1; l < F.VIEW.topLevel; l++) {
+      expect(F.windowView(380, l + 1).y, `${l}F`).toBeLessThan(F.windowView(380, l).y);
+      expect(F.windowView(380, l + 1).x).toBe(F.windowView(380, l).x);
+    }
+  });
+
+  it('到最高視角就固定，不會超出風景；0 或負的樓層當 1F', () => {
+    const top = F.windowView(380, F.VIEW.topLevel);
+    expect(F.windowView(380, 30)).toEqual(top);
+    expect(top.y).toBeGreaterThanOrEqual(0);
+    expect(F.windowView(380, 0)).toEqual(F.windowView(380, 1));
+  });
+
+  it('左右超過風景寬就從頭接（x 永遠在 0 到 PANO.w 之間）', () => {
+    expect(F.windowView(380 + PANO.w, 1)).toEqual(F.windowView(380, 1));
+    for (let x = 0; x < 6000; x += 97) {
+      const v = F.windowView(x, 1);
+      expect(v.x).toBeGreaterThanOrEqual(0);
+      expect(v.x).toBeLessThan(PANO.w);
+    }
+  });
+
+  it('風景寬是窗距的整數倍，窗景才會整齊重複', () => {
+    expect(Number.isInteger(PANO.w / F.WIN.step)).toBe(true);
   });
 });

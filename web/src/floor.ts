@@ -1,7 +1,7 @@
 // 一層樓：後牆（招牌「NF 專案名」、窗景與家具）、地板、樓板、左邊電梯門（門上樓號）、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
 import { DOOR_X, edgeHints, floorWidth, GEO, helperKey, plateText, seatCenter, type EdgeHint, type Floor, type Occupant } from './floors.js';
-import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowXs } from './furniture.js';
-import { OBJECTS, type DeskState, type ObjectId } from './objects.js';
+import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
+import { GLASS, OBJECTS, PANO, type DeskState, type ObjectId } from './objects.js';
 import { ElevatorDoor } from './door.js';
 import { reduceMotion } from './motion.js';
 
@@ -28,6 +28,24 @@ export function useObj(id: ObjectId, x: number, y: number): SVGSVGElement {
   use.setAttribute('height', String(h));
   svg.append(use);
   return svg;
+}
+
+/** 一扇窗：玻璃是一個小 svg，viewBox 對到全景（#panorama）上的一塊（placeWindows 依樓層設定）；窗框與窗台（#window）疊在上面。
+ *  全景畫兩份並排，露出的那塊跨過右緣時接得上 */
+function windowEl(x: number): SVGSVGElement {
+  const win = useObj('window', x, WIN_Y), { w, h } = OBJECTS.window;
+  const view = document.createElementNS(SVG_NS, 'svg');
+  for (const [k, v] of [['x', w / 2 + GLASS.x], ['y', h + GLASS.y], ['width', GLASS.w], ['height', GLASS.h]] as const) view.setAttribute(k, String(v));
+  for (const at of [0, PANO.w]) {
+    const use = document.createElementNS(SVG_NS, 'use');
+    use.setAttribute('href', '#panorama');
+    use.setAttribute('x', String(at));
+    use.setAttribute('width', String(PANO.w));
+    use.setAttribute('height', String(PANO.h));
+    view.append(use);
+  }
+  win.prepend(view);
+  return win;
 }
 
 const deskState = (o: Occupant | null): DeskState => {
@@ -126,7 +144,7 @@ export class FloorView {
     this.el.dataset.key = f.key;
     const width = floorWidth(f.desks, avail);
     this.inner.style.width = `${width}px`;
-    this.placeWindows(width);
+    this.placeWindows(width, f.level);
     if (this.furnKey !== f.key) this.placeFurniture(f.key);
     this.sign.textContent = `${f.level}F ${f.title}`;
     this.sign.title = f.key || f.title;
@@ -154,11 +172,15 @@ export class FloorView {
     this.schedule(); // 寬度或狀態變了不會有 scroll 事件；等這一輪的寫入做完再讀版面
   }
 
-  /** 後牆窗：位置只跟樓層寬有關（windowXs），多的拿掉、少的補上 */
-  private placeWindows(width: number): void {
+  /** 後牆窗：位置只跟樓層寬有關（windowXs），多的拿掉、少的補上；窗景跟著窗的位置與樓層（windowView） */
+  private placeWindows(width: number, level: number): void {
     const xs = windowXs(width), wins = this.windows.children;
     while (wins.length > xs.length) wins[wins.length - 1]!.remove();
-    while (wins.length < xs.length) this.windows.append(useObj('window', xs[wins.length]!, WIN_Y));
+    while (wins.length < xs.length) this.windows.append(windowEl(xs[wins.length]!));
+    xs.forEach((x, i) => {
+      const v = windowView(x, level);
+      wins[i]!.firstElementChild!.setAttribute('viewBox', `${v.x} ${v.y} ${GLASS.w} ${GLASS.h}`);
+    });
   }
 
   /** 右端家具：依 roomKey 挑一組（同一層永遠同一組），家具區貼著樓層右緣 */

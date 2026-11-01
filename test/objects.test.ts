@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { OBJECTS, defsSvg, type ObjectId } from '../web/src/objects.js';
+import { OBJECTS, PANO, defsSvg, type ObjectId } from '../web/src/objects.js';
 
 const IDS = Object.keys(OBJECTS) as ObjectId[];
 const DESKS: ObjectId[] = ['desk-empty', 'desk-working', 'desk-waiting', 'desk-idle'];
@@ -38,7 +38,7 @@ test('尺寸沿用現在的家具、桌子 112×76、窗 70×52', () => {
   for (const d of DESKS) expect(size(d), d).toEqual([112, 76]);
 });
 
-test('defsSvg 有網點與每個物件的 symbol，id 不重複', () => {
+test('defsSvg 有網點、窗景全景與每個物件的 symbol，id 不重複', () => {
   const s = defsSvg();
   expect(s).toContain('<pattern id="tone"');
   expect(s).toMatch(/<pattern id="tone"[^>]*width="4"[^>]*height="4"/);
@@ -46,7 +46,7 @@ test('defsSvg 有網點與每個物件的 symbol，id 不重複', () => {
   for (const id of IDS) expect(s, id).toContain(`<symbol id="${id}"`);
   const ids = [...s.matchAll(/\sid="([^"]*)"/g)].map((m) => m[1]);
   expect(new Set(ids).size).toBe(ids.length);
-  expect(ids).toHaveLength(IDS.length + 1);
+  expect(ids).toHaveLength(IDS.length + 2); // + tone、panorama
 });
 
 test('symbol 的 viewBox 依原點在底邊中點', () => {
@@ -76,15 +76,32 @@ test('顏色不寫在屬性上', () => {
 
 test('日夜群組用變數控制', () => {
   const s = defsSvg();
-  const win = symbolOf(s, 'window');
-  expect(win).toContain('opacity:var(--day)');
-  expect(win).toContain('opacity:var(--night)');
+  const pano = symbolOf(s, 'panorama');
+  expect(pano).toContain('opacity:var(--day)');
+  expect(pano).toContain('opacity:var(--night)');
   expect(symbolOf(s, 'desk-empty')).not.toContain('var(--night)');
   for (const d of ['desk-working', 'desk-waiting', 'desk-idle']) expect(symbolOf(s, d), d).toContain('opacity:var(--night)');
   for (const f of ['vending', 'floorLamp']) {
     expect(symbolOf(s, f), f).toContain('opacity:var(--night)');
     expect(symbolOf(s, f), f).toContain('var(--lamp-glow)');
   }
+});
+
+test('窗只剩窗框與窗台：沒有天空、雲、月亮', () => {
+  const win = symbolOf(defsSvg(), 'window');
+  expect(win).not.toContain('var(--window-sky)');
+  expect(win).not.toContain('var(--day)');
+  expect(win).not.toContain('var(--night)');
+  expect(win).not.toContain('<circle');
+});
+
+test('窗景是一張共用的全景：整片天空、街道與城市，不畫月亮（月亮只在屋頂上方的天空）', () => {
+  const s = defsSvg();
+  const pano = symbolOf(s, 'panorama');
+  expect(pano).toContain(`viewBox="0 0 ${PANO.w} ${PANO.h}"`);
+  expect(pano).toContain('var(--window-sky)');
+  expect(pano).toContain('var(--city-lit)');
+  expect(pano).not.toContain('#f3e6b8'); // 月亮色
 });
 
 test('同一份 defs 每次相同', () => {

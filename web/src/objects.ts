@@ -90,22 +90,82 @@ function desk(st: DeskState): string {
   return o;
 }
 
-// ── 窗：70×52（含窗台）。紙張風墨線窗框，城市與天空用變數；白雲只在白天，星星與月亮只在夜晚 ──
+// ── 窗：70×52（含窗台）。只有紙張風墨線窗框與窗台；玻璃裡的風景是下面的全景，由 floor.ts 依窗的位置與樓層露出一塊 ──
 
-const CITY: [number, number, number][] = [[-31, -24, 10], [-20, -33, 9], [-10, -21, 11], [2, -37, 9], [12, -27, 10], [23, -31, 8.5]]; // [x, 樓頂 y, 寬]
-const LIT: [number, number][] = [[-28, -21], [-17, -29], [-17, -23], [-6, -18], [5, -33], [5, -26], [15, -23], [26, -27], [26, -20]];
+/** 窗玻璃在窗 symbol 裡的範圍（原點 = 窗台底邊中點） */
+export const GLASS = { x: -32, y: -51, w: 64, h: 44 } as const;
 
-function windowSym(): string {
-  const sky = rect(-32, -51, 64, 44, 3, undefined, fill('var(--window-sky)'));
-  const clouds = day(ellipse(-14, -40, 9, 3.2, undefined, WHITE) + ellipse(-8, -42.5, 5, 2.6, undefined, WHITE) + ellipse(14, -45, 6, 2.2, undefined, WHITE));
-  const stars = night(circle(19, -41, 5, undefined, fill('#f3e6b8')) + circle(21.5, -43, 4.3, undefined, fill('var(--window-sky)'))
-    + line('M-23 -44 h4 M-21 -46 v4 M-1 -47 h3 M0.5 -48.5 v3', 'mk-thin', 'stroke:#f1e9d8;stroke-width:.9')
-    + circle(-11, -38, 0.7, undefined, fill('#f1e9d8')) + circle(8, -41, 0.6, undefined, fill('#f1e9d8')));
-  const city = CITY.map(([x, y, w]) => rect(x, y, w, -7 - y, 0, undefined, fill('var(--city)'))).join('')
-    + LIT.map(([x, y]) => rect(x, y, 2, 2, 0, undefined, fill('var(--city-lit)'))).join('');
-  return sky + clouds + stars + city
-    + rect(-32, -51, 64, 44, 3, 'ink', 'fill:none') // 窗框
-    + rect(-35, -7, 70, 7, 2, 'ink', fill('var(--wall-low)')); // 窗台
+const windowSym = () =>
+  rect(GLASS.x, GLASS.y, GLASS.w, GLASS.h, 3, 'ink', 'fill:none') // 窗框
+  + rect(-35, -7, 70, 7, 2, 'ink', fill('var(--wall-low)')); // 窗台
+
+// ── 窗景：所有窗共用的一張全景，左上角是原點、y 往下。由上往下：天空（白天有雲；夜晚有星星，不畫月亮：整個畫面只有屋頂上方天空裡那一個）、遠處的屋頂、對面的大樓、街道。
+//    左右兩端接得起來（窗多時從頭接）；寬是窗距 240 的整數倍。furniture.ts 的 windowView 決定每扇窗露出哪一塊 ──
+
+export const PANO = { w: 1440, h: 260 } as const;
+const STREET_Y = 244;
+const STAR = fill('#f1e9d8');
+
+/** 固定種子的亂數（mulberry32）：全景每次畫出來都一樣 */
+function rng(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const between = (r: () => number, a: number, b: number) => Math.round(a + r() * (b - a));
+
+/** 從左排到右的一排樓：[左緣 x, 寬]；最後一棟到全景右緣為止，太窄就不放（右緣接回左緣時是一段空隙） */
+function lots(r: () => number, w: [number, number], gap: [number, number]): [number, number][] {
+  const out: [number, number][] = [];
+  for (let x = between(r, ...gap); ; x += between(r, ...gap)) {
+    const bw = Math.min(between(r, ...w), PANO.w - x);
+    if (bw < w[0]) return out;
+    out.push([x, bw]);
+    x += bw;
+  }
+}
+
+function panorama(): string {
+  const r = rng(7);
+  const sky = rect(0, 0, PANO.w, PANO.h, 0, undefined, fill('var(--window-sky)'));
+  let clouds = '';
+  for (let x = 30; x < PANO.w - 40; x += between(r, 110, 190)) {
+    const y = between(r, 22, 105), k = 0.8 + r() * 0.8;
+    clouds += ellipse(x, y, 9 * k, 3.2 * k, undefined, WHITE) + ellipse(x + 6 * k, y - 2.5 * k, 5 * k, 2.6 * k, undefined, WHITE);
+  }
+  let stars = '';
+  for (let i = 0; i < 90; i++) stars += circle(between(r, 2, PANO.w - 2), between(r, 6, 120), 0.5 + r() * 0.4, undefined, STAR);
+  for (let i = 0; i < 12; i++) {
+    const x = between(r, 4, PANO.w - 4), y = between(r, 10, 100);
+    stars += line(`M${x - 2} ${y} h4 M${x} ${y - 2} v4`, 'mk-thin', 'stroke:#f1e9d8;stroke-width:.9');
+  }
+  // 遠處的屋頂：淡一點，夜裡有零星的燈
+  let far = '', farLit = '';
+  for (const [x, w] of lots(r, [30, 70], [0, 10])) {
+    const top = between(r, 92, 140);
+    far += rect(x, top, w, 210 - top, 0, undefined, fill('var(--city)'));
+    for (let i = 0; i < 3; i++) farLit += rect(x + between(r, 3, w - 5), between(r, top + 4, 200), 2, 2, 0, undefined, fill('var(--city-lit)'));
+  }
+  // 對面的大樓：墨線外框、一格格窗（約三成亮著），有些樓頂有水塔或天線
+  let near = '';
+  for (const [x, w] of lots(r, [56, 110], [8, 24])) {
+    const top = between(r, 140, 186), cols = Math.floor((w - 8) / 14), left = x + (w - cols * 14) / 2 + 3.5;
+    near += rect(x, top, w, STREET_Y - top, 0, 'mk-thin', fill('var(--city)'));
+    for (let y = top + 9; y + 7 <= STREET_Y - 8; y += 16) {
+      for (let c = 0; c < cols; c++) near += rect(left + c * 14, y, 7, 7, 0, undefined, fill(r() < 0.28 ? 'var(--city-lit)' : 'var(--window-sky)'));
+    }
+    const roof = r(), at = x + between(r, 8, w - 20);
+    if (roof < 0.3) near += line(`M${at + 2} ${top} v-4 M${at + 10} ${top} v-4`, 'mk-thin') + rect(at, top - 12, 12, 8, 1.5, 'mk-thin', fill('var(--roof)'));
+    else if (roof < 0.5) near += line(`M${at} ${top} v-14 M${at - 3} ${top - 10} h6`, 'mk-thin');
+  }
+  const street = rect(0, STREET_Y, PANO.w, PANO.h - STREET_Y, 0, undefined, fill('var(--ground)'))
+    + line(`M0 ${STREET_Y} H${PANO.w}`, 'mk-thin')
+    + line(`M4 ${STREET_Y + 9} H${PANO.w}`, 'mk-thin', 'stroke:var(--paper);stroke-dasharray:10 8;opacity:.7');
+  return sky + day(clouds) + night(stars) + g('opacity:.5', far) + night(farLit) + near + street;
 }
 
 // ── 右端家具（尺寸沿用現在的版本，layoutSet 排出來的位置不變） ──
@@ -219,7 +279,7 @@ export function defsSvg(): string {
   const symbols = (Object.keys(OBJECTS) as ObjectId[]).map((id) => {
     const { w, h } = OBJECTS[id];
     return tag('symbol', { id, viewBox: `${-w / 2} ${-h} ${w} ${h}`, style: 'overflow:visible' }, DRAW[id]());
-  }).join('');
+  }).join('') + tag('symbol', { id: 'panorama', viewBox: `0 0 ${PANO.w} ${PANO.h}` }, panorama());
   return tag('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 0, height: 0, 'aria-hidden': 'true', style: 'position:absolute' },
     tag('defs', {}, pattern + symbols));
 }
