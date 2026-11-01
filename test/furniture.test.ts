@@ -52,7 +52,7 @@ describe('後牆窗', () => {
   it('從招牌區右邊開始、每 240 一扇，不壓到右端家具區', () => {
     const w = 1208;
     const xs = F.windowXs(w);
-    expect(xs).toEqual([380, 620, 860]);
+    expect(xs).toEqual([300, 540, 780]);
     expect(xs[0]! - F.WIN.half).toBeGreaterThanOrEqual(F.SIGN_X + F.SIGN_MAX_W);
     for (const c of xs) expect(c + F.WIN.half).toBeLessThanOrEqual(w - GEO.furnitureW);
   });
@@ -69,9 +69,9 @@ describe('後牆窗', () => {
     expect(OBJECTS.window.w).toBeLessThanOrEqual(2 * F.WIN.half);
   });
 
-  it('招牌最大寬 = 電梯區右側到第一扇窗之前', () => {
-    expect(F.SIGN_X).toBeGreaterThanOrEqual(GEO.elevatorW);
-    expect(F.SIGN_MAX_W).toBeGreaterThanOrEqual(200);
+  it('招牌從左緣 12 開始，最大寬到第一扇窗之前', () => {
+    expect(F.SIGN_X).toBe(12);
+    expect(F.SIGN_MAX_W).toBe(240);
     expect(F.SIGN_X + F.SIGN_MAX_W).toBeLessThan(F.WIN.first - F.WIN.half);
   });
 });

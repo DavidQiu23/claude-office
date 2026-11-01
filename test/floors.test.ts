@@ -110,13 +110,13 @@ test('plateText：狀態前綴，helpers 只算工作中的助理', () => {
 });
 
 test('seatCenter', () => {
-  expect(seatCenter(0)).toBe(140);
-  expect(seatCenter(2)).toBe(380);
+  expect(seatCenter(0)).toBe(60);
+  expect(seatCenter(2)).toBe(300);
 });
 
 test('buildingWidth：各層共用桌數最多那層的寬度，沒有樓層時是可用寬', () => {
   const f = (desks: number): Floor => ({ ...floorOf(), desks });
-  expect(buildingWidth([f(3), f(9)], 1000)).toBe(80 + 9 * 120 + 200);
+  expect(buildingWidth([f(3), f(9)], 1000)).toBe(9 * 120 + 200);
   expect(buildingWidth([f(3), f(2)], 1000)).toBe(1000);
   expect(buildingWidth([], 1000)).toBe(1000);
   // 空大廳照舊撐滿可用寬，窄螢幕也不撐寬整頁

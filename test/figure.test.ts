@@ -137,3 +137,12 @@ test('figure.css：data-fx 期間只顯示進出漫符，狀態漫符藏起來',
   expect(css).toMatch(/\.person\[data-fx="in"\] \.figure \{ animation: fig-in 600ms/);
   expect(css).toMatch(/\.person\[data-fx="out"\] \.figure \{ animation: fig-out 500ms/);
 });
+
+test('進出貼紙是白底，字用固定深色（夜晚的 --fx 是淺色，會看不見）', () => {
+  const s = figureSvg(looks[0]);
+  for (const t of ['到！', '辛苦了～']) {
+    const el = s.match(new RegExp(`<text[^>]*>${t}</text>`))?.[0] ?? '';
+    expect(el, t).not.toBe('');
+    expect(el, t).not.toContain('var(--fx)');
+  }
+});

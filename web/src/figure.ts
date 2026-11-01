@@ -161,7 +161,7 @@ const stickPts = (s: Stick): Pt[] => [[s.x, s.y], [s.x + s.w, s.y + s.h], ...tai
   ...textPts(s.x + s.w / 2 - (s.size * [...s.text].length) / 2, s.y + s.h - 5, s.size, s.size * [...s.text].length)];
 const sticker = (s: Stick) =>
   tag('polygon', { points: [[s.x, s.y], [s.x + s.w, s.y], [s.x + s.w, s.y + s.h], ...tail(s).reverse(), [s.x, s.y + s.h]].map((p) => p.join(',')).join(' '), class: 'mk-thin', style: WHITE })
-  + text(s.x + s.w / 2, s.y + s.h - 5, s.size, s.text, fill('var(--fx)'), undefined, 'middle');
+  + text(s.x + s.w / 2, s.y + s.h - 5, s.size, s.text, INK, undefined, 'middle'); // 白底貼紙：字用墨色（夜晚的 --fx 是淺色）
 
 /** 文字的大略外框：全形字寬 = 字級，半形 0.6 字級；基線以上一個字級、以下 0.25 */
 const textPts = (x: number, y: number, size: number, w: number): Pt[] => [[x, y - size], [x + w, y + size * 0.25]];

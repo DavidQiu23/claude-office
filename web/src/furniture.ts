@@ -38,9 +38,9 @@ export function layoutSet(set: (typeof SETS)[number]): (FurnItem & { x: number }
 }
 
 // ---------- 後牆：招牌區與窗 ----------
-export const SIGN_X = 92; // 招牌左緣（電梯區右側再留 12）
-/** 窗：第一扇中心 380、之後每 240 一扇；half = 半寬（含窗台） */
-export const WIN = { first: 380, step: 240, half: 36 } as const;
+export const SIGN_X = 12; // 招牌左緣（樓層左緣留 12）
+/** 窗：第一扇中心 300、之後每 240 一扇；half = 半寬（含窗台） */
+export const WIN = { first: 300, step: 240, half: 36 } as const;
 /** 招牌最大寬：到第一扇窗之前再留 12 */
 export const SIGN_MAX_W = WIN.first - WIN.half - 12 - SIGN_X;
 

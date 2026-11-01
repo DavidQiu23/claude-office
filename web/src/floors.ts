@@ -2,10 +2,10 @@ import type { Employee } from '../../src/state/types.js';
 import { nameplate, platePrefix, projectColor, roomKey, shortPath, workingCount } from './view.js';
 
 // ---- 剖面大樓的尺寸（CSS px）----
-export const GEO = { floorH: 200, slab: 8, elevatorW: 80, seatW: 120, furnitureW: 200, groundH: 72, panelW: 40, gutter: 56, rightMargin: 16 } as const;
+export const GEO = { floorH: 200, slab: 8, seatW: 120, furnitureW: 200, groundH: 72, panelW: 40, gutter: 56, rightMargin: 16 } as const;
 
 /** 第 i 個座位的中心 x（樓層內座標） */
-export const seatCenter = (i: number): number => GEO.elevatorW + i * GEO.seatW + GEO.seatW / 2;
+export const seatCenter = (i: number): number => i * GEO.seatW + GEO.seatW / 2;
 
 /** 座位只坐真員工；助理只是主人名牌旁的小標 */
 export interface Seat { index: number; occ: Employee | null }
@@ -46,7 +46,7 @@ export function floorAlert(f: Floor): Alert {
 
 /** 全部樓層共用的寬度：至少撐滿可用寬，桌數最多那層放不下就往右長（整棟樓變寬、整頁橫向捲動）；沒有樓層（空大廳）就是可用寬 */
 export const buildingWidth = (plan: Floor[], avail: number): number =>
-  plan.length ? Math.max(avail, GEO.elevatorW + Math.max(...plan.map((f) => f.desks)) * GEO.seatW + GEO.furnitureW) : avail;
+  plan.length ? Math.max(avail, Math.max(...plan.map((f) => f.desks)) * GEO.seatW + GEO.furnitureW) : avail;
 
 /** 桌上名牌：標題加狀態前綴（底色直接依 e.status）；helpers 是工作中的助理數（名牌旁的「↳N」，0 不顯示） */
 export function plateText(e: Employee): { text: string; helpers: number } {
