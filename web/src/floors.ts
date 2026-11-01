@@ -62,25 +62,14 @@ export function visibleSpan(flags: readonly boolean[]): { from: number; to: numb
 /** 頁面是否已在最底（含完全沒有捲軸）：加蓋樓層時要維持貼底，不是貼著某一層 */
 export const atBottom = (scrollY: number, scrollHeight: number, viewH: number): boolean => scrollY >= scrollHeight - viewH - 1;
 
-// ---- 走路與電梯 ----
-/** 電梯門中心 x（樓層內座標，與 seatCenter 同一套） */
-export const DOOR_X = GEO.elevatorW / 2;
-export const WALK_SPEED = 120; // px/s
-/** 走一段路要多久（ms）：距離 ÷ 120px/s，等速 */
-export const walkMs = (from: number, to: number): number => (Math.abs(to - from) / WALK_SPEED) * 1000;
-export interface Walk { from: number; to: number; start: number; ms: number }
-/** 走路中某個時間點的 x（等速內插，時間外夾在起點或終點） */
-export const walkPos = (w: Walk, now: number): number =>
-  w.ms <= 0 ? w.to : w.from + (w.to - w.from) * Math.min(1, Math.max(0, (now - w.start) / w.ms));
-
-/** 正在走去電梯的人也放進 floorPlan（那層才不會先拆）；排在前面，同座位的新人才會蓋過他；同一人又回來了只算一次 */
+/** 正在退場的人也放進 floorPlan（那層才不會先拆）；排在前面，同座位的新人才會蓋過他；同一人又回來了只算一次 */
 export const withLeaving = (employees: Employee[], leaving: Employee[]): Employee[] => {
   const here = new Set(employees.map((e) => e.sessionId));
   return [...leaving.filter((l) => !here.has(l.sessionId)), ...employees];
 };
 
 /**
- * Building 每次 render 的樓層配置。going：走去電梯、store 已經沒有的人，樓層留著但座位空出來。
+ * Building 每次 render 的樓層配置。going：正在退場、store 已經沒有的人，樓層留著但座位空出來。
  * prevOrder 是上次 plan 的樓層 key。回傳的 minDesks 是下一次的輸入（拆掉的樓層從 minDesks 刪掉）
  */
 export function buildingPlan(employees: Employee[], going: Employee[], minDesks: ReadonlyMap<string, number>, prevOrder: readonly string[] = []):
@@ -89,7 +78,7 @@ export function buildingPlan(employees: Employee[], going: Employee[], minDesks:
   return { plan, minDesks: new Map(plan.map((f) => [f.key, f.desks])) };
 }
 
-/** 走去電梯的人從座位拿掉：桌子變空、沒有名牌、不算電梯燈，但樓層還在 */
+/** 正在退場的人從座位拿掉：桌子變空、沒有名牌、不算電梯燈，但樓層還在 */
 export function vacate(plan: Floor[], ids: ReadonlySet<string>): Floor[] {
   if (!ids.size) return plan;
   return plan.map((f) => ({ ...f, seats: f.seats.map((s) => (s.occ && ids.has(s.occ.sessionId) ? { ...s, occ: null } : s)) }));

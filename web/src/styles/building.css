@@ -50,22 +50,6 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .ground-strip { left: 0; right: 0; top: 136px; height: 56px; background: var(--wall-low); }
 /* 樓板：上下各一條墨線 */
 .slab { left: 0; right: 0; top: 192px; height: 8px; box-sizing: border-box; border: solid var(--ink); border-width: 1.6px 0; background: var(--slab); }
-/* 電梯（漫畫墨線）：框從 y 12 到樓板，兩側留一點牆 */
-.elevator { left: 0; top: 0; width: 80px; height: 192px; }
-.elevator::before { content: ''; position: absolute; left: 6px; right: 6px; top: 12px; bottom: 0; box-sizing: border-box;
-  border: 1.5px solid var(--fig-ink); border-bottom: 0; border-radius: 3px 3px 0 0; background: var(--elevator); }
-.elevator .door-num { position: absolute; left: 26px; top: 20px; width: 28px; height: 16px; box-sizing: border-box; border: 1px solid var(--fig-ink); border-radius: 3px;
-  background: var(--monitor); color: var(--city-lit); font: bold 11px/14px system-ui, "Microsoft JhengHei", sans-serif; text-align: center; }
-.elevator .door { position: absolute; left: 14px; top: 44px; width: 52px; height: 92px; box-sizing: border-box; border: 1.5px solid var(--fig-ink); border-bottom: 0;
-  border-radius: 2px 2px 0 0; overflow: hidden; background: var(--city-lit); }
-/* 兩片門往左右滑進牆裡（300ms，同 door.ts 的 DOOR_MS），露出亮著的車廂；門縫一條墨線，右片門貼網點 */
-.elevator .door::before, .elevator .door::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50%; box-sizing: border-box; background: var(--door); transition: transform .3s ease-in-out; }
-.elevator .door::before { left: 0; border-right: 1.5px solid var(--fig-ink); }
-.elevator .door::after { right: 0; border-left: 1.5px solid var(--fig-ink);
-  background: radial-gradient(circle, color-mix(in srgb, var(--fig-ink) calc(var(--tone-opacity) * 100%), transparent) 0.95px, transparent 1.2px) 0 0 / 4px 4px, var(--door); }
-.elevator.open .door::before { transform: translateX(-100%); }
-.elevator.open .door::after { transform: translateX(100%); }
-.elevator.snap .door::before, .elevator.snap .door::after { transition: none; }
 /* 招牌：不透明的專案色（floor.ts 設）、1.6px 墨線框、白色粗體，放不下用「…」；left 與 max-width（到第一扇窗之前）由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定。
    top 14：0 號座位輪到你的泡泡頂在 y 44，招牌底在 40，不重疊 */
 .sign { top: 14px; height: 26px; padding: 0 12px; border: 1.6px solid var(--ink); border-radius: 7px; box-sizing: border-box;
@@ -90,6 +74,3 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .lobby-msg .note { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 22px; border: 1.6px solid var(--ink); border-radius: 4px;
   background: var(--paper); color: var(--text-sub); font-size: 13px; text-align: center; transform: rotate(-2deg); }
 .lobby-msg b { font-size: 16px; color: var(--text); }
-@media (prefers-reduced-motion: reduce) {
-  .elevator .door::before, .elevator .door::after { transition: none; }
-}

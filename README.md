@@ -104,7 +104,7 @@ npm run simulate -- --loop
 | 等你處理 | 站起來舉手，集中線、「！」尖角框、汗滴 | 紅色，以「!」開頭；電梯燈紅 | PermissionRequest、PreToolUse 的 AskUserQuestion、Elicitation、權限或輸入類的 Notification |
 | 輪到你 | 坐著打瞌睡，飄著「zZ」，頭上琥珀色打勾泡泡 | 琥珀色，以「✓」開頭；電梯燈琥珀 | Stop、StopFailure；剛出現、還沒有其他事件的新 session |
 
-員工在這些時候走回電梯下班：SessionEnd、你按「請他下班」，或 12 小時沒有任何事件。
+新的 session 一出現，人就在座位上「啵」地登場，頭上冒「到！」。員工在這些時候下班（頭上冒「辛苦了～」往上淡出）：SessionEnd、你按「請他下班」，或 12 小時沒有任何事件。
 
 ## 助理（subagent）
 

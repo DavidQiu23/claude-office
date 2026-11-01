@@ -13,18 +13,18 @@
 /* 漫符超出人物框，不接滑鼠（資訊卡只認人） */
 .person .fx-work, .person .fx-wait, .person .fx-turn, .person .fx-in, .person .fx-out { pointer-events: none; }
 
-/* 坐下／站起：data-act 一換就播 300ms（與 building.ts 的 STAND_MS 相同） */
+/* 坐下／站起：data-act 一換就播 300ms */
 .person .fig, .person .leg, .person .chair { transition: transform 300ms ease-in-out, opacity 300ms ease-in-out; }
 
-/* 坐著（work、idle）：腿收起來（被桌子擋住）、椅背在。站著（up、walk、stand）：上移 12、腿伸直、椅背藏起來 */
+/* 坐著（work、idle）：腿收起來（被桌子擋住）、椅背在。站著（up）：上移 12、腿伸直、椅背藏起來 */
 .person[data-act="work"] .leg, .person[data-act="idle"] .leg { transform: scaleY(.6); }
-.person[data-act="up"] .fig, .person[data-act="walk"] .fig, .person[data-act="stand"] .fig { transform: translateY(-12px); }
-.person[data-act="up"] .chair, .person[data-act="walk"] .chair, .person[data-act="stand"] .chair { opacity: 0; }
+.person[data-act="up"] .fig { transform: translateY(-12px); }
+.person[data-act="up"] .chair { opacity: 0; }
 
 /* 表情與漫符：預設全藏，只露目前狀態的那一組（漫符的動畫也只掛在看得到的狀態上） */
 .person .face-work, .person .face-wait, .person .face-turn,
 .person .fx-work, .person .fx-wait, .person .fx-turn { display: none; }
-.person[data-act="work"] .face-work, .person[data-act="walk"] .face-work, .person[data-act="stand"] .face-work,
+.person[data-act="work"] .face-work,
 .person[data-act="up"] .face-wait, .person[data-act="idle"] .face-turn,
 .person[data-act="work"] .fx-work, .person[data-act="up"] .fx-wait,
 .person[data-act="idle"] .fx-turn { display: inline; }
@@ -63,14 +63,6 @@
 .person[data-act="idle"] .z2 { animation: fig-zz 2.6s ease-out 1.3s infinite; }
 @keyframes fig-nod { 50% { transform: rotate(-6deg) translateY(1.5px); } }
 @keyframes fig-zz { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -12px); } }
-
-/* 走路：腿與手臂交錯擺 ±16°（左腿配右手），身體每步上下 1.5px。
-   用獨立的 translate／rotate 屬性而不是 transform：走到座位那一刻動畫拿掉時，.fig 與腿的 transform 才會照常播坐下過場 */
-.person[data-act="walk"] .fig { animation: fig-bob .28s ease-in-out infinite; }
-.person[data-act="walk"] .leg-l, .person[data-act="walk"] .arm-r { animation: fig-swing .56s ease-in-out infinite; }
-.person[data-act="walk"] .leg-r, .person[data-act="walk"] .arm-l { animation: fig-swing .56s ease-in-out -.28s infinite; }
-@keyframes fig-bob { 50% { translate: 0 -1.5px; } }
-@keyframes fig-swing { 0%, 100% { rotate: 16deg; } 50% { rotate: -16deg; } }
 
 /* 減少動態：動畫與過場全停，姿勢與目前狀態的漫符照樣靜止顯示 */
 @media (prefers-reduced-motion: reduce) {

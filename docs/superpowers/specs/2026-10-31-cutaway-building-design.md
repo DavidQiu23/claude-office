@@ -4,7 +4,7 @@
 
 取代：`2026-10-29-isometric-office-design.md`、`2026-10-29-iso-office-objects-design.md`、`2026-10-29-iso-office-slanted-desk.md`、`2026-10-30-iso-office-modern-desk.md` 的畫面部分（這四份已刪除，見 git 歷史）。`2026-10-30-your-turn.md` 的狀態規則仍然有效。
 
-**後續變更**：助理的座位與人物、邊緣提示、樓層左右捲動已由 `2026-11-01-simplify-design.md` 取代（助理改成名牌旁的「↳N」，各層同寬、整頁橫向捲動）。
+**後續變更**：助理的座位與人物、邊緣提示、樓層左右捲動已由 `2026-11-01-simplify-design.md` 取代（助理改成名牌旁的「↳N」，各層同寬、整頁橫向捲動）。每層的電梯、門與人物走路已由 `2026-11-01-remove-elevator-design.md` 取代（人在座位上登場「到！」、退場「辛苦了～」）。
 
 示意圖（已確認的版面，用瀏覽器直接打開）：
 

@@ -1,19 +1,18 @@
-// 一個人：漫畫人物 SVG（椅背、姿勢群組、漫符都在 SVG 裡）、水平走路。el 的 left = 人的中心 x（樓層座標）
-// 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act 決定，這裡只設屬性
+// 一個人：漫畫人物 SVG（椅背、姿勢群組、漫符都在 SVG 裡）。el 的 left = 人的中心 x（樓層座標）
+// 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act／data-fx 決定，這裡只設屬性
 import { div } from './dom.js';
 import { figureSvg, FIG } from './figure.js';
-import { walkMs, walkPos, type Walk } from './floors.js';
-import { reduceMotion } from './motion.js';
 import type { Look } from './view.js';
 
-export type Act = 'work' | 'up' | 'idle' | 'walk' | 'stand';
+export type Act = 'work' | 'up' | 'idle';
+
+export const ENTER_MS = 600; // 登場「到！」；figure.css 的 fig-in 同值
+export const EXIT_MS = 500; // 退場「辛苦了～」；figure.css 的 fig-out 同值
 
 export class Person {
   readonly el = div('person');
   private act: Act | null = null;
-  private x = 0; // 停著的位置；走路中是目的地
-  private walk: Walk | null = null;
-  private walkT: ReturnType<typeof setTimeout> | undefined; // 站起來或走路的計時器，到了才呼叫 done
+  private fxT: ReturnType<typeof setTimeout> | undefined; // 登場或退場的計時器，同時只有一個
 
   constructor(look: Look) {
     this.el.innerHTML = figureSvg(look); // figure.ts 產生、不含使用者資料
@@ -28,66 +27,34 @@ export class Person {
     this.el.dataset.act = a;
   }
 
-  /** 畫面上目前的 x：走路中依時間內插（不讀版面） */
-  get at(): number {
-    return this.walk ? walkPos(this.walk, performance.now()) : this.x;
-  }
-
-  /** 正在站起來或走路（還沒到目的地） */
-  get moving(): boolean {
-    return this.walkT !== undefined;
-  }
-
-  /** 直接放到 x（取消走路，不呼叫原本的 done） */
   placeAt(x: number): void {
-    this.stop();
-    this.x = x;
-    this.el.style.transition = '';
     this.el.style.left = `${x}px`;
   }
 
-  /**
-   * 從目前位置等速（120px/s）走到 x，到了呼叫 done；走路中再呼叫就從當下位置轉向，前一次的 done 作廢。
-   * standMs > 0：先站起來（stand）停一下再走；到了先站著不動（stand），done 再決定姿勢（坐下或等電梯門）
-   */
-  walkTo(x: number, done?: () => void, standMs = 0): void {
-    this.placeAt(this.at);
-    const go = (): void => {
-      const from = this.x, ms = walkMs(from, x);
-      this.setAct('walk');
-      this.x = x;
-      if (reduceMotion()) {
-        // 減少動態：直接放到目的地，沒有滑動；計時器照舊，所以到座位的時間與順序不變
-        this.el.style.transition = '';
-        this.el.style.left = `${x}px`;
-      } else {
-        void this.el.offsetWidth; // 先讓「停在 from、沒有 transition」（含剛取消 hidden）生效，transition 才會從這裡開始
-        this.el.style.transition = `left ${ms}ms linear`;
-        this.el.style.left = `${x}px`;
-        this.walk = { from, to: x, start: performance.now(), ms };
-      }
-      // 用計時器而不是 transitionend：樓層 DOM 被搬動時 transition 會被取消、不會有 transitionend
-      this.walkT = setTimeout(() => {
-        this.stop();
-        this.el.style.transition = '';
-        this.setAct('stand');
-        done?.();
-      }, ms);
-    };
-    if (standMs > 0) {
-      this.setAct('stand');
-      this.walkT = setTimeout(go, standMs);
-    } else go();
+  /** 登場：彈出、冒「到！」，ENTER_MS 後回到狀態漫符 */
+  enter(): void {
+    this.fx('in', ENTER_MS, () => delete this.el.dataset.fx);
   }
 
-  private stop(): void {
-    clearTimeout(this.walkT);
-    this.walkT = undefined;
-    this.walk = null;
+  /** 退場：冒「辛苦了～」往上淡出，EXIT_MS 後呼叫 done（由呼叫端移除）。用計時器而不是 animationend：樓層 DOM 被搬動時動畫會被取消 */
+  exit(done: () => void): void {
+    this.fx('out', EXIT_MS, done);
+  }
+
+  /** 退場中又回來：停掉退場，回到座位上的樣子 */
+  cancelExit(): void {
+    clearTimeout(this.fxT);
+    delete this.el.dataset.fx;
+  }
+
+  private fx(kind: 'in' | 'out', ms: number, then: () => void): void {
+    clearTimeout(this.fxT);
+    this.el.dataset.fx = kind;
+    this.fxT = setTimeout(then, ms);
   }
 
   destroy(): void {
-    this.stop();
+    clearTimeout(this.fxT);
     this.el.remove();
   }
 }

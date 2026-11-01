@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildingPlan, buildingWidth, floorAlert, floorPlan, plateText, seatCenter, visibleSpan, atBottom, DOOR_X, walkMs, walkPos, withLeaving, vacate } from '../web/src/floors.js';
+import { buildingPlan, buildingWidth, floorAlert, floorPlan, plateText, seatCenter, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -139,22 +139,7 @@ test('atBottom：沒有捲軸或捲到底（容許 1px）算在最底', () => {
   expect(atBottom(500, 1500, 700)).toBe(false);
 });
 
-test('walkMs：距離 ÷ 120px/s，左右走一樣久，原地為 0；電梯門中心在電梯區正中', () => {
-  expect(walkMs(40, 280)).toBe(2000);
-  expect(walkMs(280, 40)).toBe(2000);
-  expect(walkMs(100, 100)).toBe(0);
-  expect(DOOR_X).toBe(40);
-});
 
-test('walkPos：等速內插，半路轉向從那裡開始；時間外夾在起終點；0ms 直接在終點', () => {
-  const w = { from: 40, to: 280, start: 1000, ms: 2000 };
-  expect(walkPos(w, 1000)).toBe(40);
-  expect(walkPos(w, 2000)).toBe(160);
-  expect(walkPos(w, 500)).toBe(40);
-  expect(walkPos(w, 9000)).toBe(280);
-  expect(walkPos({ from: 280, to: 40, start: 0, ms: 1000 }, 250)).toBe(220);
-  expect(walkPos({ from: 5, to: 5, start: 0, ms: 0 }, 0)).toBe(5);
-});
 
 test('withLeaving + vacate：最後一人走去電梯時樓層還在、座位已空、不算提示', () => {
   const gone = emp('a', 'waiting', { seat: 1 });

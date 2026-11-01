@@ -1,10 +1,9 @@
-// 一層樓：後牆（招牌「NF 專案名」、窗景與家具）、地板、樓板、左邊電梯門（門上樓號）、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
+// 一層樓：後牆（招牌「NF 專案名」、窗景與家具）、地板、樓板、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
 import type { Employee } from '../../src/state/types.js';
-import { DOOR_X, GEO, plateText, seatCenter, type Floor } from './floors.js';
+import { GEO, plateText, seatCenter, type Floor } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
 import { GLASS, OBJECTS, PANO, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
-import { ElevatorDoor } from './door.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WIN_Y = 66; // 窗台底邊：窗頂 14 與招牌同高，窗在坐著的人頭上
@@ -59,25 +58,18 @@ export class FloorView {
   readonly people = div('people');
   private inner = div('floor-in');
   private sign = div('sign');
-  private doorNum = div('door-num');
   private deskRow = div('desks');
   private desks: DeskEl[] = [];
   private windows = div('windows');
   private furniture = div('furniture'); // 貼右緣、寬 GEO.furnitureW
   private furnKey: string | null = null; // 目前擺的是哪個 roomKey 的那組
   private f: Floor | null = null;
-  /** 電梯門中心 x（內容座標，與 seatCenter 同一套） */
-  readonly doorX = DOOR_X;
-  private elev = div('elevator');
-  private door = div('door');
-  private doorQ = new ElevatorDoor((open) => this.elev.classList.toggle('open', open));
 
   constructor(hooks: { hover(e: Employee, at: DOMRect): void; unhover(): void }) {
-    this.elev.append(this.doorNum, this.door);
     this.sign.style.left = `${SIGN_X}px`;
     this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
-    this.inner.append(div('wall'), div('ground-strip'), div('slab'), this.windows, this.elev, this.sign, this.furniture, this.people, this.deskRow);
-    this.el.append(this.inner); // 內容座標（電梯區從 0 開始）與 seatCenter 同一套
+    this.inner.append(div('wall'), div('ground-strip'), div('slab'), this.windows, this.sign, this.furniture, this.people, this.deskRow);
+    this.el.append(this.inner); // 內容座標與 seatCenter 同一套
     // 滑過人物：依 data-key 找這層目前的佔用者
     const personOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>('.person') : null);
     this.people.addEventListener('mouseover', (ev) => {
@@ -102,7 +94,6 @@ export class FloorView {
     this.sign.textContent = `${f.level}F ${f.title}`;
     this.sign.title = f.key || f.title;
     this.sign.style.backgroundColor = f.color; // 專案色（不透明）
-    this.doorNum.textContent = String(f.level);
     while (this.desks.length > f.desks) this.desks.pop()!.el.remove();
     while (this.desks.length < f.desks) {
       const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = el('span'), helpers = el('b', 'helpers');
@@ -148,33 +139,17 @@ export class FloorView {
     }));
   }
 
-  /** 電梯門開（300ms）→ 呼叫 atOpen（一律非同步）→ 停一下 → 關（300ms）；門關好時 resolve。排隊規則見 ElevatorDoor.ride */
-  openDoor(atOpen?: () => void): Promise<void> {
-    return this.doorQ.ride(atOpen);
-  }
-
-  /** 重新連線：門直接關上、不播動畫，等著的事都作廢 */
-  shutDoor(): void {
-    this.doorQ.cancel();
-    this.elev.classList.add('snap');
-    this.elev.classList.remove('open');
-    void getComputedStyle(this.door, '::before').transform; // 讓沒有 transition 的關門先生效
-    this.elev.classList.remove('snap');
-  }
-
   destroy(): void {
-    this.doorQ.cancel();
     this.el.remove();
   }
 }
 
 /** 沒有人上班：一層空的大廳，中間一張紙條寫兩行提示 */
 export function lobby(): HTMLElement {
-  const room = div('floor'), inner = div('floor-in'), elev = div('elevator'), msg = div('lobby-msg'), note = div('note');
-  elev.append(el('div', 'door-num', '1'), div('door'));
+  const room = div('floor'), inner = div('floor-in'), msg = div('lobby-msg'), note = div('note');
   note.append(el('b', '', '目前沒有人上班'), el('span', '', '開一個 Claude Code session 就會出現'));
   msg.append(note);
-  inner.append(div('wall'), div('ground-strip'), div('slab'), elev, msg);
+  inner.append(div('wall'), div('ground-strip'), div('slab'), msg);
   room.append(inner);
   return room;
 }
