@@ -2,7 +2,7 @@
 
 日期：2026-10-31
 
-取代：`2026-10-29-isometric-office-design.md`、`2026-10-29-iso-office-objects-design.md`、`2026-10-29-iso-office-slanted-desk.md`、`2026-10-30-iso-office-modern-desk.md` 的畫面部分。`2026-10-30-your-turn.md` 的狀態規則仍然有效。
+取代：`2026-10-29-isometric-office-design.md`、`2026-10-29-iso-office-objects-design.md`、`2026-10-29-iso-office-slanted-desk.md`、`2026-10-30-iso-office-modern-desk.md` 的畫面部分（這四份已刪除，見 git 歷史）。`2026-10-30-your-turn.md` 的狀態規則仍然有效。
 
 示意圖（已確認的版面，用瀏覽器直接打開）：
 
@@ -17,7 +17,7 @@
 
 新的畫面是一棟**從正面剖開的大樓**：一個專案一層樓，人坐在桌後面向觀看者。每層都是長方形，疊起來就是畫面的形狀，所以沒有暗角。
 
-核心需求不變（見 `2026-10-21-flat-vector-project-islands-design.md` §1）：打開畫面最想一眼知道「有哪些專案」與「哪些 session 在等我」。
+核心需求不變（見 `2026-10-21-flat-vector-project-islands-design.md` §1，已刪除，見 git 歷史）：打開畫面最想一眼知道「有哪些專案」與「哪些 session 在等我」。
 
 ## 目標
 

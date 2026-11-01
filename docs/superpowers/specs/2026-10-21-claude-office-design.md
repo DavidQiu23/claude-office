@@ -2,7 +2,7 @@
 
 - 日期：2026-10-21
 - 狀態：待審閱
-- 注意：視覺與專案分組已由 `2026-10-21-flat-vector-project-islands-design.md` 取代。
+- 注意：視覺與專案分組已由 `2026-10-21-flat-vector-project-islands-design.md` 取代（已刪除，見 git 歷史）。
 
 ## 1. 目的與範圍
 
