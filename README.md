@@ -6,11 +6,11 @@
 
 ![白天的辦公室](docs/images/office-day.png)
 
-*白天（`?time=day`），`npm run simulate` 跑到一半的畫面。*
+*白天（`?time=day`）：三個專案三層樓，有人工作中、等你批准、輪到你，2F 的名牌旁「↳2」是兩位工作中的助理。*
 
 ![夜晚的辦公室](docs/images/office-night.png)
 
-*夜晚（`?time=night`），同一份劇本。*
+*夜晚（`?time=night`），同一個畫面。*
 
 ## 快速開始
 

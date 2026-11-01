@@ -146,3 +146,10 @@ test('進出貼紙是白底，字用固定深色（夜晚的 --fx 是淺色，�
     expect(el, t).not.toContain('var(--fx)');
   }
 });
+
+test('退場往上淡出的整段過程，貼紙都不蓋住招牌', () => {
+  const css = readFileSync('web/src/styles/figure.css', 'utf8');
+  const rise = Number(css.match(/@keyframes fig-out \{[^}]*translateY\(-(\d+(?:\.\d+)?)px\)/)?.[1]);
+  expect(rise).toBeGreaterThan(0);
+  expect(FX_BOXES.out.y0 - rise).toBeGreaterThanOrEqual(-29);
+});

@@ -139,9 +139,7 @@ test('atBottom：沒有捲軸或捲到底（容許 1px）算在最底', () => {
   expect(atBottom(500, 1500, 700)).toBe(false);
 });
 
-
-
-test('withLeaving + vacate：最後一人走去電梯時樓層還在、座位已空、不算提示', () => {
+test('withLeaving + vacate：最後一人退場時樓層還在、座位已空、不算提示', () => {
   const gone = emp('a', 'waiting', { seat: 1 });
   const plan = vacate(floorPlan(withLeaving([], [gone]), none), new Set(['a']));
   expect(plan).toHaveLength(1);

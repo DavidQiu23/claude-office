@@ -38,7 +38,7 @@
 .person[data-fx="in"] .figure { animation: fig-in 600ms ease-out; }
 .person[data-fx="out"] .figure { animation: fig-out 500ms ease-in forwards; }
 @keyframes fig-in { 0% { transform: scale(.6); } 55% { transform: scale(1.12); } 100% { transform: scale(1); } }
-@keyframes fig-out { to { opacity: 0; transform: translateY(-16px); } }
+@keyframes fig-out { to { opacity: 0; transform: translateY(-6px); } } /* 只飄 6px：貼紙頂端 y −23，再高會蓋到招牌（測試檢查） */
 
 /* 工作中：兩手輪流上下（錯開半週期），「噠噠」閃 */
 .person[data-act="work"] .arm-l { animation: fig-type .42s ease-in-out infinite; }
