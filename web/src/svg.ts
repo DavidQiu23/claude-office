@@ -9,3 +9,16 @@ export function tag(name: string, attrs: Record<string, string | number | undefi
   for (const [k, v] of Object.entries(attrs)) if (v !== undefined) a += ` ${k}="${esc(String(v))}"`;
   return children === undefined ? `<${name}${a}/>` : `<${name}${a}>${children}</${name}>`;
 }
+
+// ── 人物（figure.ts）與物件（objects.ts）共用的圖形；顏色一律放 class 或 style ──
+
+/** rx 為 0 時不輸出 */
+export const rect = (x: number, y: number, w: number, h: number, rx: number, cls: string | undefined, style?: string) =>
+  tag('rect', { x, y, width: w, height: h, rx: rx || undefined, class: cls, style });
+export const circle = (cx: number, cy: number, r: number, cls: string | undefined, style: string) => tag('circle', { cx, cy, r, class: cls, style });
+export const ellipse = (cx: number, cy: number, rx: number, ry: number, cls: string | undefined, style?: string) =>
+  tag('ellipse', { cx, cy, rx, ry, class: cls, style });
+export const path = (d: string, cls: string | undefined, style?: string) => tag('path', { d, class: cls, style });
+/** 只有線、不填色 */
+export const line = (d: string, cls: string, style?: string) => tag('path', { d, class: cls, fill: 'none', style });
+export const fill = (c: string) => `fill:${c}`;

@@ -2,7 +2,7 @@
 // 座標：原點 = 底邊中點，x 往右、y 往上是負的；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}`。
 // 顏色規則：一律寫在 style 或 class（mk／mk-thin／tone／ink），不用 fill="色"／stroke="色" 屬性。
 // 文件的 CSS 選擇器進不了 <use> 的影子樹，所以依日夜顯示的群組用 style="opacity:var(--day)"／"opacity:var(--night)"（繼承的變數進得去）。
-import { tag } from './svg.js';
+import { circle, ellipse, fill, line, path, rect, tag } from './svg.js';
 
 export type DeskState = 'empty' | 'working' | 'waiting' | 'idle';
 export type FurnitureId = 'waterCooler' | 'vending' | 'plant' | 'bookshelf' | 'copier' | 'sofa' | 'floorLamp' | 'sideTable';
@@ -27,17 +27,9 @@ export const OBJECTS: Record<ObjectId, ObjectSpec> = {
   sideTable: { w: 30, h: 37, standX: 0 },
 };
 
-// ── 小工具（同 figure.ts） ──
+// ── 小工具（共用的圖形在 svg.ts） ──
 
 const g = (style: string, children: string) => tag('g', { style }, children);
-const rect = (x: number, y: number, w: number, h: number, rx: number, cls: string | undefined, style?: string) =>
-  tag('rect', { x, y, width: w, height: h, rx: rx || undefined, class: cls, style });
-const circle = (cx: number, cy: number, r: number, cls: string | undefined, style: string) => tag('circle', { cx, cy, r, class: cls, style });
-const ellipse = (cx: number, cy: number, rx: number, ry: number, cls: string | undefined, style?: string) =>
-  tag('ellipse', { cx, cy, rx, ry, class: cls, style });
-const path = (d: string, cls: string | undefined, style?: string) => tag('path', { d, class: cls, style });
-const line = (d: string, cls: string, style?: string) => tag('path', { d, class: cls, fill: 'none', style }); // 只有線、不填色
-const fill = (c: string) => `fill:${c}`;
 const tone = (x: number, y: number, w: number, h: number) => rect(x, y, w, h, 0, 'tone');
 
 const day = (children: string) => g('opacity:var(--day)', children);

@@ -1,6 +1,6 @@
 // 日式漫畫風人物：純函式產生 SVG 字串（不碰 DOM）。座標系 60×84，x 30 是座位中心。
 // 顏色規則：一律寫在 style 或 class（mk／mk-thin／tone），不用 fill="色"／stroke="色" 屬性，日夜變數才會生效。
-import { tag } from './svg.js';
+import { circle, ellipse, fill, line, path, rect, tag } from './svg.js';
 import { HAIR_COLORS, SHIRT_COLORS, type Look } from './view.js';
 
 export const FIG = { w: 60, h: 84 } as const;
@@ -10,16 +10,8 @@ type Pt = [number, number];
 
 const n = (v: number) => Math.round(v * 100) / 100;
 const g = (cls: string, children: string) => tag('g', { class: cls }, children);
-const rect = (x: number, y: number, w: number, h: number, rx: number, cls: string | undefined, style?: string) =>
-  tag('rect', { x, y, width: w, height: h, rx, class: cls, style });
-const circle = (cx: number, cy: number, r: number, cls: string | undefined, style: string) => tag('circle', { cx, cy, r, class: cls, style });
-const ellipse = (cx: number, cy: number, rx: number, ry: number, cls: string | undefined, style: string) =>
-  tag('ellipse', { cx, cy, rx, ry, class: cls, style });
-const path = (d: string, cls: string | undefined, style?: string) => tag('path', { d, class: cls, style });
-const line = (d: string, cls: string) => tag('path', { d, class: cls, fill: 'none' }); // 只有墨線、不填色
 const text = (x: number, y: number, size: number, s: string, style: string, cls?: string, anchor?: string) =>
   tag('text', { class: cls, x, y, 'font-size': size, 'font-weight': 500, 'text-anchor': anchor, style }, s);
-const fill = (c: string) => `fill:${c}`;
 
 const SKIN = fill('var(--skin)');
 const INK = fill('var(--fig-ink)');
