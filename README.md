@@ -1,237 +1,168 @@
 # Claude 辦公室
 
-把本機的 Claude Code session 顯示成依時間切換白天或夜晚的剖面大樓：手繪紙張風的背景、日式漫畫風的人物與家具。一個專案一層樓，每個 session 是坐在桌前的員工，subagent 是坐在主人旁邊的助理。一眼就能看出哪個 session 還在工作、哪個在等你處理、哪個已經輪到你。
+> 在本機網頁上，把你的 Claude Code session 畫成一棟剖面大樓：一個專案一層樓，一個 session 一位員工。
 
-![Claude 辦公室（白天）：頂端是紅色外框的紙卡狀態列，左側是電梯面板，右邊由上往下是六層樓，每層有專案招牌、坐在桌前的漫畫員工與右端的家具](docs/images/office-day.png)
+同時開好幾個 session 時，你不用逐一切過去看，就知道哪個還在跑、哪個在等你批准、哪個已經做完輪到你。
 
-*上圖是白天（`?time=day`）、`npm run simulate` 跑到一半的畫面，共六層：頂端是紙卡狀態列，有圖例與比例條，因為有人等你處理，外框是紅色；左側是電梯面板，一層一顆圓鈕，紅色是有人等你處理的樓層（2F、5F），琥珀色是輪到你的樓層（1F），外圍的虛線框框住目前看得到的樓層。右邊由上往下是 6F mobile、5F crm、4F 專案資料夾名太長而以「…」截斷的招牌、3F shop、2F blog、1F api，招牌貼在後牆左上。人物是漫畫畫法，狀態靠漫符分辨：工作中的員工坐著打字，旁邊有「噠噠」，名牌是米白色；5F 最右邊與 2F 的員工在等你處理，站起來舉手，頭旁有集中線，右側有尖角的「！」框，名牌是紅色並以「!」開頭；1F 與 5F 第七位的員工輪到你，頭上有打勾的琥珀色泡泡，名牌是琥珀色並以「✓」開頭，閉著眼睛打瞌睡，旁邊飄著「z」。3F shop 的助理做完了，正走回電梯離開，電梯門開著。5F crm 坐滿 8 人，右緣有暗影，表示還能往右捲。每扇窗看出去是同一片城市的不同位置：1F 看到對面大樓的下半部與街道，2F 是對面大樓的窗，越高層看到越多屋頂與天空，5F、6F 幾乎只剩天空；右端放一組家具，大樓上方的天空有太陽與白雲，屋頂有天線。*
+![白天的辦公室](docs/images/office-day.png)
 
-![Claude 辦公室（夜晚）：同一個畫面換成深藍色的夜晚，窗裡是星空與對面大樓亮著的窗，屋頂上方有月牙，有人的桌子亮著檯燈，立燈周圍有一圈暖光、販賣機透出淡淡的光](docs/images/office-night.png)
+*白天（`?time=day`），`npm run simulate` 跑到一半的畫面。*
 
-*上圖是夜晚（`?time=night`）、同一份劇本的另一個畫面，共六層：狀態列與電梯面板換成深藍紙卡，因為有人等你處理，外框仍是紅色；電梯面板的 5、2 是紅燈，1 是琥珀燈。三種狀態的顏色白天夜晚相同：5F crm 最右邊與 2F blog 的員工在等你處理，5F crm 第七位與 1F api 的員工輪到你，其他人在打字；3F shop 做完的助理正走進電梯。牆面、天空與窗景換成夜色：高樓層的窗裡是星空，低樓層看到對面大樓零星亮著的窗；整個畫面只有一個月牙，在屋頂上方的天空。有人的桌子亮著檯燈，立燈周圍有一圈暖光、販賣機透出淡淡的光，沒有人的桌子不亮燈；屋頂天線頂端的紅燈會閃。*
+![夜晚的辦公室](docs/images/office-night.png)
 
-## 功能
-
-- **一個 session 一位員工，一個專案一層樓**：依 session 的 cwd 分樓層，先到的專案在 1F，往上排；招牌寫在後牆左上，例如「3F shop」。
-- **三種狀態一眼分辨**：用漫畫的漫符標示。工作中：坐著打字，旁邊有「噠噠」，名牌是米白色；等你處理：站起來舉手，頭上有集中線、尖角「！」框與汗滴，名牌是紅色；輪到你：閉著眼睛、頭輕輕點，旁邊飄著「zZ」，頭上有打勾的琥珀色泡泡，名牌是琥珀色。
-- **依時間切換白天與夜晚**：本機時間 6:00（含）到 18:00（不含）是白天，其餘是夜晚，開著頁面跨過整點會自動換；網址加 `?time=day` 或 `?time=night` 可以固定成白天或夜晚（系統的深色模式不影響）。
-- **狀態列一眼看比例**：圖例依緊急程度列出各狀態人數，下方比例條用紅／琥珀／綠顯示人數比例；狀態列黏在頁面頂端。
-- **電梯面板**：固定在視窗左側，一層一顆按鈕，亮紅燈＝那層有人等你處理、亮琥珀燈＝沒有人等你但有人輪到你；不管頁面捲到哪裡都看得到，點按鈕會捲到那層。
-- **原生捲動**：樓層由上到下排成一棟大樓，用瀏覽器的捲軸看；打開頁面時停在最底（1F）。
-- **放不下的樓層自己左右捲**：一層人多時只有那一層左右捲，邊緣有暗影；看不到的座位有人在等，邊緣會出現紅色或琥珀色提示，點了捲過去。
-- **搭電梯上下班**：員工從電梯走出來、走到座位坐下；下班走回電梯，最後一人離開後那層才拆掉。
-- **助理也是員工**：subagent 坐在主人那層的桌子，名牌以「↳」開頭，完成後 3 秒離開；助理不算在電梯燈、邊緣提示與狀態列。
-- **分頁標題帶數字**：例如 `(!1 ✓2) Claude 辦公室`，分頁在背景也看得到。
-- **資訊卡**：滑鼠移到員工或助理身上會出現資訊卡；員工的卡片列出他的助理，並可「請他下班」。
-- **只在本機執行**：伺服器只監聽 127.0.0.1；hook 最多等 300 毫秒，送不到伺服器時靜默結束，不影響 Claude Code。
-
-## 需求
-
-- Node.js（本專案以 Node 22 開發，`@types/node` 為 22 版）
-- Windows：hook 會經由 Git Bash 執行，請先安裝 Git for Windows（見下方「已知限制」）
+*夜晚（`?time=night`），同一份劇本。*
 
 ## 快速開始
 
-```
+完成這四步後，你的 Claude Code session 會以員工的樣子出現在 http://127.0.0.1:47823 。
+
+**需求**：Node.js（以 Node 22 開發）。Windows 另需 Git for Windows，因為 Claude Code 經由 Git Bash 執行 hook。
+
+```bash
 npm install
+```
+
+```bash
 npm run build
+```
+
+```bash
 npm run install-hooks
+```
+
+```bash
 npm start
 ```
 
-然後用瀏覽器打開 http://127.0.0.1:47823 。之後每個 Claude Code session 送出事件時，員工就會走進辦公室。
-
-## 安裝與建置
-
-```
-npm install
-npm run build
-```
-
-`npm run build` 會依序執行 `tsc`（把 `src/` 的伺服器、hook、installer 編譯到 `dist/`）、`tsc -p web`（前端只做型別檢查，不輸出）與 `vite build`（前端輸出到 `dist/web`）。
+啟動成功時會顯示 `Claude Office 已啟動：http://127.0.0.1:47823`。用瀏覽器打開這個網址。已經開著的 session 要等下一個事件（例如你送出下一個 prompt）才會出現。
 
 ## 安裝與移除 hooks
 
-```
+```bash
 npm run install-hooks
 ```
 
-- 請**先 build 再安裝 hook**：hook 指令指向 `dist/hook/send.js`，沒有 build 就沒有這個檔。
-- `install-hooks` 會把 hook 寫入 `~/.claude/settings.json`（13 個事件：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、PostToolUseFailure、PermissionRequest、Notification、Elicitation、ElicitationResult、Stop、StopFailure、SubagentStop、SessionEnd）。
-- hook 寫的是這個資料夾的絕對路徑，**專案搬移後請重新 build 並重新執行 `install-hooks`**。更新版本後也請重新執行一次，才會掛上新增的事件。
-- 重複執行不會重複新增：會先拿掉舊的 claude-office 項目再寫入。
+- 你要**先 build 再安裝**：hook 指向 `dist/hook/send.js`。
+- 安裝會寫入 `~/.claude/settings.json`，共 13 個事件：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、PostToolUseFailure、PermissionRequest、Notification、Elicitation、ElicitationResult、Stop、StopFailure、SubagentStop、SessionEnd。成功時顯示 `已安裝 hooks：<路徑>`。
+- hook 記的是這個資料夾的絕對路徑：**搬移資料夾或更新版本後，重新 build 並再執行一次**。重複執行不會重複新增。
+- 第一次修改前會備份成 `settings.json.claude-office.bak`，之後不再覆蓋，永遠是最初的原始檔。
+- hook 最多等 300 毫秒，伺服器沒開時靜默結束，不影響 Claude Code。
 
-移除：
+移除時只拿掉帶 `--tag=claude-office` 的項目，你的其他 hook 保留：
 
-```
+```bash
 npm run uninstall-hooks
 ```
 
-只會從 `~/.claude/settings.json` 移除 claude-office 的項目（指令帶有 `--tag=claude-office` 的 hook），其他 hook 保留。
-
-- `install-hooks` 與 `uninstall-hooks` 在 `settings.json` 已存在時，會先建立原始檔備份 `settings.json.claude-office.bak`（備份已存在就不會覆蓋，永遠保留最初的原始檔）；原本沒有 `settings.json` 就不會備份。
-- `settings.json` 不是合法的 JSON，或 `hooks` 欄位不是物件時，會中止且不做任何修改。
-
-## 啟動
-
-```
-npm start
-```
-
-然後用瀏覽器打開 http://127.0.0.1:47823 。伺服器只監聽 127.0.0.1，僅限本機存取。滑鼠移到員工身上會出現資訊卡，可按「請他下班」。
-
-port 已被占用時，伺服器會顯示 `port 47823 已被占用，請在 %USERPROFILE%\.claude-office\config.json 修改 port` 並結束，請見「設定」。
-
-## 用 simulate 示範
-
-沒有真實 session 時，可以用模擬事件讓辦公室有人：
-
-```
-npm start                       # 先開伺服器（另開一個終端機）
-npm run simulate                # 跑一輪 14 個模擬 session（7 個專案）
-npm run simulate -- --loop      # 一直重複
-```
-
-- `simulate` 只是把事件送給本機伺服器，所以**必須先 `npm start`**；伺服器沒開時會顯示「送不出事件」並結束。
-- 它和伺服器讀同一個設定檔取得 port，改過 port 也不用另外指定。
-- 一輪約 22 秒（35 個事件，多數每 0.5 秒一個，員工陸續走進來的部分每 0.1 秒一個，幾個畫面會多停 2 到 4 秒）。劇本涵蓋：
-  - 多個樓層：api、blog、shop、docs、tools、crm 同時 6 層，超過一個畫面要上下捲；tools 的資料夾名超長，招牌會以「…」截斷；api 的標題超長，名牌會截斷。
-  - 擠滿的樓層：crm 有 8 位員工，那層要左右捲；最後進場、坐在最右邊的員工等你處理，座位 6 輪到你，視窗較窄時他們在畫面外，邊緣會出現提示。
-  - 多位助理：shop 一次派出 3 位（一位有類型、一位沒有描述），一起工作約 3.5 秒，陸續完成後離開。
-  - 有人等你處理（權限詢問，blog 與 crm）、有人輪到你（api 與 crm），docs 整層下班後拆掉，mobile 再在最上面加蓋新樓層。
-  - 最後全部搭電梯下班，大樓回到空大廳。
-  想停在某個畫面，可在中途按 Ctrl+C；停下後模擬員工會留在大樓裡，直到按「請他下班」、重新啟動伺服器（狀態只存在記憶體），或 12 小時沒有事件。
-- 模擬用的假 transcript 放在系統暫存資料夾，結束時（含 Ctrl+C）會自動刪除；不會寫入 `~/.claude` 或 `~/.claude-office`。
-
 ## 設定
 
-設定檔只有一個選項 `port`，預設 `47823`：
+設定檔只有 `port` 一個選項，預設 `47823`：
 
 ```json
 {"port": 50000}
 ```
 
-| 系統 | 位置 |
-| --- | --- |
-| Windows | `%USERPROFILE%\.claude-office\config.json` |
-| macOS / Linux | `~/.claude-office/config.json` |
+- macOS / Linux：`~/.claude-office/config.json`
+- Windows：`%USERPROFILE%\.claude-office\config.json`
 
-- 沒有設定檔、檔案無法解析，或 `port` 不是 1–65535 的整數時，一律使用預設值 `47823`。
-- 伺服器、hook 與 `simulate` 都讀這個檔。改完後**重新啟動伺服器**；hook 每次執行都會重新讀取，所以不必重裝 hook。
+伺服器、hook 與 `simulate` 都讀這個檔。檔案不存在、無法解析或 port 不是 1–65535 的整數時，用預設值。改完要**重新啟動伺服器**，hook 不必重裝。伺服器只監聽 127.0.0.1，只有本機看得到。
+
+## 示範（simulate）
+
+手邊沒有 session 時，你可以送模擬事件看看效果。先在另一個終端機啟動伺服器：
+
+```bash
+npm start
+```
+
+跑一輪（約 22 秒，涵蓋多樓層、擠滿的樓層、助理、三種狀態、拆樓與加蓋）：
+
+```bash
+npm run simulate
+```
+
+或一直重複：
+
+```bash
+npm run simulate -- --loop
+```
+
+中途按 Ctrl+C 會停在當下畫面，模擬員工留在大樓裡，直到你按「請他下班」或重啟伺服器（狀態只存在記憶體）。模擬不會寫入 `~/.claude` 或 `~/.claude-office`。
+
+## 白天與夜晚
+
+- 本機時間 6:00（含）到 18:00（不含）是白天，其餘是夜晚；頁面開著時會自動切換。
+- 網址加 `?time=day` 或 `?time=night` 可以固定。系統的深色模式不影響。
+
+## 三種狀態
+
+每個狀態只有一個動作，白天夜晚顏色相同。
+
+| 狀態 | 動作 | 名牌 | 觸發事件 |
+| --- | --- | --- | --- |
+| 工作中 | 坐著打字，旁邊有「噠噠」 | 米白色 | UserPromptSubmit、PreToolUse（AskUserQuestion 除外）、PostToolUse、PostToolUseFailure、ElicitationResult |
+| 等你處理 | 站起來舉手，集中線、「！」尖角框、汗滴 | 紅色，以「!」開頭；電梯燈紅 | PermissionRequest、PreToolUse 的 AskUserQuestion、Elicitation、權限或輸入類的 Notification |
+| 輪到你 | 坐著打瞌睡，飄著「zZ」，頭上琥珀色打勾泡泡 | 琥珀色，以「✓」開頭；電梯燈琥珀 | Stop、StopFailure；剛出現、還沒有其他事件的新 session |
+
+員工在這些時候走回電梯下班：SessionEnd、你按「請他下班」，或 12 小時沒有任何事件。
+
+## 助理（subagent）
+
+- 坐在主人那層的桌子打字，名牌以「↳」開頭（有類型時是「↳ 類型 · 描述」）。
+- 完成後名牌變「↳ ✓ 完成」，3 秒後直接走回電梯離開。
+- 不算在電梯燈、邊緣提示、狀態列與分頁標題的數字裡。
+
+## 畫面上的其他東西
+
+- **樓層**：先到的專案在 1F，新專案蓋在最上面；整層沒人才拆掉，上面的樓層往下補。打開頁面時停在 1F。
+- **電梯面板**：固定在左側，一層一顆鈕。紅燈＝有人等你處理，琥珀燈＝有人輪到你。點了捲到那層。
+- **狀態列**：黏在頂端，列出三種狀態的人數與比例條；有人等你時外框變紅，有人輪到你時變琥珀。
+- **邊緣提示**：一層人太多時那層可以左右捲。看不到的員工在等你，邊緣會出現紅色「! N」或琥珀色「✓ N」，點了捲過去。
+- **分頁標題**：例如 `(!1 ✓2) Claude 辦公室`，分頁在背景也看得到。
+- **資訊卡**：滑鼠移到人身上，顯示標題、目前動作、最近的 prompt 與助理清單。
+- **請他下班**：資訊卡上的按鈕，按下立即讓員工離開，沒有確認步驟。
 
 ## 疑難排解
 
-- **畫面一直是空的**：確認 `npm start` 還在跑，且瀏覽器網址的 port 與設定一致；已經開著的 Claude Code session 要等下一次事件（例如送出下一個 prompt）才會出現。
-- **改了 port 但沒有反應**：伺服器要重新啟動；之後新送出的事件才會用新 port。
-- **Windows 上所有 hook 一起逾時**：Claude Code 在 Windows 上經由 Git Bash 執行 hook，Git Bash 異常時所有 hook 會一起逾時，辦公室因此收不到事件。這是 Git Bash 的問題，不是 claude-office 的設定；請先確認 `bash.exe -c "echo ok"` 能在一秒內回應。
-
-## 大樓怎麼排
-
-**整體**：畫面由上而下是狀態列（黏在頁面頂端）、天空（白天有太陽與白雲，夜晚有星星與月牙）、屋頂（女兒牆、水塔、冷氣機與天線，夜晚天線頂端的紅燈會閃）、樓層（最高樓在上、1F 在最下）與地面（人行道與馬路）。頁面用瀏覽器原生捲軸；大樓比視窗矮時，上方的空間就是天空。打開頁面時停在最底，看到 1F 與地面；之後重新連線不會動你的捲動位置。
-
-沒有人上班時，只剩一層空的大廳（上方仍是天空與屋頂），牆上貼一張歪歪的紙條，寫著「目前沒有人上班」與「開一個 Claude Code session 就會出現」，電梯面板也不顯示。
-
-**樓層分配**：每個專案（以完整路徑 cwd 判斷，一個資料夾一個）一層樓，先到的專案在低樓層、新專案蓋在最上面；還有人的樓層不會換位置，只有整層走光（包含走進電梯）時，那層才拆掉，上面的樓層往下遞補，樓號跟著改。頁面剛載入時，專案依各自最早的到班時間從 1F 往上排；之後重新連線（例如伺服器重啟），還在的樓層維持原本的順序，新的專案蓋在上面。同名但路徑不同的資料夾，招牌會顯示路徑最後兩層來區分；招牌上的專案色由路徑決定，滑到招牌上會顯示完整路徑。
-
-**一層樓**：高 200px，從左到右是電梯門（門上有樓號）、一排桌子、右端一組家具；後牆有窗景：所有窗看出去是同一片連續的城市（天空、遠處的屋頂、對面的大樓、街道），每扇窗只露出其中一塊，左右跟著窗在樓層裡的位置，上下跟著樓層高低（1F 看到對面大樓與街道，越高層看到越多屋頂與天空，5F 以上固定在最高的視角）；白天天空有白雲，夜晚有星星、對面大樓有零星亮著的窗。窗裡不畫太陽和月亮，整個畫面只有屋頂上方天空裡的那一個，招牌寫在後牆左上，例如「3F shop」（專案色底、白字，放不下以「…」截斷）。右端家具從四組（飲水機＋販賣機＋盆栽、書櫃＋影印機＋盆栽、立燈＋沙發＋邊桌、書櫃＋邊桌＋立燈）裡依專案路徑挑一組，所以同一個專案永遠長一樣。
-
-**桌子與座位**：一個座位寬 120px，人坐在桌後面向你，螢幕在桌面右側不擋臉。桌數是這層最大座位編號（包含助理的座位）加 1，沒人坐的座位是一張空桌（螢幕是暗的），整層沒人之前空桌都會保留。桌子的狀態一看就懂：
-
-| 桌子狀態 | 螢幕 |
-| --- | --- |
-| 空桌 | 螢幕暗；夜晚不亮檯燈 |
-| 工作中 | 綠色螢幕光 |
-| 等你處理 | 紅色螢幕光、桌面泛紅 |
-| 輪到你 | 琥珀色螢幕光、桌上的杯子冒蒸氣 |
-
-**捲動與寬度**：樓層寬度是「視窗寬 − 左邊 56px − 右邊 16px」與「80 + 桌數 × 120 + 200」之間較大的那個。視窗縮小或桌子變多使內容放不下時，只有那一層左右捲（觸控板左右滑、Shift＋滾輪或拖曳捲軸）：
-
-- 左右各有一條 22px 的暗影，那一側還有內容才顯示，捲到底就消失。
-- 座位中心在可見範圍外的算「看不到」。左、右兩側各自計算看不到的真員工：有等你處理的就出現紅色提示（右側「! 2 ›」、左側「‹ ! 2」，數字是人數）；沒有等你處理但有輪到你的，出現琥珀色「✓ N」。助理不算。
-- 點提示：在那一側找離可見範圍最近、而且狀態跟提示顏色相同的員工，把這層捲到讓他的座位置中。捲動或視窗大小改變時重新計算。
-
-**電梯面板**：固定在視窗左側垂直置中，一層一顆圓形按鈕寫樓號，最高樓在上；樓層太多放不下時面板自己可以上下捲。燈色跟那層的提示一致：紅色＝有員工等你處理，琥珀色＝沒有人等你但有人輪到你，都沒有就是暗的。目前在視窗內看得到（任何部分）的樓層，會用一個虛線框框起來。點按鈕平滑捲到那層（系統設定了「減少動態效果」時直接跳過去），滑過按鈕會顯示專案名稱。
-
-**加蓋樓層**：新專案的第一位員工來時，先在最上面加蓋一層。你停在最底時，畫面維持貼底；停在中間時，畫面停在原本看的那層，不會跳動。
-
-**員工進出**：上班時電梯門打開（0.3 秒），員工從門口走出來，沿著樓層等速（每秒 120px）走到座位坐下。下班時先站起來，走回電梯、門打開、進去、門關上；這層最後一個人進電梯、門關好後，那層才拆掉。走到一半座位變了或要下班，會從目前的位置轉向。重新連線（例如重新整理頁面或伺服器重啟）時，大家直接坐在座位上，不播放電梯與走路的動畫；之後陸續進來的人才會走進來。
-
-**名牌**：每張有人的桌子正面有一行名牌，13px，最寬 112px，放不下以「…」截斷。員工的名牌是 session 標題（transcript 裡的 ai-title），還沒有標題時用第一個 prompt，再沒有就用最近的 prompt。員工等你處理時，名牌是紅色並以「! 」開頭；輪到你時，名牌是琥珀色並以「✓ 」開頭，頭上多一個打勾的琥珀色泡泡；工作中是米白色。助理的名牌見下。
-
-**狀態列與分頁標題**：畫面上方的狀態列分兩行：
-
-- 圖例：依緊急程度排成「等你處理（紅色 !）→ 輪到你（琥珀色 ✓）→ 工作中（綠色 ●）」，每項是色塊符號加人數；人數為 0 的項目變灰。最右側顯示「共 N 位」。
-- 比例條：依人數比例分成紅、琥珀、綠三段，人數為 0 的狀態不畫。
-- 外框跟著最緊急的狀態變色：有等你處理時外框紅色；沒有但有輪到你時外框琥珀色；都沒有時是一般的墨線外框。
-
-瀏覽器分頁標題也會帶數字，例如 `(!1 ✓2) Claude 辦公室`，分頁在背景也看得到；數字為 0 的那一項省略，兩項都是 0 時只顯示 `Claude 辦公室`。
-
-**助理**是主人那層的一位員工，坐在主人右邊第一張空桌，沒有空桌就接在這層最後面；助理在的期間座位不變，真員工被配到同一個座位時助理換位。外觀（髮型、衣服）由主人與助理的編號決定，畫得比員工小一圈（約 0.85 倍）。
-
-- 名牌是偏藍的底色：「↳ 描述」；有類型（取自 subagent 的 `subagent_type`，例如 Explore、Plan）時是「↳ 類型 · 描述」；沒有描述時是「↳ 助理」。
-- 助理開始時從電梯走出來，走到座位打字。完成後換成閒著的姿勢，名牌變「↳ ✓ 完成」，3 秒後走回電梯離開；工作中卻從主人的清單消失，或主人下班，會立刻走回電梯。助理離開後空桌保留，直到整層沒人。
-- 助理不舉手、沒有打勾泡泡，也不算「等你處理」：電梯燈、邊緣提示、狀態列、分頁標題與「共 N 位」都只算員工。不過 subagent 內部的權限詢問等事件會改變主人的狀態。
-
-**資訊卡**（滑鼠移到員工或助理身上就會出現，移開 0.25 秒後隱藏；卡片在人的右上方，頁面或任何一層樓捲動時先藏起來）：上方一條專案色條。
-
-員工的卡片：
-
-- 頭像、標題（同名牌的名字來源）、狀態標籤、專案資料夾名稱
-- 目前動作（等你處理時整塊變紅）
-- 最近的 prompt；第一個 prompt 和最近的不同時另外列出
-- 助理清單：每位顯示類型標籤、描述與狀態；工作中的排前面，最多列 4 位，其餘合併成一行「+N 另有 N 位工作中、N 位已完成」。助理完成後在清單上變暗並標示「完成」，等該員工的下一個事件進來才從清單移除；主人下班時一起消失
-- 頁尾：到班時間（HH:mm）與「請他下班」按鈕。按下就送出，沒有確認步驟；失敗時頁尾顯示「操作失敗，請稍後再試」
-
-助理的卡片：頭像、描述、狀態標籤（工作中或完成）與專案資料夾名稱，接著是類型（沒有則「（未指定）」）、主人的任務標題，頁尾是開始時間（HH:mm）。助理的卡片沒有「請他下班」。
-
-## 狀態說明
-
-| 角色 | 狀態 | 外觀 | 觸發 |
-| --- | --- | --- | --- |
-| 員工 | 工作中 | 坐在桌前打字（雙手交替），旁邊有「噠噠」，螢幕綠色，名牌是米白色 | 送出 prompt（UserPromptSubmit）、工具執行（PreToolUse，AskUserQuestion 除外），批准或回答之後（PostToolUse、PostToolUseFailure、ElicitationResult） |
-| 員工 | 等你處理 | 站起來舉手，頭上有集中線、尖角「！」框與汗滴，名牌整條變紅並以「! 」開頭，桌面泛紅、螢幕變紅，電梯面板那層亮紅燈 | 要跳權限詢問（PermissionRequest）、Claude 用 AskUserQuestion 問你（PreToolUse）、MCP 要你輸入（Elicitation），或 `notification_type` 為 `permission_prompt`、`elicitation_dialog`、`elicitation_url_dialog` 的 Notification |
-| 員工 | 輪到你 | 坐著閉眼、頭輕輕點，旁邊飄著「zZ」，頭上琥珀色泡泡打勾，名牌整條變琥珀色並以「✓ 」開頭，桌上杯子冒蒸氣、螢幕琥珀色，電梯面板那層亮琥珀燈（該層沒有人等你處理時）；維持到下一個改變狀態的事件（通常是你送出下一個 prompt） | 回合結束（Stop、StopFailure）；新 session 剛出現、還沒收到會改變狀態的事件時（例如只收到 SessionStart）也是這個狀態 |
-| 員工 | 下班 | 走回電梯、進去後消失（見「員工進出」） | SessionEnd、按「請他下班」、12 小時沒有任何事件（伺服器每分鐘檢查一次） |
-| 助理 | 工作中 | 從電梯走出來，坐在主人那層的桌子打字，名牌是「↳ …」；主人資訊卡的助理清單出現一列 | subagent 啟動（`PreToolUse` 的 `Agent`，相容舊名 `Task`），或用 SendMessage 叫回已停下的 subagent |
-| 助理 | 完成 | 名牌變「↳ ✓ 完成」、閒著不動，3 秒後走回電梯離開；主人資訊卡的那列變暗並標示「完成」，該員工下一個事件進來時移除 | 前景助理：同 `tool_use_id` 的 `PostToolUse`／`PostToolUseFailure`，或主 session 回合結束、送出新 prompt；背景助理（`run_in_background`）：同 `agent_id` 的 `SubagentStop` |
+- **畫面一直是空的**：確認 `npm start` 還在跑，網址的 port 與設定一致；已開著的 session 要等下一個事件。
+- **`port 47823 已被占用…`**：伺服器會結束。訊息裡寫的是 Windows 路徑；macOS / Linux 請改 `~/.claude-office/config.json`，換一個 port。
+- **改了 port 沒反應**：重新啟動伺服器。
+- **`settings.json 不是合法的 JSON，已中止，未做任何修改`**：先修好 `~/.claude/settings.json` 的格式，再執行一次 `install-hooks`。
+- **`送不出事件。伺服器沒開？請先 npm start`**：`simulate` 找不到伺服器，先啟動 `npm start`。
+- **Windows 上所有 hook 一起逾時**：多半是 Git Bash 異常。先確認 `bash.exe -c "echo ok"` 能在一秒內回應。
 
 ## 已知限制
 
-**已驗證**（Claude Code 2.1.307，headless `-p` 實測）
-
-- `PermissionRequest` 會觸發（順序是 `PreToolUse` → `PermissionRequest`）。`PreToolUse` 在權限判斷之前就觸發，所以要靠 `PermissionRequest` 才能把員工切到等你處理。
-- `run_in_background` 的 Agent：`PostToolUse`（`status: "async_launched"`）與主 session 的 `Stop` 都早於助理真正結束，所以背景助理要等同 `agent_id` 的 `SubagentStop` 才算完成。
-- 強制終止 Claude Code 行程時，收不到 `Stop` 與 `SessionEnd`，員工會留在辦公室，直到按「請他下班」或 12 小時後自動離開。
-
-**未驗證**（需要互動式 session，headless 無法錄製）
-
-- `Notification` 的權限提示：headless 模式完全沒有 `Notification` 事件。程式依官方 hooks 文件的 `notification_type` 判斷；沒有 `notification_type` 時才退回用訊息文字判斷。
-- `AskUserQuestion`：headless 沒有這個工具。程式依工具名稱把它算成等你處理，並預期你回答後的 `PostToolUse` 讓員工回到工作中。
-- Elicitation（MCP 輸入）：依官方 hooks 文件的事件與 `notification_type`（`elicitation_dialog`、`elicitation_url_dialog`）判斷。
-- 按 Esc 中斷、直接關閉終端機視窗：會不會送出 `Stop`／`SessionEnd` 尚未確認。如果沒有送出，員工會停在原本的狀態，直到下一個事件、按「請他下班」，或 12 小時後自動離開。
-
-**Windows**：hook 經由 Git Bash 執行，Git Bash 異常時 hook 會一起逾時（見「疑難排解」）。
+- 強制結束 Claude Code 時收不到 Stop／SessionEnd，員工會停在原狀態，直到下一個事件、你按「請他下班」或 12 小時後離開。按 Esc 中斷或直接關終端機是否一樣，還沒確認。
+- 背景執行（`run_in_background`）的助理要等 SubagentStop 才算完成。
+- Notification 權限提示、AskUserQuestion、MCP Elicitation 依官方 hooks 文件實作，還沒在互動式 session 實測。
 
 細節見 `docs/findings.md`。
 
-## 開發與測試
+## 開發
 
-```
-npm test            # vitest
-npx tsc             # 編譯伺服器、hook、installer 到 dist/（含型別檢查）
-npx tsc -p web      # 前端型別檢查（不輸出檔案）
-npm run build       # tsc + tsc -p web + vite build
+```bash
+npm test
 ```
 
-架構一行：hook 腳本（`src/hook/send.ts`）把事件 POST 給本機伺服器（`src/server`），狀態由 `src/state` 整理後推給瀏覽器，前端用 DOM 組出剖面大樓（`web/src`，沒有用 Phaser 或其他繪圖框架）。設定讀取在 `src/config.ts`，hook 安裝器在 `src/installer`。
+```bash
+npm run build
+```
 
-前端模組（`web/src`）：
+`build` 依序執行 `tsc`（`src/` 編譯到 `dist/`）、`tsc -p web`（前端型別檢查）與 `vite build`（前端輸出到 `dist/web`）。
 
-- `floors.ts`：不碰 DOM 的純函式，會不會畫錯的計算都在這裡（樓層與座位配置 `floorPlan`、助理座位 `assignAssistantSeats`、助理名單 `helperRoster`、電梯燈 `floorAlert`、邊緣提示 `edgeHints`、名牌文字 `plateText`、走路時間），尺寸常數 `GEO` 也在這裡，有 vitest 測試（`test/floors.test.ts`）。
-- `building.ts`（整棟大樓、人物進出與重新連線）→ `floor.ts`（一層樓、左右捲與邊緣提示）→ `person.ts`（一個人：姿勢、走路、泡泡）；`elevator.ts` 是電梯面板，`door.ts` 是電梯門的開關計時，`card.ts` 是資訊卡，`main.ts` 負責狀態列與分頁標題，`sync.ts` 接伺服器的事件。
-- `figure.ts`（一個漫畫人物的 SVG：髮型、衣服、眼鏡、姿勢與漫符的部件，以及資訊卡用的頭像）、`objects.ts`（桌子、窗、八種家具與窗景全景的 SVG `<symbol>` 與物件表）、`svg.ts`（組 SVG 字串的小工具）：都是不碰 DOM 的純函式，有 vitest 測試（`test/figure.test.ts`、`test/objects.test.ts`）。
-- `theme.ts`：依本機時間（6:00–18:00 白天，其餘夜晚）或網址 `?time=day`／`?time=night` 設定 `<html data-time>`，每 60 秒檢查一次；`timeOfDay`、`themeOverride` 是純函式，有測試（`test/theme.test.ts`）。
-- `view.ts`：外觀雜湊、名牌文字、狀態列摘要、專案配色等小工具。
-- 版面與配色的 CSS 在 `web/src/styles/`：`theme.css`（日夜兩組主題變數）、`building.css`（天空、屋頂、樓層、牆、窗、地面、招牌、名牌）、`figure.css`（人物姿勢、漫符與動畫、減少動態）、`ui.css`（狀態列、電梯面板、資訊卡）；`web/index.html` 只留骨架。
-
-美術全是向量圖形，沒有使用外部圖檔：人物與家具是 `figure.ts`、`objects.ts` 產生的行內 SVG（家具與桌子用 `<use>` 重複放置），動作與漫符用 CSS 讓部件旋轉、位移；所有顏色都是 CSS 變數，白天與夜晚各一組，切換時只換變數。想改外觀時：人物的髮型、衣服、漫符在 `web/src/figure.ts`，桌子、窗、家具在 `web/src/objects.ts`，天空、屋頂、地面在 `web/src/building.ts` 與 `web/src/styles/building.css`，每層右端的家具組（`SETS`）在 `web/src/furniture.ts`，衣服配色（`SHIRT_COLORS`）、髮色（`HAIR_COLORS`）與專案配色（`PROJECT_COLORS`）在 `web/src/view.ts`，日夜配色在 `web/src/styles/theme.css`，樓層與座位的尺寸在 `web/src/floors.ts` 的 `GEO`；改完執行 `npm run build`。
+| 位置 | 內容 |
+| --- | --- |
+| `src/hook/send.ts` | hook 腳本，把事件 POST 給伺服器 |
+| `src/server` | 本機伺服器 |
+| `src/state` | 由事件整理出員工與助理狀態 |
+| `src/installer` | 安裝／移除 hooks |
+| `src/config.ts` | 讀設定檔 |
+| `scripts/simulate.ts` | 模擬事件 |
+| `web/src/floors.ts` | 樓層、座位、電梯燈、邊緣提示等純計算，尺寸常數 `GEO` |
+| `web/src/building.ts`、`floor.ts`、`person.ts` | 大樓、單層樓、單一人物 |
+| `web/src/figure.ts`、`objects.ts`、`furniture.ts` | 人物、桌窗家具的 SVG |
+| `web/src/elevator.ts`、`card.ts`、`main.ts` | 電梯面板、資訊卡、狀態列與分頁標題 |
+| `web/src/theme.ts`、`styles/theme.css` | 日夜判斷（6:00–18:00 白天）與兩組配色 |
+| `web/src/view.ts` | 名牌文字、狀態摘要、配色表 |
+| `test/` | vitest 測試 |
