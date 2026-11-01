@@ -291,3 +291,17 @@ test('工作中的助理數：派三個 3、前景完成一個 2、背景啟動�
   ({ state } = run([ev('SubagentStop', { agent_id: 'ag1' })], state));
   expect(working()).toBe(0);
 });
+
+test('主 session Stop 後，背景助理內部的工具事件不把輪到你改回工作中；它要提問仍算等你處理', () => {
+  let r = run([
+    ev('UserPromptSubmit'),
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'b1', tool_input: { description: 'bg', run_in_background: true } }),
+    ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 'b1', tool_response: { status: 'async_launched', agentId: 'ag' } }),
+    ev('Stop'),
+    ev('PreToolUse', { tool_name: 'Read', tool_use_id: 'r1', agent_id: 'ag' }),
+    ev('PostToolUse', { tool_name: 'Read', tool_use_id: 'r1', agent_id: 'ag' }),
+  ]);
+  expect(r.state.employees.s1.status).toBe('idle');
+  r = run([ev('PreToolUse', { tool_name: 'AskUserQuestion', tool_use_id: 'q9', agent_id: 'ag' })], r.state);
+  expect(r.state.employees.s1.status).toBe('waiting');
+});

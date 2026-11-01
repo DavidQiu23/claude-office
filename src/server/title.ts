@@ -19,13 +19,14 @@ const lastTitle = (text: string): string => {
   return '';
 };
 
-export async function readAiTitle(path: string): Promise<string> {
+/** tailOnly：已經有標題時只讀檔尾，長 transcript 不必每回合整檔讀；找不到就回空字串（呼叫端保留原標題） */
+export async function readAiTitle(path: string, tailOnly = false): Promise<string> {
   if (!path.endsWith('.jsonl')) return '';
   try {
     const size = (await stat(path)).size;
     const fh = await open(path, 'r');
     try {
-      for (const len of size > TAIL ? [TAIL, size] : [size]) {
+      for (const len of size <= TAIL ? [size] : tailOnly ? [TAIL] : [TAIL, size]) {
         const buf = Buffer.alloc(len);
         await fh.read(buf, 0, len, size - len);
         const t = lastTitle(buf.toString('utf8'));

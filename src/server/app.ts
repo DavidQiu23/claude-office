@@ -116,7 +116,7 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
       // 標題在第一輪回應後才會寫進 transcript；回合結束時背景讀取，不拖慢 hook 回應
       const emp = ev.hook_event_name === 'Stop' && !ev.agent_id ? r.state.employees[ev.session_id] : undefined;
       if (emp?.transcriptPath)
-        void readAiTitle(emp.transcriptPath).then((t) => {
+        void readAiTitle(emp.transcriptPath, !!emp.title).then((t) => {
           if (t) apply(setTitle(state, emp.sessionId, t));
         });
       return void res.writeHead(204).end();

@@ -45,6 +45,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   const fresh = e.sentAt >= emp.lastEventAt;
 
   const top = !e.agent_id; // 來自 subagent 內部的事件不動 activity、不清助理
+  const wake = top || emp.status !== 'idle'; // 主 session 已 Stop（輪到你）時，背景助理內部的工具事件不把狀態改回工作中
   const finish = () => (assistants = assistants.map((a) => (a.status === 'working' && !a.background ? { ...a, status: 'done' as const } : a)));
   if (fresh) {
     switch (e.hook_event_name) {
@@ -59,7 +60,8 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
         break;
       case 'PreToolUse':
         // AskUserQuestion：Claude 在問問題等你選，和權限詢問一樣算「等你回覆」；回答後的 PostToolUse 會回到工作中
-        emp.status = e.tool_name === 'AskUserQuestion' ? 'waiting' : 'working';
+        if (e.tool_name === 'AskUserQuestion') emp.status = 'waiting';
+        else if (wake) emp.status = 'working';
         if (top) emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
         break;
       case 'PermissionRequest':
@@ -70,7 +72,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       case 'PostToolUse':
       case 'PostToolUseFailure':
       case 'ElicitationResult':
-        emp.status = 'working';
+        if (wake) emp.status = 'working';
         break;
       case 'Notification':
         if (isWaitingNotification(e)) emp.status = 'waiting';

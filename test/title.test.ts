@@ -37,3 +37,9 @@ test('setTitle 更新員工；沒變或查無此人不產生 change', () => {
   expect(setTitle(r.state, 's1', '標題').changes).toEqual([]);
   expect(setTitle(r.state, 'nobody', 'x').changes).toEqual([]);
 });
+
+test('readAiTitle 已有標題時只讀檔尾：標題在檔尾視窗之外就回空字串（呼叫端保留原標題）', async () => {
+  const filler = rec({ type: 'user', text: 'x'.repeat(1000) }).repeat(700);
+  const p = write('big2.jsonl', rec({ type: 'ai-title', aiTitle: '很早的標題' }) + filler);
+  expect(await readAiTitle(p, true)).toBe('');
+});
