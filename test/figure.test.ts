@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { AURA_BOX, FIG, FIST_BOX, FX_BOXES, HAIR_UP_BOX, ROCKS_BOX, STAND_Y, avatarSvg, figureSvg } from '../web/src/figure.js';
+import { FIG, avatarSvg, figureSvg } from '../web/src/figure.js';
 import { esc, tag } from '../web/src/svg.js';
 import { appearance, EYE_TYPES, HAIR_STYLES, OUTFIT_COUNT, type Look } from '../web/src/view.js';
 
@@ -50,19 +50,6 @@ test('每個部件與漫符群組都在', () => {
   }
 });
 
-test('線稿 class（theme.css）：外輪廓 ol 比內線 mk-thin 粗', () => {
-  const css = readFileSync('web/src/styles/theme.css', 'utf8');
-  expect(css).toMatch(/\.mk \{ stroke: var\(--fig-ink\); stroke-width: 1\.5; \}/);
-  expect(css).toMatch(/\.mk-thin \{ stroke: var\(--fig-ink\); stroke-width: 1\.1; \}/);
-  const ol = Number(css.match(/\.ol \{ stroke: var\(--fig-ink\); stroke-width: ([\d.]+); \}/)?.[1]);
-  expect(ol).toBeGreaterThan(1.1);
-  expect(css).not.toMatch(/\.fig(-thin)?\b/);
-});
-
-test('人物不用網點：硬影是同色加深的實色', () => {
-  for (const l of looks) expect(figureSvg(l)).not.toContain('class="tone"');
-});
-
 test('figure.css 的狀態規則：漫符與爆氣群組只在對應狀態顯示，減少動態不隱藏', () => {
   const css = readFileSync('web/src/styles/figure.css', 'utf8');
   const hidden = css.match(/([^{}]*)\{ display: none; \}/g)?.join('\n') ?? '';
@@ -79,8 +66,6 @@ test('figure.css 的狀態規則：漫符與爆氣群組只在對應狀態顯示
   // 只有角色自己抖動：抖動掛在人物 SVG 裡的 .shake，不碰樓層
   expect(css).toMatch(/\.person\[data-act="up"\] \.shake \{ animation:/);
   expect(readFileSync('web/src/styles/building.css', 'utf8')).not.toMatch(/animation/);
-  // 拿掉的漫符
-  expect(css).not.toMatch(/fx-wait|\.lines|\.burst|\.drop|fig-wave/);
   // 減少動態：只停動畫與過場，不動 display
   const reduce = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
   expect(reduce).toMatch(/animation: none/);
@@ -118,79 +103,8 @@ test('顏色不寫在屬性上', () => {
   }
 });
 
-test('漫符在自己的座位內', () => {
-  for (const b of Object.values(FX_BOXES)) {
-    expect(b.x0).toBeGreaterThanOrEqual(-30);
-    expect(b.x1).toBeLessThanOrEqual(90);
-    expect(b.x0).toBeLessThan(b.x1);
-    expect(b.y0).toBeLessThan(b.y1);
-  }
-});
-
-// ── 爆氣的外框：樓層位置從 CSS 讀，換成人物座標（人物框左上角 = 原點，x 30 = 座位中心） ──
-const px = (file: string, sel: string, prop: string) => Number(rule(file, sel).match(new RegExp(`(?<![\\w-])${prop}: ([\\d.]+)px`))?.[1]);
-const PERSON_TOP = px('web/src/styles/figure.css', '.person', 'top');
-const SIGN_TOP = px('web/src/styles/building.css', '.sign', 'top') - PERSON_TOP;
-const SIGN_BOTTOM = SIGN_TOP + px('web/src/styles/building.css', '.sign', 'height');
-const SIGN_TEXT_BOTTOM = SIGN_BOTTOM - px('web/src/styles/building.css', '.sign', 'border'); // 框線以內都算文字範圍
-const PLATE_TOP = px('web/src/styles/building.css', '.plate', 'top') - PERSON_TOP;
-const DESK_TOP = 143.5 - PERSON_TOP; // 桌子底邊在樓層 y 192（floor.ts），桌面高 48.5（objects.ts）
-const SEAT = { x0: 30 - 60, x1: 30 + 60 };
-
-test('版面常數讀得到', () => {
-  expect([PERSON_TOP, SIGN_TOP, SIGN_BOTTOM, SIGN_TEXT_BOTTOM, PLATE_TOP]).toEqual([74, -60, -34, -35.6, 76]);
-});
-
-test('站起來的位移和 figure.css 一致', () => {
-  expect(rule('web/src/styles/figure.css', '.person[data-act="up"] .fig')).toContain(`translateY(-${STAND_Y}px)`);
-});
-
-test('氣場（含跳動）：左右在自己座位內，頂端最多碰到招牌下緣幾 px、不進入招牌文字', () => {
-  expect(AURA_BOX.x0).toBeGreaterThanOrEqual(SEAT.x0);
-  expect(AURA_BOX.x1).toBeLessThanOrEqual(SEAT.x1);
-  expect(AURA_BOX.y0).toBeGreaterThanOrEqual(SIGN_TEXT_BOTTOM);
-  expect(AURA_BOX.y0).toBeGreaterThanOrEqual(SIGN_BOTTOM - 3);
-  expect(AURA_BOX.y0).toBeLessThan(SIGN_BOTTOM + 10); // 真的是一團大火，不是縮在身後
-});
-
-test('小石子：在座位內、名牌上緣以上', () => {
-  expect(ROCKS_BOX.x0).toBeGreaterThanOrEqual(SEAT.x0);
-  expect(ROCKS_BOX.x1).toBeLessThanOrEqual(SEAT.x1);
-  expect(ROCKS_BOX.y1).toBeLessThanOrEqual(PLATE_TOP);
-});
-
-test('豎起的頭髮（站著、含抖動）不進入招牌文字', () => {
-  expect(HAIR_UP_BOX.y0).toBeGreaterThanOrEqual(SIGN_TEXT_BOTTOM);
-});
-
-test('氣場排在人後面；集中線、「！」框、汗滴拿掉了', () => {
-  for (const l of looks) {
-    const s = figureSvg(l);
-    expect(s.indexOf('class="aura"')).toBeLessThan(s.indexOf('class="fig"'));
-    expect(s).not.toMatch(/>！<|class="(lines|burst|drop)"/);
-  }
-});
-
-test('爆氣的拳頭站起來後高於桌面', () => {
-  expect(FIST_BOX.y1).toBeLessThan(DESK_TOP);
-});
-
 test('avatarSvg 對所有外觀都畫得出來', () => {
   for (const l of looks) expect(avatarSvg(l).startsWith('<svg')).toBe(true);
-});
-
-test('進出漫符不蓋住招牌，也在座位內', () => {
-  for (const k of ['in', 'out'] as const) {
-    expect(FX_BOXES[k].y0, k).toBeGreaterThanOrEqual(-29);
-    expect(FX_BOXES[k].x0, k).toBeGreaterThanOrEqual(-30);
-    expect(FX_BOXES[k].x1, k).toBeLessThanOrEqual(90);
-  }
-});
-
-test('進出漫符的文字', () => {
-  const s = figureSvg(looks[0]!);
-  expect(s).toContain('到！');
-  expect(s).toContain('辛苦了～');
 });
 
 test('figure.css：data-fx 期間只顯示進出漫符，狀態漫符藏起來', () => {
@@ -211,11 +125,4 @@ test('進出貼紙是白底，字用固定深色（夜晚的 --fx 是淺色，�
     expect(el, t).not.toBe('');
     expect(el, t).not.toContain('var(--fx)');
   }
-});
-
-test('退場往上淡出的整段過程，貼紙都不蓋住招牌', () => {
-  const css = readFileSync('web/src/styles/figure.css', 'utf8');
-  const rise = Number(css.match(/@keyframes fig-out \{[^}]*translateY\(-(\d+(?:\.\d+)?)px\)/)?.[1]);
-  expect(rise).toBeGreaterThan(0);
-  expect(FX_BOXES.out.y0 - rise).toBeGreaterThanOrEqual(-29);
 });

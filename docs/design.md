@@ -70,15 +70,15 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
 - 換了畫風或動畫之後，等你處理或輪到你反而變得不醒目。
 - 畫面上出現大片空白或暗角：大樓比視窗矮時，上方要是天空。
 - 夜晚的文字、名牌、狀態對比太低。
-- 漫符或貼紙蓋住招牌、隔壁的人或名牌文字。稍微遮擋可以接受，幾何測試只是參考。
+- 漫符或貼紙蓋住招牌、隔壁的人或名牌文字。稍微遮擋可以接受，在瀏覽器裡看，不寫幾何測試。
 
 ## 前端寫法規則
 
 - **會畫錯的計算都寫成不碰 DOM 的純函式**（`floors.ts`、`view.ts`、`figure.ts`、`objects.ts`、`theme.ts`），在 vitest 的 node 環境測試。DOM 模組（`building.ts`、`floor.ts`、`person.ts`、`card.ts`、`elevator.ts`）沒有自動測試，靠 `npm run simulate` 在瀏覽器裡看。
+- **前端只測邏輯和規則，不測長相**：樓層排序、名牌、日夜這類算錯了看不出來的邏輯，以及顏色、狀態色、CSS 和 SVG class 對得上這類規則，才寫測試。部件位置、外框、尺寸、畫法細節不寫測試，那只是把目前的長相釘死，改畫風時還得跟著改；這些在瀏覽器裡看白天和夜晚。
 - **SVG 顏色只能寫在 `style` 或 class**，不能寫成 `fill="…"`／`stroke="…"` 屬性，因為呈現屬性不接受 `var()`，日夜切換會失效。測試會檢查這件事。
 - **紅色和琥珀色只給狀態用**：環境、招牌專案色、髮色、衣服色都不能用，掃一眼才不會誤判誰在等你。狀態色只能寫在 `theme.css` 的狀態變數（`--waiting`、`--turn`、`--screen-waiting`、`--screen-turn`），大樓外殼的 CSS 只有名牌能引用。`test/state-colors.test.ts` 會抽出所有 hex 色，色相離這兩色 20° 內、HSV 彩度 ≥ 0.55 就算違規。
 - **人物的姿勢和漫符都交給 CSS**，依 `data-act`（work／up／idle）與 `data-fx`（in／out）切換。`person.ts` 只負責設屬性和計時。
-- **爆氣的部件不能蓋到招牌和隔壁**：`figure.ts` 用畫圖的同一份幾何資料匯出氣場（含跳動與火舌）、小石子、豎起的頭髮、拳頭四個外框，測試檢查氣場左右在自己座位內、頂端最多碰到招牌下緣而不進入文字，小石子在名牌上緣以上，拳頭站起來後高於桌面。figure.css 的動畫幅度要和 `figure.ts` 的常數同值。
 - **進出動畫放在 `.figure`，不放 `.fig`**，因為 `.fig` 的 `transform` 已經用在站起來。動畫要放在 `.person` 的子元素上，減少動態的規則才停得掉。`ENTER_MS`／`EXIT_MS` 要和 figure.css 的 keyframes 時間一致。
 - **退場用計時器，不用 `animationend`**：樓層的 DOM 被搬動時，動畫會被取消，`animationend` 就不會觸發。
 

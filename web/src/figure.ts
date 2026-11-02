@@ -6,7 +6,6 @@ import { HAIR_COLORS, SHIRT_COLORS, type Look } from './view.js';
 
 export const FIG = { w: 60, h: 84 } as const;
 
-type Box = { x0: number; y0: number; x1: number; y1: number };
 type Pt = [number, number];
 
 const n = (v: number) => Math.round(v * 100) / 100;
@@ -143,14 +142,9 @@ const arm = (side: 'l' | 'r', look: Look) => {
     + circle(x + 4.5, 73.5, 4, 'mk-thin', SKIN));
 };
 
-// ── 爆氣：幾何資料同時拿來畫與算外框（AURA_BOX 等），兩邊不會對不上 ──
+// ── 爆氣 ──
 
-/** 站起來時 .fig 上移的距離（figure.css 的 translateY 同值，測試檢查） */
-export const STAND_Y = 12;
-/** 爆氣時 .shake 抖動的幅度（figure.css 的 fig-shake 同值） */
-const SHAKE = { x: 1, y: 0.5 };
-
-/** 雙拳握在腰側（坐姿座標，站起來後整個上移 STAND_Y）：前臂往下、拳頭上兩條指縫 */
+/** 雙拳握在腰側（坐姿座標，站起來後由 figure.css 整個上移）：前臂往下、拳頭上兩條指縫 */
 const FISTS: Pt[] = [[11.5, 61.5], [48.5, 61.5]];
 const FIST_R = 5;
 const fists = (look: Look) => {
@@ -174,37 +168,11 @@ const AURA: Pt[] = [[-4, 83.5], [-16, 53.5], [0, 33.5], [-8, 11.5], [4, 19.5], [
   [32, -16.5], [38, -24.5], [42, -30.5], [46, -16.5], [52, -10.5], [58, -18.5], [58, 3.5], [66, 7.5], [72, -0.5], [64, 27.5], [78, 51.5], [64, 83.5]];
 const shrink = (k: number): Pt[] => AURA.map(([x, y]) => [n(AURA_BASE[0] + (x - AURA_BASE[0]) * k), n(AURA_BASE[1] + (y - AURA_BASE[1]) * k)]);
 const flame = (pts: Pt[]) => `M${pts[0]!.join(' ')} C${pts.slice(1).map((p) => p.join(' ')).join(' ')}Z`;
-/** 跳動（figure.css 的 fig-flare）：以自己的底邊中點放大到 FLARE 倍、左右斜 ±FLARE_SKEW 度 */
-const FLARE = 1.03, FLARE_SKEW = 2;
-/** 往上竄的小火舌：從 (x, 27.5) 往上 TONGUE_RISE（fig-tongue 同值） */
+/** 往上竄的小火舌：從 (x, 27.5) 往上竄（動畫在 figure.css 的 fig-tongue） */
 const TONGUES = [6, 22, 40, 56];
-const TONGUE_RISE = 46;
-const tongue = (x: number): Pt[] => [[x - 4, 27.5], [x + 4, 11.5]];
-/** 小石子：桌子左右外緣，從桌面附近往上飄 ROCK_RISE（fig-rock 同值），不經過名牌 */
+/** 小石子：桌子左右外緣，從桌面附近往上飄（figure.css 的 fig-rock），不經過名牌 */
 const ROCKS: Pt[] = [[-27, 66], [82, 66], [-22, 66]];
-const ROCK_RISE = 46;
 const rockPts = ([x, y]: Pt): Pt[] => [[x, y], [x + 3, y - 2], [x + 6, y - 1], [x + 6.5, y + 2], [x + 3.5, y + 3.5], [x + 0.5, y + 2.5]];
-
-const shift = (pts: Pt[], dx: number, dy: number): Pt[] => pts.map(([x, y]) => [x + dx, y + dy]);
-/** 抖動與站起來後的範圍 */
-const standing = (pts: Pt[]): Pt[] => [...shift(pts, -SHAKE.x, -STAND_Y - SHAKE.y), ...shift(pts, SHAKE.x, -STAND_Y + SHAKE.y)];
-/** 跳動到最大時的範圍：以外框底邊中點放大、再左右斜 */
-function flared(pts: Pt[]): Pt[] {
-  const b = boxOf(pts, 0), cx = (b.x0 + b.x1) / 2, t = Math.tan((FLARE_SKEW * Math.PI) / 180);
-  return pts.flatMap(([x, y]): Pt[] => {
-    const sx = cx + (x - cx) * FLARE, sy = b.y1 + (y - b.y1) * FLARE;
-    return [[sx - t * (sy - b.y1), sy], [sx + t * (sy - b.y1), sy]];
-  });
-}
-
-/** 氣場（含跳動、火舌竄到最高）的外框，pad 涵蓋線寬 */
-export const AURA_BOX: Box = boxOf([...flared(AURA), ...TONGUES.flatMap((x) => shift(tongue(x), 0, -TONGUE_RISE))], 0.7);
-/** 小石子（含往上飄）的外框 */
-export const ROCKS_BOX: Box = boxOf(ROCKS.flatMap((r) => [...rockPts(r), ...shift(rockPts(r), 0, -ROCK_RISE)]), 0.5);
-/** 豎起的頭髮（站著、含抖動）的外框 */
-export const HAIR_UP_BOX: Box = boxOf(standing(HAIR_UP), 0.8);
-/** 爆氣拳頭（站著、含抖動）的外框 */
-export const FIST_BOX: Box = boxOf(standing(FISTS.flatMap(([x, y]): Pt[] => [[x - FIST_R, y - FIST_R], [x + FIST_R, y + FIST_R]])), 0.8);
 
 const AURA_SVG = g('aura', path(flame(AURA), 'aura-1', `fill:#fff;fill-opacity:.4;${pen(1.4).replace('fill:none;', '')}`)
   + path(flame(shrink(0.78)), 'aura-2', 'fill:#fff;fill-opacity:.5')
@@ -219,7 +187,7 @@ const leg = (side: 'l' | 'r') => {
   return g(`leg leg-${side}`, rect(x, 66, 7, 15, 3, 'ol', PANTS) + path(`M${x - 1} 83.5 v-2 q0 -3 3.5 -3 h2 q3 0 3 3 v2z`, 'mk-thin', INK));
 };
 
-// ── 漫符：幾何資料同時拿來畫與算外框（FX_BOXES），兩邊不會對不上 ──
+// ── 漫符 ──
 
 const BUBBLE = { cx: 56, cy: -18, r: 11 };
 const SFX = { x: -24, y: 40, size: 14 }; // 「噠噠」
@@ -228,31 +196,11 @@ const Z1 = { x: -4, y: -4, size: 13 }, Z2 = { x: 0, y: -14, size: 16 };
 const STICK_IN = { x: 44, y: -20, w: 42, h: 18, size: 13, text: '到！' };
 const STICK_OUT = { x: 40, y: -22, w: 48, h: 18, size: 11, text: '辛苦了～' };
 const RISE = 'M12 8 v-14 M19 2 v-16 M26 -2 v-12'; // 退場往上的速度線（頭的左上方）
-const RISE_PTS: Pt[] = [[12, 8], [12, -6], [19, 2], [19, -14], [26, -2], [26, -14]];
 type Stick = typeof STICK_IN;
 const tail = (s: Stick): Pt[] => [[s.x + 6, s.y + s.h], [s.x, s.y + s.h + 8], [s.x + 12, s.y + s.h]];
-const stickPts = (s: Stick): Pt[] => [[s.x, s.y], [s.x + s.w, s.y + s.h], ...tail(s),
-  ...textPts(s.x + s.w / 2 - (s.size * [...s.text].length) / 2, s.y + s.h - 5, s.size, s.size * [...s.text].length)];
 const sticker = (s: Stick) =>
   tag('polygon', { points: [[s.x, s.y], [s.x + s.w, s.y], [s.x + s.w, s.y + s.h], ...tail(s).reverse(), [s.x, s.y + s.h]].map((p) => p.join(',')).join(' '), class: 'mk-thin', style: WHITE })
   + text(s.x + s.w / 2, s.y + s.h - 5, s.size, s.text, INK, undefined, 'middle'); // 白底貼紙：字用墨色（夜晚的 --fx 是淺色）
-
-/** 文字的大略外框：全形字寬 = 字級，半形 0.6 字級；基線以上一個字級、以下 0.25 */
-const textPts = (x: number, y: number, size: number, w: number): Pt[] => [[x, y - size], [x + w, y + size * 0.25]];
-
-function boxOf(pts: Pt[], pad: number): Box {
-  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-  return { x0: n(Math.min(...xs) - pad), y0: n(Math.min(...ys) - pad), x1: n(Math.max(...xs) + pad), y1: n(Math.max(...ys) + pad) };
-}
-
-/** 漫符在人物座標裡的外框（人物座標 x 30 = 座位中心；座位 ±60 → x −30 到 90）；pad 涵蓋線寬 */
-export const FX_BOXES: Record<'work' | 'turn' | 'in' | 'out', Box> = {
-  work: boxOf([...textPts(SFX.x, SFX.y, SFX.size, SFX.size * 2), [1, 48], [6, 56], [54, 48], [59, 56]], 1),
-  turn: boxOf([[BUBBLE.cx - BUBBLE.r, BUBBLE.cy - BUBBLE.r], [BUBBLE.cx + BUBBLE.r, BUBBLE.cy + BUBBLE.r],
-    ...textPts(Z1.x, Z1.y, Z1.size, Z1.size * 0.6), ...textPts(Z2.x, Z2.y, Z2.size, Z2.size * 0.6)], 1),
-  in: boxOf(stickPts(STICK_IN), 1),
-  out: boxOf([...stickPts(STICK_OUT), ...RISE_PTS], 1),
-};
 
 const FX = {
   work: text(SFX.x, SFX.y, SFX.size, '噠噠', fill('var(--fx)'), 'sfx')

@@ -23,25 +23,9 @@ test('每個物件都有正的寬高', () => {
   }
 });
 
-test('尺寸沿用現在的家具、桌子 112×76、窗 70×52', () => {
-  const size = (id: ObjectId) => [OBJECTS[id].w, OBJECTS[id].h];
-  expect(size('waterCooler')).toEqual([28, 78]);
-  expect(size('vending')).toEqual([56, 112]);
-  expect(size('plant')).toEqual([34, 74]);
-  expect(size('bookshelf')).toEqual([60, 104]);
-  expect(size('copier')).toEqual([50, 68]);
-  expect(size('sofa')).toEqual([92, 46]);
-  expect(size('floorLamp')).toEqual([28, 102]);
-  expect(size('sideTable')).toEqual([30, 37]);
-  expect(size('window')).toEqual([70, 52]);
-  for (const d of DESKS) expect(size(d), d).toEqual([112, 76]);
-});
-
 test('defsSvg 有網點、窗景全景與每個物件的 symbol，id 不重複', () => {
   const s = defsSvg();
   expect(s).toContain('<pattern id="tone"');
-  expect(s).toMatch(/<pattern id="tone"[^>]*width="4"[^>]*height="4"/);
-  expect(s).toMatch(/<circle cx="2" cy="2" r="0\.95" style="fill:var\(--fig-ink\);opacity:var\(--tone-opacity\)"\/>/);
   for (const id of IDS) expect(s, id).toContain(`<symbol id="${id}"`);
   const ids = [...s.matchAll(/\sid="([^"]*)"/g)].map((m) => m[1]);
   expect(new Set(ids).size).toBe(ids.length);
@@ -69,16 +53,6 @@ test('四種桌子都存在且彼此不同', () => {
   expect(symbolOf(s, 'desk-idle')).toContain('var(--screen-turn)');
 });
 
-test('等你處理的螢幕是權限對話框：深色畫面上一個白色視窗，淺紅標題列加兩顆按鈕', () => {
-  const w = symbolOf(defsSvg(), 'desk-waiting');
-  expect(w).toContain('class="dialog"');
-  for (const d of ['desk-empty', 'desk-working', 'desk-idle']) expect(symbolOf(defsSvg(), d), d).not.toContain('class="dialog"');
-  const dialog = w.match(/<g class="dialog">[\s\S]*?<\/g>/)![0];
-  expect(dialog).toContain('fill:#fff');
-  expect(dialog).toContain('var(--screen-waiting)');
-  expect(dialog.match(/<rect/g)!.length).toBeGreaterThanOrEqual(4); // 視窗、標題列、兩顆按鈕
-});
-
 test('顏色不寫在屬性上', () => {
   expect(defsSvg()).not.toMatch(/\s(fill|stroke)="(?!none")/);
 });
@@ -96,21 +70,12 @@ test('日夜群組用變數控制', () => {
   }
 });
 
-test('窗只剩窗框與窗台：沒有天空、雲、月亮', () => {
-  const win = symbolOf(defsSvg(), 'window');
-  expect(win).not.toContain('var(--window-sky)');
-  expect(win).not.toContain('var(--day)');
-  expect(win).not.toContain('var(--night)');
-  expect(win).not.toContain('<circle');
-});
-
-test('窗景是一張共用的全景：整片天空、街道與城市，不畫月亮（月亮只在屋頂上方的天空）', () => {
+test('窗景是一張共用的全景：整片天空、街道與城市', () => {
   const s = defsSvg();
   const pano = symbolOf(s, 'panorama');
   expect(pano).toContain(`viewBox="0 0 ${PANO.w} ${PANO.h}"`);
   expect(pano).toContain('var(--window-sky)');
   expect(pano).toContain('var(--city-lit)');
-  expect(pano).not.toContain('#f3e6b8'); // 月亮色
 });
 
 test('同一份 defs 每次相同', () => {
