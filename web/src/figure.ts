@@ -103,7 +103,11 @@ function face(look: Look, m: Mood): string {
     wait: () => both(angryEye) + inkStroke('M18 16 L27 20.5 M33 20.5 L42 16', 2.8) // 大喊：上下排牙齒
       + path('M24 31.5 Q30 30 36 31.5 Q35 42 30 42 Q25 42 24 31.5Z', 'mk-thin', MOUTH_IN)
       + path('M24.8 32.3 L35.2 32.3 L34.8 33.7 L25.2 33.7Z', undefined, WHITE) + path('M26 40.5 L34 40.5 L33.4 39.3 L26.6 39.3Z', undefined, WHITE),
-    turn: () => both(shutEye) + inkStroke('M19 19.5 L27 20 M33 20 L41 19.5', 1.8) + inkStroke('M27.4 34 L32.6 34', 1.4),
+    // 冥想：閉眼、眉毛放鬆；右眼那組可以單獨換成睜眼加挑眉（瞄觀看者，figure.css 的 fig-wink）
+    turn: () => shutEye(23) + inkStroke('M19 20 L27 20.4', 1.8)
+      + g('wink-shut', shutEye(37) + inkStroke('M33 20.4 L41 20', 1.8))
+      + g('wink-open', openEye(round)(37, 1) + inkStroke('M33 19.6 Q37 16.6 41 18.2', 1.8))
+      + inkStroke('M27.4 34 L32.6 34', 1.4),
   };
   return g(`face-${m}`, parts[m]());
 }
@@ -149,6 +153,14 @@ const nosePush = (look: Look) => {
   const c = SHIRT_COLORS[look.shirt]!;
   return arm('l', look, 'arm-rest') + g('push', path('M48.3 66.6 L39.7 69.4 L28.7 36.4 L37.3 33.6Z', 'ol', fill(c))
     + rect(29.6, 26.5, 2.6, 8, 1.3, 'mk-thin', SKIN) + circle(32.5, 34.5, 4, 'mk-thin', SKIN));
+};
+
+/** 抱胸（冥想）：兩邊上臂垂在身側，兩條前臂交叉在胸前（圓頭粗筆畫：外面一圈墨線、裡面衣服色），兩隻手搭在對面的上臂上；手肘在桌面以上 */
+const armsCross = (look: Look) => {
+  const c = SHIRT_COLORS[look.shirt]!;
+  const sleeve = (d: string) => path(d, undefined, pen(11.6)) + path(d, undefined, `fill:none;stroke:${c};stroke-width:8.4;stroke-linecap:round`);
+  return rect(10, 43, 9, 17, 4.5, 'ol', fill(c)) + rect(41, 43, 9, 17, 4.5, 'ol', fill(c)) + rect(46.2, 45, 2.6, 13, 1.3, undefined, fill(clothShade(c)))
+    + sleeve('M45 61 L17 54') + sleeve('M15 61 L43 54') + circle(14, 53, 4, 'mk-thin', SKIN) + circle(46, 53, 4, 'mk-thin', SKIN);
 };
 
 // ── 爆氣 ──
@@ -198,8 +210,6 @@ const leg = (side: 'l' | 'r') => {
 
 // ── 漫符 ──
 
-const BUBBLE = { cx: 56, cy: -18, r: 11 };
-const Z1 = { x: -4, y: -4, size: 13 }, Z2 = { x: 0, y: -14, size: 16 };
 /** 進出貼紙：白底墨線小框（左下一個小尾巴指向頭），和「！」框同在頭的右上方；文字置中 */
 const STICK_IN = { x: 44, y: -20, w: 42, h: 18, size: 13, text: '到！' };
 const STICK_OUT = { x: 40, y: -22, w: 48, h: 18, size: 11, text: '辛苦了～' };
@@ -211,22 +221,20 @@ const sticker = (s: Stick) =>
   + text(s.x + s.w / 2, s.y + s.h - 5, s.size, s.text, INK, undefined, 'middle'); // 白底貼紙：字用墨色（夜晚的 --fx 是淺色）
 
 const FX = {
-  turn: g('bubble', circle(BUBBLE.cx, BUBBLE.cy, BUBBLE.r, 'mk', fill('var(--turn)'))
-    + path(`M${BUBBLE.cx - 5} ${BUBBLE.cy} l4 4 l7 -7`, undefined, 'fill:none;stroke:var(--fig-ink);stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round'))
-    + text(Z1.x, Z1.y, Z1.size, 'z', fill('var(--fx)'), 'z1') + text(Z2.x, Z2.y, Z2.size, 'Z', fill('var(--fx)'), 'z2'),
   in: sticker(STICK_IN),
   out: path(RISE, 'speed', FX_STROKE(1.4)) + sticker(STICK_OUT),
 };
 
-/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字或握拳的手、頭、推鼻子的手）、小石子、漫符與進出貼紙；
- *  顯示哪個表情、姿勢、漫符交給 CSS 依 data-act／data-fx 決定。.fig 的 transform 給站起來用，抖動放在裡面的 .shake */
+/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字／握拳／抱胸的手、頭、推鼻子的手）、小石子、進出貼紙；
+ *  顯示哪個表情、姿勢交給 CSS 依 data-act／data-fx 決定。.fig 的 transform 給站起來用，抖動放在裡面的 .shake */
 export function figureSvg(look: Look): string {
   const fig = g('fig', g('shake', leg('l') + leg('r') + g('hair-back', hair(look).back)
-    + body(look) + g('arms-type', g('typing', typing(look))) + g('arms-fist', fists(look)) + head(look, ['work', 'wait', 'turn'])
+    + body(look) + g('arms-type', g('typing', typing(look))) + g('arms-fist', fists(look)) + g('arms-cross', armsCross(look))
+    + head(look, ['work', 'wait', 'turn'])
     + g('nose', nosePush(look)))); // 推鼻子的手要蓋在臉上，排在頭後面
   return tag('svg', { class: 'figure', xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' },
     AURA_SVG + fig + ROCKS_SVG
-    + g('fx-turn', FX.turn) + g('fx-in', FX.in) + g('fx-out', FX.out));
+    + g('fx-in', FX.in) + g('fx-out', FX.out));
 }
 
 /** 資訊卡頭像：頭與肩膀、睜眼（工作中的臉），viewBox 只框頭肩 */
