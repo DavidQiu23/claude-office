@@ -1,13 +1,13 @@
-// 一個人：漫畫人物 SVG（氣場、姿勢群組、漫符都在 SVG 裡）。el 的 left = 人的中心 x（樓層座標）
-// 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act／data-fx 決定，這裡只設屬性
+// 一個人：漫畫人物 SVG（氣場、姿勢群組都在 SVG 裡）加上瞬移的光痕和殘影。el 的 left = 人的中心 x（樓層座標）
+// 姿勢、表情與動畫全交給 figure.css 依 data-act／data-fx 決定，這裡只設屬性
 import { div } from './dom.js';
-import { figureSvg, FIG } from './figure.js';
+import { figureSvg, FIG, WARP_SVG } from './figure.js';
 import { appearance, motionDelay } from './view.js';
 
 export type Act = 'work' | 'up' | 'idle';
 
-export const ENTER_MS = 600; // 登場「到！」；figure.css 的 fig-in 同值
-export const EXIT_MS = 500; // 退場「辛苦了～」；figure.css 的 fig-out 同值
+export const ENTER_MS = 350; // 瞬移登場；figure.css 的 data-fx="in" 動畫同值
+export const EXIT_MS = 800; // 點額 300ms＋瞬移消失 500ms；figure.css 的 data-fx="out" 動畫同值
 
 export class Person {
   readonly el = div('person');
@@ -15,7 +15,7 @@ export class Person {
   private fxT: ReturnType<typeof setTimeout> | undefined; // 登場或退場的計時器，同時只有一個
 
   constructor(sessionId: string) {
-    this.el.innerHTML = figureSvg(appearance(sessionId)); // figure.ts 產生、不含使用者資料
+    this.el.innerHTML = figureSvg(appearance(sessionId)) + WARP_SVG; // figure.ts 產生、不含使用者資料
     this.el.style.setProperty('--delay', `-${motionDelay(sessionId)}s`); // 打字、推鼻子等動作每個人錯開
     this.el.style.marginLeft = `${-FIG.w / 2}px`;
     this.setAct('work');
@@ -32,12 +32,12 @@ export class Person {
     this.el.style.left = `${x}px`;
   }
 
-  /** 登場：彈出、冒「到！」，ENTER_MS 後回到狀態漫符 */
+  /** 登場：瞬移出現，ENTER_MS 後回到狀態動作 */
   enter(): void {
     this.fx('in', ENTER_MS, () => delete this.el.dataset.fx);
   }
 
-  /** 退場：冒「辛苦了～」往上淡出，EXIT_MS 後呼叫 done（由呼叫端移除）。用計時器而不是 animationend：樓層 DOM 被搬動時動畫會被取消 */
+  /** 退場：站起來雙指點額，再瞬移消失，EXIT_MS 後呼叫 done（由呼叫端移除）。用計時器而不是 animationend：樓層 DOM 被搬動時動畫會被取消 */
   exit(done: () => void): void {
     this.fx('out', EXIT_MS, done);
   }

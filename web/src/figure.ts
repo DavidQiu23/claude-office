@@ -10,8 +10,6 @@ type Pt = [number, number];
 
 const n = (v: number) => Math.round(v * 100) / 100;
 const g = (cls: string, children: string) => tag('g', { class: cls }, children);
-const text = (x: number, y: number, size: number, s: string, style: string, cls?: string, anchor?: string) =>
-  tag('text', { class: cls, x, y, 'font-size': size, 'font-weight': 500, 'text-anchor': anchor, style }, s);
 
 const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 /** 把顏色 a 往 b 混 t：硬影用同色加深的實色 */
@@ -26,7 +24,6 @@ const INK = fill('var(--fig-ink)');
 const WHITE = fill('#fff');
 const PANTS = fill('#2b2f4a');
 const MOUTH_IN = fill('#4a1f3a'); // 張大的嘴裡：深紫，不用紅
-const FX_STROKE = (w: number) => `fill:none;stroke:var(--fx);stroke-width:${w};stroke-linecap:round`;
 /** 墨色筆畫（眉毛、閉眼、嘴、睫毛） */
 const pen = (w: number) => `fill:none;stroke:var(--fig-ink);stroke-width:${w};stroke-linecap:round;stroke-linejoin:round`;
 const inkStroke = (d: string, w: number) => path(d, undefined, pen(w));
@@ -155,12 +152,14 @@ const nosePush = (look: Look) => {
     + rect(29.6, 26.5, 2.6, 8, 1.3, 'mk-thin', SKIN) + circle(32.5, 34.5, 4, 'mk-thin', SKIN));
 };
 
+/** 斜的袖子（圓頭粗筆畫：外面一圈墨線、裡面衣服色） */
+const sleeve = (c: string, d: string) => path(d, undefined, pen(11.6)) + path(d, undefined, `fill:none;stroke:${c};stroke-width:8.4;stroke-linecap:round`);
+
 /** 抱胸（冥想）：兩邊上臂垂在身側，兩條前臂交叉在胸前（圓頭粗筆畫：外面一圈墨線、裡面衣服色），兩隻手搭在對面的上臂上；手肘在桌面以上 */
 const armsCross = (look: Look) => {
   const c = SHIRT_COLORS[look.shirt]!;
-  const sleeve = (d: string) => path(d, undefined, pen(11.6)) + path(d, undefined, `fill:none;stroke:${c};stroke-width:8.4;stroke-linecap:round`);
   return rect(10, 43, 9, 17, 4.5, 'ol', fill(c)) + rect(41, 43, 9, 17, 4.5, 'ol', fill(c)) + rect(46.2, 45, 2.6, 13, 1.3, undefined, fill(clothShade(c)))
-    + sleeve('M45 61 L17 54') + sleeve('M15 61 L43 54') + circle(14, 53, 4, 'mk-thin', SKIN) + circle(46, 53, 4, 'mk-thin', SKIN);
+    + sleeve(c, 'M45 61 L17 54') + sleeve(c, 'M15 61 L43 54') + circle(14, 53, 4, 'mk-thin', SKIN) + circle(46, 53, 4, 'mk-thin', SKIN);
 };
 
 // ── 爆氣 ──
@@ -208,33 +207,33 @@ const leg = (side: 'l' | 'r') => {
   return g(`leg leg-${side}`, rect(x, 66, 7, 15, 3, 'ol', PANTS) + path(`M${x - 1} 83.5 v-2 q0 -3 3.5 -3 h2 q3 0 3 3 v2z`, 'mk-thin', INK));
 };
 
-// ── 漫符 ──
+// ── 瞬移 ──
 
-/** 進出貼紙：白底墨線小框（左下一個小尾巴指向頭），和「！」框同在頭的右上方；文字置中 */
-const STICK_IN = { x: 44, y: -20, w: 42, h: 18, size: 13, text: '到！' };
-const STICK_OUT = { x: 40, y: -22, w: 48, h: 18, size: 11, text: '辛苦了～' };
-const RISE = 'M12 8 v-14 M19 2 v-16 M26 -2 v-12'; // 退場往上的速度線（頭的左上方）
-type Stick = typeof STICK_IN;
-const tail = (s: Stick): Pt[] => [[s.x + 6, s.y + s.h], [s.x, s.y + s.h + 8], [s.x + 12, s.y + s.h]];
-const sticker = (s: Stick) =>
-  tag('polygon', { points: [[s.x, s.y], [s.x + s.w, s.y], [s.x + s.w, s.y + s.h], ...tail(s).reverse(), [s.x, s.y + s.h]].map((p) => p.join(',')).join(' '), class: 'mk-thin', style: WHITE })
-  + text(s.x + s.w / 2, s.y + s.h - 5, s.size, s.text, INK, undefined, 'middle'); // 白底貼紙：字用墨色（夜晚的 --fx 是淺色）
-
-const FX = {
-  in: sticker(STICK_IN),
-  out: path(RISE, 'speed', FX_STROKE(1.4)) + sticker(STICK_OUT),
+/** 退場的雙指點額：左手垂在身側，右手手肘往外抬，食指和中指併攏朝上、貼在右邊額頭（畫得比真的大，100px 也認得出兩根手指） */
+const salute = (look: Look) => {
+  const c = SHIRT_COLORS[look.shirt]!;
+  return arm('l', look, 'arm-rest') + sleeve(c, 'M43 47 L53 34') + sleeve(c, 'M53 34 L42.5 19')
+    + rect(35.2, 4, 3.6, 13, 1.8, 'mk-thin', SKIN) + rect(38.8, 5, 3.6, 12, 1.8, 'mk-thin', SKIN)
+    + circle(40.5, 18, 4.4, 'mk-thin', SKIN);
 };
 
-/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字／握拳／抱胸的手、頭、推鼻子的手）、小石子、進出貼紙；
+const SVG_ATTRS = { xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' };
+/** 殘影：人的剪影（頭和上身），淡藍半透明 */
+const SILHOUETTE = ellipse(30, 22.5, 18, 17, undefined) + path('M15 70 L15 51.5 Q15 41.5 25 40.5 L35 40.5 Q45 41.5 45 51.5 L45 70Z', undefined);
+/** 瞬移的光痕和兩個殘影：放在人物 SVG 外面（.person 的另一個子元素），人被壓成一條線時光痕還看得到。何時出現交給 figure.css 依 data-fx */
+export const WARP_SVG = tag('svg', { class: 'warp', ...SVG_ATTRS },
+  g('after after-l', SILHOUETTE) + g('after after-r', SILHOUETTE)
+  + g('streak', line('M30 -8 V72', 'streak-glow', 'stroke:#8fd8ff;stroke-width:6;stroke-linecap:round;opacity:.6')
+    + line('M30 -8 V72', 'streak-core', 'stroke:#fff;stroke-width:2;stroke-linecap:round')));
+
+/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字／握拳／抱胸的手、頭、推鼻子和點額的手）、小石子；
  *  顯示哪個表情、姿勢交給 CSS 依 data-act／data-fx 決定。.fig 的 transform 給站起來用，抖動放在裡面的 .shake */
 export function figureSvg(look: Look): string {
   const fig = g('fig', g('shake', leg('l') + leg('r') + g('hair-back', hair(look).back)
     + body(look) + g('arms-type', g('typing', typing(look))) + g('arms-fist', fists(look)) + g('arms-cross', armsCross(look))
     + head(look, ['work', 'wait', 'turn'])
-    + g('nose', nosePush(look)))); // 推鼻子的手要蓋在臉上，排在頭後面
-  return tag('svg', { class: 'figure', xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' },
-    AURA_SVG + fig + ROCKS_SVG
-    + g('fx-in', FX.in) + g('fx-out', FX.out));
+    + g('nose', nosePush(look)) + g('salute', salute(look)))); // 推鼻子、點額的手要蓋在臉和頭髮上，排在頭後面
+  return tag('svg', { class: 'figure', ...SVG_ATTRS }, AURA_SVG + fig + ROCKS_SVG);
 }
 
 /** 資訊卡頭像：頭與肩膀、睜眼（工作中的臉），viewBox 只框頭肩 */

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { avatarSvg, figureSvg } from '../web/src/figure.js';
+import { WARP_SVG, avatarSvg, figureSvg } from '../web/src/figure.js';
 import { defsSvg } from '../web/src/objects.js';
 import { EYE_TYPES, HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, SHIRT_COLORS, type Look } from '../web/src/view.js';
 
@@ -40,8 +40,8 @@ test('判斷式抓得到紅與琥珀、放過淡色和暗色', () => {
   for (const c of ['#fbe6d4', '#ffd98a', '#4f86b8', '#6fae7a', '#2a2a2a']) expect(isStateLike(c), c).toBe(false);
 });
 
-test('人物 SVG（所有外觀組合）沒有狀態色', () => {
-  const found = new Set(looks.flatMap((l) => [...hexes(figureSvg(l)), ...hexes(avatarSvg(l))]).filter(isStateLike));
+test('人物 SVG（所有外觀組合，含瞬移光痕）沒有狀態色', () => {
+  const found = new Set(looks.flatMap((l) => [...hexes(figureSvg(l)), ...hexes(avatarSvg(l))]).concat(hexes(WARP_SVG)).filter(isStateLike));
   expect([...found]).toEqual([]);
 });
 

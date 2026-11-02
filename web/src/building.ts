@@ -12,7 +12,7 @@ const ACT: Record<Employee['status'], Act> = { working: 'work', waiting: 'up', i
 
 /** 坐在座位上的人。emp = 上次套用的資料 */
 interface Rec { p: Person; floor: string; emp: Employee }
-/** 正在退場的人：座位已空，等「辛苦了～」淡出才移除人物（那層最後一人時才拆樓） */
+/** 正在退場的人：座位已空，等瞬移消失才移除人物（那層最後一人時才拆樓） */
 interface Leaving { emp: Employee; p: Person; floor: string }
 
 /** 星星：[左緣 %, 離天空底部 px]（白雲 c1~c3 的位置在 CSS）；日夜由 CSS 依 data-time 顯示 */
@@ -85,7 +85,7 @@ export class Building {
     return Math.max(0, document.documentElement.clientWidth - GEO.gutter - GEO.rightMargin);
   }
 
-  /** animate：新來的人播登場「到！」（reset 與第一次載入時直接坐好） */
+  /** animate：新來的人瞬移登場（reset 與第一次載入時直接坐好） */
   private render(animate = this.live): void {
     const emps = [...this.store.employees.values()];
     // 正在退場的人也算進樓層（最後一人淡出前不拆），但座位已空
@@ -182,7 +182,7 @@ export class Building {
     }
   }
 
-  /** 下班：座位立刻空出來，人冒「辛苦了～」淡出後才移除（那層沒人才拆） */
+  /** 下班：座位立刻空出來，人點額、瞬移消失後才移除（那層沒人才拆） */
   private leave(id: string): void {
     const rec = this.people.get(id);
     if (!rec) return;
