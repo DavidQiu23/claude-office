@@ -7,7 +7,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 /* 天空：頁面底色。白天太陽與白雲、夜晚月牙與星星（building.ts 的 sky()），都貼著天空底部（屋頂上方），天空高時上面留空 */
 #building .sky { position: relative; overflow: hidden; flex: 1 0 72px; background: var(--page-bg); pointer-events: none; }
 .sky > div { position: absolute; box-sizing: border-box; }
-.sky .sun, .sky .moon { right: 12%; bottom: 36px; width: 30px; height: 30px; border: 1.4px solid var(--ink); border-radius: 50%; background: var(--screen-turn); }
+.sky .sun, .sky .moon { right: 12%; bottom: 36px; width: 30px; height: 30px; border: 1.4px solid var(--ink); border-radius: 50%; background: var(--sun); }
 /* 月牙：右上蓋一個天空色的圓（不描邊），只留左下的彎月 */
 .sky .moon { width: 27px; height: 27px; }
 .sky .moon::after { content: ''; position: absolute; left: 6.6px; top: -3.9px; width: 23px; height: 23px; border-radius: 50%; background: var(--page-bg); }
@@ -28,11 +28,6 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .roof .tank::before { content: ''; position: absolute; left: 9px; top: -9px; width: 16px; height: 8px; border: solid var(--ink); border-width: 0 1.6px; }
 .roof .ac { right: 96px; width: 44px; height: 12px; border: 1.6px solid var(--ink); border-radius: 2px 2px 0 0; background: var(--elevator); }
 .roof .antenna { left: 28px; width: 1.6px; height: 26px; background: var(--ink); }
-/* 天線紅燈：只在夜晚每 1.8s 閃一次（減少動態時不閃） */
-.roof .antenna::after { content: ''; position: absolute; left: -2.2px; top: -5px; width: 6px; height: 6px; border-radius: 50%; background: var(--waiting); }
-:root[data-time="night"] .roof .antenna::after { animation: blink 1.8s steps(1) infinite; }
-@keyframes blink { 50% { opacity: .2; } }
-@media (prefers-reduced-motion: reduce) { :root[data-time="night"] .roof .antenna::after { animation: none; } }
 #building .floors { padding: 0 16px 0 56px; }
 /* 地面（高 72）：人行道、上緣墨線、兩排錯開的磚縫短線 */
 #building .ground { height: 72px; box-sizing: border-box; border-top: 1.6px solid var(--ink);

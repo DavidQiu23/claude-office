@@ -37,7 +37,7 @@ test('伺服器沒開時 500 ms 內以結束碼 0 結束且沒有輸出', async 
   expect(r.status).toBe(0);
   expect(r.stdout).toBe('');
   expect(r.stderr).toBe('');
-  expect(Date.now() - t).toBeLessThan(500 + 300); // 500 ms 加上 node 啟動的寬限
+  expect(Date.now() - t).toBeLessThan(500 + 700); // 500 ms 加上 node 啟動的寬限（全套平行跑時啟動會被拖慢到約 0.9 秒）
 });
 
 test('stdin 不是 JSON 時以結束碼 0 結束且不送出請求', async () => {

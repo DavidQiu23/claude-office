@@ -32,7 +32,7 @@ function sky(): HTMLElement {
   return el;
 }
 
-/** 最高樓上面的屋頂：女兒牆、水塔、冷氣機、閃燈天線（造型都在 CSS） */
+/** 最高樓上面的屋頂：女兒牆、水塔、冷氣機、天線（造型都在 CSS） */
 function roof(): HTMLElement {
   const el = div('roof');
   el.append(div('antenna'), div('ac'), div('tank'), div('parapet'));

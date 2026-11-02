@@ -75,9 +75,8 @@ function desk(st: DeskState): string {
     + rect(-15, -51, 30, 2.5, 1, 'mk-thin', fill('var(--plate)'));
   if (st === 'idle') o += path('M-28 -58.5 q-2 -3 0 -6 q2 -3 0 -6 M-25 -59 q-2 -2.5 0 -5 q2 -2.5 0 -5', undefined,
     'fill:none;stroke:var(--fx);stroke-width:1;stroke-linecap:round;opacity:.6'); // 蒸氣
-  // 桌子本體：桌面（等你處理混一點紅）、桌板下緣的網點陰影、底邊踢腳線
+  // 桌子本體：桌面、桌板下緣的網點陰影、底邊踢腳線
   o += rect(-56, -48.5, 112, 48.5, 3, 'mk', fill('var(--desk)'));
-  if (st === 'waiting') o += rect(-55.25, -47.75, 110.5, 4.25, 2, undefined, 'fill:var(--waiting);opacity:.3');
   o += tone(-55, -43.5, 110, 2.5) + line('M-55 -43.5 H55', 'mk-thin') + line('M-55 -4 H55', 'mk-thin');
   return o;
 }
@@ -168,10 +167,10 @@ const waterCooler = () =>
   + rect(-4, -48.5, 8, 3, 1, 'mk-thin', fill('#bfe0f5'))
   + rect(-13, -46, 26, 46, 4, 'mk', fill('#eef2f6')) + tone(6.5, -44, 5, 42)
   + rect(-9, -39, 14, 11, 2, 'mk-thin', fill('#dfe6ee'))
-  + circle(-5, -33.5, 2.2, undefined, fill('#4a90d9')) + circle(1.5, -33.5, 2.2, undefined, fill('var(--waiting)'))
+  + circle(-5, -33.5, 2.2, undefined, fill('#4a90d9')) + circle(1.5, -33.5, 2.2, undefined, fill('#8089ad'))
   + line('M-9 -24 H5', 'mk-thin');
 
-const SNACKS = ['#ffd166', '#4fb477', '#4a90d9'];
+const SNACKS = ['#b38fd9', '#4fb477', '#4a90d9'];
 /** 販賣機 56×112：燈箱（夜晚亮起、周圍暖光）、商品窗、投幣口與按鈕、取物口 */
 function vending(): string {
   let snacks = '';
@@ -180,7 +179,7 @@ function vending(): string {
     snacks += rect(-18 + col * 10.5, -86 + row * 20, 7, 12, 1.5, undefined, fill(SNACKS[(col + row) % 3]!));
   }
   return night(glow(0, -56, 46, 56))
-    + rect(-27, -111, 54, 111, 4, 'mk', fill('#d9534f'))
+    + rect(-27, -111, 54, 111, 4, 'mk', fill('#4a9a94'))
     + rect(-21, -105, 42, 10, 1, 'mk-thin', fill('#ffe9a8'))
     + night(rect(-21, -105, 42, 10, 1, 'mk-thin', fill('#fff3c4')))
     + rect(-21, -90, 34, 60, 0, 'mk-thin', fill('#24324f')) + snacks
@@ -188,7 +187,7 @@ function vending(): string {
     + tone(15, -90, 10, 84)
     + rect(17, -86, 5, 8, 1, 'mk-thin', DARK_STEEL)
     + circle(19.5, -70, 1.8, 'mk-thin', fill('#ffe9a8')) + circle(19.5, -63, 1.8, 'mk-thin', fill('#4fb477'))
-    + rect(-21, -22, 34, 10, 2, 'mk-thin', fill('#5a1414'));
+    + rect(-21, -22, 34, 10, 2, 'mk-thin', fill('#1d2a3f'));
 }
 
 /** 盆栽 34×74：三片大葉、暗面網點、陶盆 */
@@ -251,7 +250,7 @@ const sideTable = () =>
   + rect(-10, -10, 20, 2.5, 0, 'mk-thin', fill('var(--wood)')) + rect(-7, -14, 12, 4, 1, 'mk-thin', fill('#4f86b8'))
   + tone(-9, -23.5, 18, 3)
   + rect(-14.5, -28, 29, 4.5, 1.5, 'mk', fill('var(--wood)'))
-  + rect(-11, -31, 11, 3, 1, 'mk-thin', fill('#c0583c'))
+  + rect(-11, -31, 11, 3, 1, 'mk-thin', fill('#6f9a5e'))
   + rect(3, -35.5, 6.5, 7.5, 1.5, 'mk-thin', WHITE) + line('M9.5 -33.5 q2.5 0 2.5 2 q0 2 -2.5 2', 'mk-thin');
 
 const DRAW: Record<ObjectId, () => string> = {

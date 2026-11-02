@@ -2,7 +2,7 @@ import type { Assistant, Employee } from '../../src/state/types.js';
 
 /** 漫畫人物的衣服色與髮色（日夜相同），各 8 種 */
 export const SHIRT_COLORS: string[] = ['#c9d8e8', '#f1d0c4', '#d8e4cf', '#e8dcc0', '#d9c9e6', '#f3c9d2', '#bfe0dc', '#e9c9a8'];
-export const HAIR_COLORS: string[] = ['#2a2a2a', '#5a4030', '#3a3a4a', '#8a6a4a', '#a0522d', '#c99a4a', '#8d8a86', '#4a3560'];
+export const HAIR_COLORS: string[] = ['#2a2a2a', '#5a4030', '#3a3a4a', '#8a6a4a', '#2f4a6e', '#2f5f5a', '#8d8a86', '#4a3560'];
 
 const hash = (s: string): number => {
   let h = 0;
@@ -81,7 +81,7 @@ export const formatTime = (ms: number): string => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-export const PROJECT_COLORS: string[] = ['#4f86b8', '#d08a4a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#c4a23e', '#c0583c'];
+export const PROJECT_COLORS: string[] = ['#4f86b8', '#3d4f7a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#a64d9e', '#6e7b8b'];
 
 // 名牌前綴：等你處理「! 」、輪到你「✓ 」
 export const platePrefix = (e: Employee): string => (e.status === 'waiting' ? '! ' : e.status === 'idle' ? '✓ ' : '');

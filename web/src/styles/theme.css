@@ -5,6 +5,7 @@
   --working: #6fae7a;
   --screen-turn: #f6d68a;
   --screen-waiting: #f2a0a0;
+  --sun: #fbeec4; /* 太陽和月亮：淡奶油色，不借狀態色 */
 }
 
 :root[data-time="day"] {

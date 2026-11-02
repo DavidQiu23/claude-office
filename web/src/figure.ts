@@ -93,7 +93,7 @@ const FACES = {
   work: ellipse(25, 29.5, 2.7, 4, undefined, INK) + ellipse(35, 29.5, 2.7, 4, undefined, INK)
     + circle(26, 28, 1.2, undefined, WHITE) + circle(36, 28, 1.2, undefined, WHITE) + line('M28 35.5 q2 1.6 4 0', 'mk-thin'),
   wait: ellipse(25, 29, 3.4, 4.5, 'mk-thin', WHITE) + ellipse(35, 29, 3.4, 4.5, 'mk-thin', WHITE)
-    + circle(25, 29.5, 1.3, undefined, INK) + circle(35, 29.5, 1.3, undefined, INK) + ellipse(30, 37, 2.4, 2.8, 'mk-thin', fill('#7a2e3a')),
+    + circle(25, 29.5, 1.3, undefined, INK) + circle(35, 29.5, 1.3, undefined, INK) + ellipse(30, 37, 2.4, 2.8, 'mk-thin', fill('#5c3038')),
   turn: line('M21.5 30 q3 3.2 6 0 M32.5 30 q3 3.2 6 0', 'mk') + line('M28 36 q2 1.4 4 0', 'mk-thin'),
 };
 const CHEEKS = path('M19 33.5 l1.6 -1.6 M21 33.5 l1.6 -1.6 M37.4 33.5 l1.6 -1.6 M39.4 33.5 l1.6 -1.6', undefined,
@@ -116,7 +116,7 @@ function body(look: Look): string {
     line('M25 42 Q30 46 35 42', 'mk-thin'),
     path('M20 44.5 Q22 40 30 40.5 Q38 40 40 44.5 Q30 51 20 44.5Z', 'mk-thin', S) + line('M27 47.5 v6.5 M33 47.5 v6.5', 'mk-thin')
       + circle(27, 54.5, 0.9, undefined, INK) + circle(33, 54.5, 0.9, undefined, INK) + line('M23 57 H37 L39.5 64 H20.5Z', 'mk-thin'),
-    path('M25 42 L30 47 L27 50Z M35 42 L30 47 L33 50Z', 'mk-thin', WHITE) + path('M30 47 l-2 8 l2 3 l2 -3z', 'mk-thin', fill('#c0583c')),
+    path('M25 42 L30 47 L27 50Z M35 42 L30 47 L33 50Z', 'mk-thin', WHITE) + path('M30 47 l-2 8 l2 3 l2 -3z', 'mk-thin', fill('#4f86b8')),
   ][look.outfit] ?? '';
   return g('body', rect(17, 41, 26, 25, 8, 'mk', S) + rect(34, 43, 7, 21, 0, 'tone') + outfit);
 }
@@ -192,7 +192,7 @@ const FX = {
     + g('burst', tag('polygon', { points: BURST.map((p) => p.join(',')).join(' '), class: 'mk-thin', style: WHITE })
       + text(BURST_C[0], BURST_C[1] + 5, 14, '！', fill('var(--waiting)'), undefined, 'middle')),
   turn: g('bubble', circle(BUBBLE.cx, BUBBLE.cy, BUBBLE.r, 'mk', fill('var(--turn)'))
-    + path(`M${BUBBLE.cx - 5} ${BUBBLE.cy} l4 4 l7 -7`, undefined, 'fill:none;stroke:#4a3000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round'))
+    + path(`M${BUBBLE.cx - 5} ${BUBBLE.cy} l4 4 l7 -7`, undefined, 'fill:none;stroke:var(--fig-ink);stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round'))
     + text(Z1.x, Z1.y, Z1.size, 'z', fill('var(--fx)'), 'z1') + text(Z2.x, Z2.y, Z2.size, 'Z', fill('var(--fx)'), 'z2'),
   in: sticker(STICK_IN),
   out: path(RISE, 'speed', FX_STROKE(1.4)) + sticker(STICK_OUT),

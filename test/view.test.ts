@@ -66,8 +66,8 @@ test('projectColor：同一個 key 永遠同色', () => {
   expect(PROJECT_COLORS.length).toBe(8);
 });
 
-test('PROJECT_COLORS：spec 色票的 8 種水彩色（照順序）', () => {
-  expect(PROJECT_COLORS).toEqual(['#4f86b8', '#d08a4a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#c4a23e', '#c0583c']);
+test('PROJECT_COLORS：8 種專案色，沒有紅、橘、金黃（照順序）', () => {
+  expect(PROJECT_COLORS).toEqual(['#4f86b8', '#3d4f7a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#a64d9e', '#6e7b8b']);
 });
 
 test('formatTime：HH:mm 補零', () => {
