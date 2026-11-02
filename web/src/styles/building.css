@@ -19,15 +19,19 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .sky .star { width: 7px; height: 7px; background: linear-gradient(var(--fx), var(--fx)) center / 100% 1.2px no-repeat, linear-gradient(var(--fx), var(--fx)) center / 1.2px 100% no-repeat; }
 :root[data-time="night"] .sky .sun, :root[data-time="night"] .sky .cloud,
 :root:not([data-time="night"]) .sky .moon, :root:not([data-time="night"]) .sky .star { display: none; }
-/* 屋頂：疊在天空底部（往上蓋 30px），只多出 12px 的女兒牆；寬度對齊樓層。平塗加 1.6px 墨線框 */
+/* 屋頂：疊在天空底部（往上蓋 30px），只多出 12px 的女兒牆；寬度對齊樓層。圓角機械風，平塗加 1.6px 墨線框 */
 #building .roof { position: relative; z-index: 1; height: 42px; margin: -30px 16px 0 56px; pointer-events: none; }
 .roof > div { position: absolute; bottom: 12px; box-sizing: border-box; }
-.roof .parapet { left: 0; right: 0; bottom: 0; height: 12px; border: 1.6px solid var(--ink); background: var(--roof); }
-/* 水塔：上面兩根短管 */
-.roof .tank { right: 40px; width: 40px; height: 22px; border: 1.6px solid var(--ink); border-radius: 3px 3px 0 0; background: var(--elevator); }
-.roof .tank::before { content: ''; position: absolute; left: 9px; top: -9px; width: 16px; height: 8px; border: solid var(--ink); border-width: 0 1.6px; }
-.roof .ac { right: 96px; width: 44px; height: 12px; border: 1.6px solid var(--ink); border-radius: 2px 2px 0 0; background: var(--elevator); }
+.roof .parapet { left: 0; right: 0; bottom: 0; height: 12px; border: 1.6px solid var(--ink); border-radius: 6px 6px 0 0; background: var(--roof); }
+/* 圓頂水塔：下緣一圈鋼箍 */
+.roof .tank { right: 40px; width: 44px; height: 28px; border: 1.6px solid var(--ink); border-radius: 22px 22px 0 0 / 26px 26px 0 0; background: var(--tank); }
+.roof .tank::before { content: ''; position: absolute; left: -5px; right: -5px; bottom: -1.6px; height: 8px; box-sizing: border-box; border: 1.5px solid var(--ink); border-radius: 4px; background: #cfd2d8; }
+/* 冷氣：圓角機身、左邊一個圓風扇 */
+.roof .ac { right: 104px; width: 40px; height: 20px; border: 1.6px solid var(--ink); border-radius: 7px 7px 0 0;
+  background: radial-gradient(circle at 11px 50%, var(--ink) 0 1.2px, #c8c0ae 1.2px 5px, var(--ink) 5px 6.3px, transparent 6.3px), var(--elevator); }
+/* 天線：頂端一顆圓燈（藍色，不用狀態色） */
 .roof .antenna { left: 28px; width: 1.6px; height: 26px; background: var(--ink); }
+.roof .antenna::after { content: ''; position: absolute; left: -3.7px; top: -7px; width: 9px; height: 9px; box-sizing: border-box; border: 1.3px solid var(--ink); border-radius: 50%; background: var(--tank); }
 #building .floors { padding: 0 16px 0 56px; }
 /* 地面（高 72）：人行道、上緣墨線、兩排錯開的磚縫短線 */
 #building .ground { height: 72px; box-sizing: border-box; border-top: 1.6px solid var(--ink);
@@ -38,11 +42,25 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .floor { position: relative; height: 200px; }
 .floor-in { position: relative; height: 200px; min-width: 100%; }
 .floor-in > div { position: absolute; }
-/* 後牆：20px 寬直條紋，加一片固定在 x 130~223 的鉛筆排線（只跟樓層座標有關，重畫不跳動） */
-.wall { left: 0; right: 0; top: 0; height: 136px; background: repeating-linear-gradient(90deg, var(--wall-stripe) 0 20px, transparent 20px 40px), var(--wall); }
-.wall::before { content: ''; position: absolute; left: 130px; top: 0; width: 93px; height: 20px;
-  background: repeating-linear-gradient(128.66deg, var(--hatch) 0 1px, transparent 1px 5.47px); clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%); }
-.ground-strip { left: 0; right: 0; top: 136px; height: 56px; background: var(--wall-low); }
+/* 房間外殼（淺盒）：天花板 0–10、後牆 10–156（下段 122–156 是護牆板）、木地板 156–192，接著是樓板。
+   兩側斜牆寬 16，連同天花板和地板的斜角畫在 objects.ts 的 ROOM_SIDE；右牆是同一張圖鏡像、換成較暗的牆色。這裡只畫中段，樓層多寬都接得上 */
+.ceil { left: 16px; right: 16px; top: 0; height: 10px; box-sizing: border-box; border-bottom: 1.5px solid var(--fig-ink); background: var(--ceiling); }
+/* 後牆：上段素面（圓窗的四角用同一個 --wall 蓋住），護牆板上緣一條墨線、一條深色邊，每 60 一道接縫 */
+.wall { left: 16px; right: 16px; top: 10px; height: 146px;
+  background: linear-gradient(var(--fig-ink), var(--fig-ink)) 0 111px / 100% 1.5px no-repeat,
+    linear-gradient(var(--wainscot-top), var(--wainscot-top)) 0 112.5px / 100% 5px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 58px, var(--wainscot-top) 58px 60px) 0 117.5px / 100% 29px no-repeat,
+    linear-gradient(var(--wainscot), var(--wainscot)) 0 112px / 100% 34px no-repeat, var(--wall); }
+/* 木地板：橫向木板，每 12 一條板縫，接縫一排一排錯開 */
+.boards { left: 16px; right: 16px; top: 156px; height: 36px; box-sizing: border-box; border-top: 1.5px solid var(--fig-ink);
+  background: linear-gradient(90deg, var(--floor-seam) 0 1.2px, transparent 1.2px) 30px 0 / 96px 10.5px repeat-x,
+    linear-gradient(90deg, var(--floor-seam) 0 1.2px, transparent 1.2px) 78px 11.5px / 96px 11px repeat-x,
+    linear-gradient(90deg, var(--floor-seam) 0 1.2px, transparent 1.2px) 54px 23.5px / 96px 11px repeat-x,
+    repeating-linear-gradient(transparent 0 10.5px, var(--floor-seam) 10.5px 11.5px), var(--floor-wood); }
+.side { top: 0; width: 16px; height: 192px; pointer-events: none; }
+.side svg { display: block; }
+.side-l { left: 0; }
+.side-r { right: 0; transform: scaleX(-1); --side-wall: var(--side-wall-r); }
 /* 樓板：上下各一條墨線 */
 .slab { left: 0; right: 0; top: 192px; height: 8px; box-sizing: border-box; border: solid var(--ink); border-width: 1.6px 0; background: var(--slab); }
 /* 招牌：不透明的專案色（floor.ts 設）、1.6px 墨線框、白色粗體，放不下用「…」；left 與 max-width（到第一扇窗之前）由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定。

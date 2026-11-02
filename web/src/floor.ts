@@ -1,12 +1,12 @@
-// 一層樓：後牆（招牌「NF 專案名」、窗景與家具）、地板、樓板、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
+// 一層樓：淺盒房間（天花板、後牆、木地板、兩側斜牆）、樓板、招牌「NF 專案名」、圓窗、一排正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
 import type { Employee } from '../../src/state/types.js';
 import { GEO, plateText, seatCenter, type Floor } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
-import { DESK_CODE, GLASS, OBJECTS, PANO, type DeskState, type ObjectId } from './objects.js';
+import { DESK_CODE, GLASS, OBJECTS, PANO, ROOM_SIDE, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const WIN_Y = 66; // 窗台底邊：窗頂 14 與招牌同高，窗在坐著的人頭上
+const WIN_Y = 66; // 圓窗底邊：窗頂 14 與招牌同高，窗在坐著的人頭上
 const FURN_Y = 156; // 家具的地板線：與人物腳底同一條（在桌子後面）
 const DESK_ORIGIN = { x: GEO.seatW / 2, y: 192 }; // 桌子的原點（底邊中點）在桌子元素內的位置；桌面落在 y 143.5
 
@@ -30,7 +30,7 @@ export function useObj(id: ObjectId, x: number, y: number): SVGSVGElement {
   return svg;
 }
 
-/** 一扇窗：玻璃是一個小 svg，viewBox 對到全景（#panorama）上的一塊（placeWindows 依樓層設定）；窗框與窗台（#window）疊在上面。
+/** 一扇窗：玻璃是一個小 svg，viewBox 對到全景（#panorama）上的一塊（placeWindows 依樓層設定）；圓窗框（#window，連同蓋住方形四角的牆色）疊在上面。
  *  全景畫兩份並排，露出的那塊跨過右緣時接得上 */
 function windowEl(x: number): SVGSVGElement {
   const win = useObj('window', x, WIN_Y), { w, h } = OBJECTS.window;
@@ -46,6 +46,16 @@ function windowEl(x: number): SVGSVGElement {
   }
   win.prepend(view);
   return win;
+}
+
+/** 房間外殼與樓板（building.css）：兩側斜牆是 ROOM_SIDE，右邊那張由 CSS 鏡像 */
+function shell(): HTMLElement[] {
+  const side = (cls: string) => {
+    const d = div(`side ${cls}`);
+    d.innerHTML = ROOM_SIDE; // objects.ts 產生、不含使用者資料
+    return d;
+  };
+  return [div('ceil'), div('wall'), div('boards'), side('side-l'), side('side-r'), div('slab')];
 }
 
 const deskState = (e: Employee | null): DeskState => (e ? e.status : 'empty');
@@ -68,7 +78,7 @@ export class FloorView {
   constructor(hooks: { hover(e: Employee, at: DOMRect): void; unhover(): void }) {
     this.sign.style.left = `${SIGN_X}px`;
     this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
-    this.inner.append(div('wall'), div('ground-strip'), div('slab'), this.windows, this.sign, this.furniture, this.people, this.deskRow);
+    this.inner.append(...shell(), this.windows, this.sign, this.furniture, this.people, this.deskRow);
     this.el.append(this.inner); // 內容座標與 seatCenter 同一套
     // 滑過人物：依 data-key 找這層目前的佔用者
     const personOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>('.person') : null);
@@ -151,7 +161,7 @@ export function lobby(): HTMLElement {
   const room = div('floor'), inner = div('floor-in'), msg = div('lobby-msg'), note = div('note');
   note.append(el('b', '', '目前沒有人上班'), el('span', '', '開一個 Claude Code session 就會出現'));
   msg.append(note);
-  inner.append(div('wall'), div('ground-strip'), div('slab'), msg);
+  inner.append(...shell(), msg);
   room.append(inner);
   return room;
 }

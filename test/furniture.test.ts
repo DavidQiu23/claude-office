@@ -65,7 +65,7 @@ describe('後牆窗', () => {
     expect(F.windowXs(F.WIN.first + F.WIN.half + GEO.furnitureW - 1)).toEqual([]);
   });
 
-  it('窗（含窗台）寬不超過 2 × WIN.half', () => {
+  it('窗寬不超過 2 × WIN.half', () => {
     expect(OBJECTS.window.w).toBeLessThanOrEqual(2 * F.WIN.half);
   });
 

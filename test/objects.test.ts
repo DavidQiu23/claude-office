@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { DESK_CODE, OBJECTS, PANO, defsSvg, type ObjectId } from '../web/src/objects.js';
+import { DESK_CODE, OBJECTS, PANO, ROOM_SIDE, defsSvg, type ObjectId } from '../web/src/objects.js';
 
 const IDS = Object.keys(OBJECTS) as ObjectId[];
 const DESKS: ObjectId[] = ['desk-empty', 'desk-working', 'desk-waiting', 'desk-idle'];
@@ -24,13 +24,13 @@ test('每個物件都有正的寬高', () => {
   }
 });
 
-test('defsSvg 有網點、窗景全景與每個物件的 symbol，id 不重複', () => {
+test('defsSvg 有窗景全景與每個物件的 symbol，id 不重複；不再用網點', () => {
   const s = defsSvg();
-  expect(s).toContain('<pattern id="tone"');
+  expect(s).not.toContain('id="tone"');
   for (const id of IDS) expect(s, id).toContain(`<symbol id="${id}"`);
   const ids = [...s.matchAll(/\sid="([^"]*)"/g)].map((m) => m[1]);
   expect(new Set(ids).size).toBe(ids.length);
-  expect(ids).toHaveLength(IDS.length + 2); // + tone、panorama
+  expect(ids).toHaveLength(IDS.length + 1); // + panorama
 });
 
 test('symbol 的 viewBox 依原點在底邊中點', () => {
@@ -55,7 +55,11 @@ test('四種桌子都存在且彼此不同', () => {
 });
 
 test('顏色不寫在屬性上', () => {
-  expect(defsSvg()).not.toMatch(/\s(fill|stroke)="(?!none")/);
+  for (const s of [defsSvg(), ROOM_SIDE]) expect(s).not.toMatch(/\s(fill|stroke)="(?!none")/);
+});
+
+test('房間側牆（含天花板和地板的斜角）用主題變數上色，日夜才切得過去', () => {
+  for (const v of ['--ceiling', '--side-wall', '--floor-wood']) expect(ROOM_SIDE).toContain(`var(${v})`);
 });
 
 test('日夜群組用變數控制', () => {

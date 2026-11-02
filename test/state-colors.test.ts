@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { WARP_SVG, avatarSvg, figureSvg } from '../web/src/figure.js';
-import { defsSvg } from '../web/src/objects.js';
+import { ROOM_SIDE, defsSvg } from '../web/src/objects.js';
 import { EYE_TYPES, HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, SHIRT_COLORS, type Look } from '../web/src/view.js';
 
 // 紅色只代表「等你處理」、琥珀色只代表「輪到你」：其他地方的 hex 色不能和這兩色同色相又夠鮮豔
@@ -46,7 +46,7 @@ test('人物 SVG（所有外觀組合，含瞬移光痕）沒有狀態色', () =
 });
 
 test('環境 SVG 沒有狀態色，也不引用狀態色變數', () => {
-  const s = defsSvg();
+  const s = defsSvg() + ROOM_SIDE;
   expect(hexes(s).filter(isStateLike)).toEqual([]);
   expect(s).not.toMatch(/var\(--(waiting|turn)\)/);
 });
