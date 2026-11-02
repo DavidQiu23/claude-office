@@ -32,7 +32,7 @@
   --monitor: #2a2a2a;
   --screen-off: #6a6a6a;
   --screen-working: #c9f0dc;
-  --skin: #fbe6d4;
+  --skin: #ffe2c6;
   --tone-opacity: 0.45;
   --elevator: #e9e2d2;
   --button: #e8dbc2;
@@ -76,14 +76,16 @@
   --lamp-glow: #ffd98a;
 }
 
-/* 共用線條 class：紙張風墨線、漫畫風輪廓與細節、網點填色 */
+/* 共用線條 class：紙張風墨線、漫畫風輪廓與細節、網點填色；人物的外輪廓 ol（比內線粗） */
 .ink,
 .mk,
-.mk-thin {
+.mk-thin,
+.ol {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .ink { stroke: var(--ink); stroke-width: 1.6; }
 .mk { stroke: var(--fig-ink); stroke-width: 1.5; }
 .mk-thin { stroke: var(--fig-ink); stroke-width: 1.1; }
+.ol { stroke: var(--fig-ink); stroke-width: 1.6; }
 .tone { fill: url(#tone); }

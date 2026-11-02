@@ -1,8 +1,8 @@
 import type { Assistant, Employee } from '../../src/state/types.js';
 
-/** 漫畫人物的衣服色與髮色（日夜相同），各 8 種 */
-export const SHIRT_COLORS: string[] = ['#c9d8e8', '#f1d0c4', '#d8e4cf', '#e8dcc0', '#d9c9e6', '#f3c9d2', '#bfe0dc', '#e9c9a8'];
-export const HAIR_COLORS: string[] = ['#2a2a2a', '#5a4030', '#3a3a4a', '#8a6a4a', '#2f4a6e', '#2f5f5a', '#8d8a86', '#4a3560'];
+/** 漫畫人物的衣服色（照美術定稿：中明度的飽和色，避開紅、橘、黃）與髮色（黑、深棕、深紫等自然色），各 8 種，日夜相同 */
+export const SHIRT_COLORS: string[] = ['#4f8fd8', '#6cc28a', '#9b7fd8', '#43b0c8', '#e88ab8', '#8fc860', '#5a6fd8', '#f2f2ec'];
+export const HAIR_COLORS: string[] = ['#2a2a2a', '#3a2a20', '#1f1b2e', '#8a6a4a', '#2b2b33', '#5a3a8a', '#5a4030', '#2f4a6e'];
 
 const hash = (s: string): number => {
   let h = 0;
@@ -13,11 +13,13 @@ const hash = (s: string): number => {
   return (h ^ (h >>> 15)) >>> 0;
 };
 
-/** 角色外觀（皆由 sessionId 雜湊決定）：hair/shirt 為 HAIR_COLORS/SHIRT_COLORS 索引（0–7），style 為髮型 0–5，outfit 為衣服款式 0–2 */
-export interface Look { hair: number; shirt: number; style: number; outfit: number; glasses: boolean }
+/** 角色外觀（皆由 sessionId 雜湊決定）：hair/shirt 為 HAIR_COLORS/SHIRT_COLORS 索引（0–7），style 為髮型 0–5，outfit 為衣服款式 0–2，
+ *  eyes 為眼型（0 角度眼加粗斜眉、1 大圓眼加睫毛） */
+export interface Look { hair: number; shirt: number; style: number; outfit: number; eyes: number; glasses: boolean }
 
 export const HAIR_STYLES = 6;
 export const OUTFIT_COUNT = 3;
+export const EYE_TYPES = 2;
 
 export const appearance = (sessionId: string): Look => {
   const h = hash(sessionId);
@@ -27,6 +29,7 @@ export const appearance = (sessionId: string): Look => {
     shirt: Math.floor(h / n) % n,
     style: Math.floor(h / (n * n)) % HAIR_STYLES,
     outfit: Math.floor(h / (n * n * HAIR_STYLES)) % OUTFIT_COUNT,
+    eyes: Math.floor(h / (n * n * HAIR_STYLES * OUTFIT_COUNT)) % EYE_TYPES,
     glasses: (h >>> 24) % 4 === 0,
   };
 };

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, HAIR_COLORS, PROJECT_COLORS, projectColor, formatTime, nameplate, SHIRT_COLORS, summary } from '../web/src/view.js';
+import { appearance, assistantList, EYE_TYPES, HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, projectColor, formatTime, nameplate, SHIRT_COLORS, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
@@ -14,9 +14,12 @@ test('appearance 對同一個 sessionId 永遠相同', () => {
     const a = appearance(id);
     expect(a.hair).toBeLessThan(8);
     expect(a.shirt).toBeLessThan(8);
-    expect(a.style).toBeLessThan(6);
-    expect(a.outfit).toBeLessThan(3);
+    expect(a.style).toBeLessThan(HAIR_STYLES);
+    expect(a.outfit).toBeLessThan(OUTFIT_COUNT);
+    expect(a.eyes).toBeLessThan(EYE_TYPES);
   }
+  // 眼型由雜湊決定，多個 id 裡兩種都會出現
+  expect(new Set(Array.from({ length: 40 }, (_, i) => appearance(`s${i}`).eyes)).size).toBe(EYE_TYPES);
 });
 
 test('衣服色與髮色各 8 種', () => {

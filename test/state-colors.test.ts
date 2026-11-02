@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { avatarSvg, figureSvg } from '../web/src/figure.js';
 import { defsSvg } from '../web/src/objects.js';
-import { HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, SHIRT_COLORS, type Look } from '../web/src/view.js';
+import { EYE_TYPES, HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, SHIRT_COLORS, type Look } from '../web/src/view.js';
 
 // 紅色只代表「等你處理」、琥珀色只代表「輪到你」：其他地方的 hex 色不能和這兩色同色相又夠鮮豔
 const THEME = readFileSync('web/src/styles/theme.css', 'utf8');
@@ -32,7 +32,8 @@ const looks: Look[] = [];
 for (let c = 0; c < HAIR_COLORS.length; c++)
   for (let style = 0; style < HAIR_STYLES; style++)
     for (let outfit = 0; outfit < OUTFIT_COUNT; outfit++)
-      for (const glasses of [false, true]) looks.push({ hair: c, shirt: c, style, outfit, glasses });
+      for (let eyes = 0; eyes < EYE_TYPES; eyes++)
+        for (const glasses of [false, true]) looks.push({ hair: c, shirt: c, style, outfit, eyes, glasses });
 
 test('判斷式抓得到紅與琥珀、放過淡色和暗色', () => {
   for (const c of ['#d63434', '#f2b83d', '#d9534f', '#c99a4a', '#d08a4a']) expect(isStateLike(c), c).toBe(true);

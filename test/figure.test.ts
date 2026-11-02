@@ -2,16 +2,17 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { BURST_BOX, FIG, FX_BOXES, avatarSvg, figureSvg } from '../web/src/figure.js';
 import { esc, tag } from '../web/src/svg.js';
-import { appearance, type Look } from '../web/src/view.js';
+import { appearance, EYE_TYPES, HAIR_STYLES, OUTFIT_COUNT, type Look } from '../web/src/view.js';
 
-// 6 種髮型 × 3 種衣服 × 有無眼鏡 × 髮色/衣服色取頭尾
+// 所有髮型 × 衣服 × 眼型 × 有無眼鏡 × 髮色/衣服色取頭尾
 const looks: Look[] = [];
-for (let style = 0; style < 6; style++)
-  for (let outfit = 0; outfit < 3; outfit++)
-    for (const glasses of [false, true])
-      for (const c of [0, 7]) looks.push({ hair: c, shirt: 7 - c, style, outfit, glasses });
+for (let style = 0; style < HAIR_STYLES; style++)
+  for (let outfit = 0; outfit < OUTFIT_COUNT; outfit++)
+    for (let eyes = 0; eyes < EYE_TYPES; eyes++)
+      for (const glasses of [false, true])
+        for (const c of [0, 7]) looks.push({ hair: c, shirt: 7 - c, style, outfit, eyes, glasses });
 
-const base: Look = { hair: 1, shirt: 2, style: 0, outfit: 0, glasses: false };
+const base: Look = { hair: 1, shirt: 2, style: 0, outfit: 0, eyes: 0, glasses: false };
 
 /** CSS 檔裡某個選擇器那條規則的內容（大括號之間） */
 const rule = (file: string, sel: string): string =>
@@ -24,29 +25,41 @@ test('tag 與 esc：略過 undefined、自我關閉、跳脫', () => {
 });
 
 test('所有外觀組合都畫得出來', () => {
-  expect(FIG).toEqual({ w: 60, h: 84 });
-  for (const l of looks) expect(figureSvg(l)).toContain('viewBox="0 0 60 84"');
+  for (const l of looks) expect(figureSvg(l)).toContain(`viewBox="0 0 ${FIG.w} ${FIG.h}"`);
 });
 
-test('每個部件與漫符群組都在', () => {
-  const names = ['chair', 'fig', 'leg-l', 'leg-r', 'hair-back', 'arm-l', 'body', 'arm-r', 'head', 'fx-work', 'fx-wait', 'fx-turn', 'fx-in', 'fx-out', 'face-work', 'face-wait', 'face-turn'];
-  for (const l of looks) {
-    const s = figureSvg(l);
-    for (const n of names) expect(s, n).toMatch(new RegExp(`class="[^"]*\\b${n}\\b`));
-    // 姿勢群組 fig 只有一個；墨線 class 已改名 mk／mk-thin，不再與群組同名
-    expect(s).toMatch(/<g class="fig"[ >]/);
-    expect(s.match(/class="[^"]*(?<![\w-])fig(?![\w-])[^"]*"/g)).toHaveLength(1);
-    expect(s).not.toMatch(/class="[^"]*\bfig-thin\b/);
-    expect(s).toMatch(/class="mk"/);
-    expect(s).toMatch(/class="mk-thin"/);
+test('.person 與人物 SVG 的寬高等於人物框 FIG', () => {
+  for (const sel of ['.person', '.person .figure']) {
+    const r = rule('web/src/styles/figure.css', sel);
+    expect(r, sel).toContain(`width: ${FIG.w}px`);
+    expect(r, sel).toContain(`height: ${FIG.h}px`);
   }
 });
 
-test('墨線 class 是 mk／mk-thin（theme.css）', () => {
+test('每個部件與漫符群組都在', () => {
+  const names = ['fig', 'leg-l', 'leg-r', 'hair-back', 'arm-l', 'body', 'arm-r', 'head', 'fx-work', 'fx-wait', 'fx-turn', 'fx-in', 'fx-out', 'face-work', 'face-wait', 'face-turn'];
+  for (const l of looks) {
+    const s = figureSvg(l);
+    for (const n of names) expect(s, n).toMatch(new RegExp(`class="[^"]*\\b${n}\\b`));
+    // 姿勢群組 fig 只有一個；線稿 class 不與群組同名
+    expect(s).toMatch(/<g class="fig"[ >]/);
+    expect(s.match(/class="[^"]*(?<![\w-])fig(?![\w-])[^"]*"/g)).toHaveLength(1);
+    // 外輪廓 ol、內線 mk-thin
+    for (const c of ['ol', 'mk-thin']) expect(s, c).toMatch(new RegExp(`class="${c}"`));
+  }
+});
+
+test('線稿 class（theme.css）：外輪廓 ol 比內線 mk-thin 粗', () => {
   const css = readFileSync('web/src/styles/theme.css', 'utf8');
   expect(css).toMatch(/\.mk \{ stroke: var\(--fig-ink\); stroke-width: 1\.5; \}/);
   expect(css).toMatch(/\.mk-thin \{ stroke: var\(--fig-ink\); stroke-width: 1\.1; \}/);
+  const ol = Number(css.match(/\.ol \{ stroke: var\(--fig-ink\); stroke-width: ([\d.]+); \}/)?.[1]);
+  expect(ol).toBeGreaterThan(1.1);
   expect(css).not.toMatch(/\.fig(-thin)?\b/);
+});
+
+test('人物不用網點：硬影是同色加深的實色', () => {
+  for (const l of looks) expect(figureSvg(l)).not.toContain('class="tone"');
 });
 
 test('figure.css 的狀態規則：漫符只在對應狀態顯示，減少動態不隱藏漫符', () => {
@@ -76,11 +89,15 @@ test('狀態列在整頁橫向捲動時釘在左邊', () => {
 
 test('同一個外觀每次相同', () => {
   expect(figureSvg(appearance('abc'))).toBe(figureSvg(appearance('abc')));
+  expect(avatarSvg(appearance('abc'))).toBe(avatarSvg(appearance('abc')));
 });
 
-test('髮型與衣服真的不同', () => {
-  expect(new Set([0, 1, 2, 3, 4, 5].map((style) => figureSvg({ ...base, style }))).size).toBe(6);
-  expect(new Set([0, 1, 2].map((outfit) => figureSvg({ ...base, outfit }))).size).toBe(3);
+test('髮型、眼型與衣服真的不同', () => {
+  const all = <K extends keyof Look>(k: K, n: number) => new Set(Array.from({ length: n }, (_, v) => figureSvg({ ...base, [k]: v }))).size;
+  expect(all('style', HAIR_STYLES)).toBe(HAIR_STYLES);
+  expect(all('outfit', OUTFIT_COUNT)).toBe(OUTFIT_COUNT);
+  expect(all('eyes', EYE_TYPES)).toBe(EYE_TYPES);
+  expect(new Set(Array.from({ length: EYE_TYPES }, (_, eyes) => avatarSvg({ ...base, eyes }))).size).toBe(EYE_TYPES);
   expect(figureSvg({ ...base, glasses: true })).not.toBe(figureSvg(base));
 });
 
@@ -122,7 +139,7 @@ test('進出漫符不蓋住招牌，也在座位內', () => {
 });
 
 test('進出漫符的文字', () => {
-  const s = figureSvg(looks[0]);
+  const s = figureSvg(looks[0]!);
   expect(s).toContain('到！');
   expect(s).toContain('辛苦了～');
 });
@@ -139,7 +156,7 @@ test('figure.css：data-fx 期間只顯示進出漫符，狀態漫符藏起來',
 });
 
 test('進出貼紙是白底，字用固定深色（夜晚的 --fx 是淺色，會看不見）', () => {
-  const s = figureSvg(looks[0]);
+  const s = figureSvg(looks[0]!);
   for (const t of ['到！', '辛苦了～']) {
     const el = s.match(new RegExp(`<text[^>]*>${t}</text>`))?.[0] ?? '';
     expect(el, t).not.toBe('');
