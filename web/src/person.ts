@@ -1,4 +1,4 @@
-// 一個人：漫畫人物 SVG（椅背、姿勢群組、漫符都在 SVG 裡）。el 的 left = 人的中心 x（樓層座標）
+// 一個人：漫畫人物 SVG（氣場、姿勢群組、漫符都在 SVG 裡）。el 的 left = 人的中心 x（樓層座標）
 // 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act／data-fx 決定，這裡只設屬性
 import { div } from './dom.js';
 import { figureSvg, FIG } from './figure.js';

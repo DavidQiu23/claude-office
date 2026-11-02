@@ -5,13 +5,15 @@
 
 /* 部件以自己的外框為基準旋轉／縮放：手臂轉肩膀、腿轉髖部 */
 .person .fig, .person .arm, .person .leg, .person .head,
-.person .burst, .person .drop, .person .z1, .person .z2 { transform-box: fill-box; }
+.person .aura path, .person .z1, .person .z2 { transform-box: fill-box; }
 .person .arm { transform-origin: 50% 8%; }
 .person .leg { transform-origin: 50% 5%; }
 .person .head { transform-origin: 50% 90%; }
-.person .burst { transform-origin: 50% 50%; }
-/* 漫符超出人物框，不接滑鼠（資訊卡只認人） */
-.person .fx-work, .person .fx-wait, .person .fx-turn, .person .fx-in, .person .fx-out { pointer-events: none; }
+.person .aura path { transform-origin: 50% 100%; } /* 火焰和火舌以底邊中點跳動 */
+/* 白天：白色氣場疊在奶油色牆上看不出來，外圍加一圈冷藍光暈襯出輪廓（不用紅、琥珀）；夜晚維持原樣 */
+:root:not([data-time="night"]) .person .aura { filter: drop-shadow(0 0 2px rgba(60, 110, 190, .7)) drop-shadow(0 0 5px rgba(60, 110, 190, .45)); }
+/* 漫符、氣場、小石子超出人物框，不接滑鼠（資訊卡只認人） */
+.person .fx-work, .person .fx-turn, .person .fx-in, .person .fx-out, .person .aura, .person .rocks { pointer-events: none; }
 
 /* 坐下／站起：data-act 一換就播 300ms */
 .person .fig, .person .leg { transition: transform 300ms ease-in-out, opacity 300ms ease-in-out; }
@@ -20,19 +22,21 @@
 .person[data-act="work"] .leg, .person[data-act="idle"] .leg { transform: scaleY(.6); }
 .person[data-act="up"] .fig { transform: translateY(-12px); }
 
-/* 表情與漫符：預設全藏，只露目前狀態的那一組（漫符的動畫也只掛在看得到的狀態上） */
+/* 表情、漫符與爆氣的部件：預設全藏，只露目前狀態的那一組（動畫也只掛在看得到的狀態上） */
 .person .face-work, .person .face-wait, .person .face-turn,
-.person .fx-work, .person .fx-wait, .person .fx-turn { display: none; }
+.person .fx-work, .person .fx-turn, .person .aura, .person .rocks, .person .hair-up, .person .arms-fist { display: none; }
 .person[data-act="work"] .face-work,
 .person[data-act="up"] .face-wait, .person[data-act="idle"] .face-turn,
-.person[data-act="work"] .fx-work, .person[data-act="up"] .fx-wait,
-.person[data-act="idle"] .fx-turn { display: inline; }
+.person[data-act="work"] .fx-work, .person[data-act="idle"] .fx-turn,
+.person[data-act="up"] .aura, .person[data-act="up"] .rocks, .person[data-act="up"] .hair-up, .person[data-act="up"] .arms-fist { display: inline; }
+/* 爆氣時平常的頭髮和打字的手換掉 */
+.person[data-act="up"] .hair, .person[data-act="up"] .arms-type { display: none; }
 
 /* 登場「到！」與退場「辛苦了～」：data-fx 期間只顯示進出貼紙，狀態漫符藏起來。
    動畫放在 .figure（整張人物 SVG），不放 .fig：.fig 的 transform 給站起來用。600／500 與 person.ts 的 ENTER_MS／EXIT_MS 同值 */
 .person .fx-in, .person .fx-out { display: none; }
 .person[data-fx="in"] .fx-in, .person[data-fx="out"] .fx-out { display: inline; }
-.person[data-fx] .fx-work, .person[data-fx] .fx-wait, .person[data-fx] .fx-turn { display: none !important; }
+.person[data-fx] .fx-work, .person[data-fx] .fx-turn, .person[data-fx] .aura, .person[data-fx] .rocks { display: none !important; }
 .person .figure { transform-origin: 50% 100%; }
 .person[data-fx="in"] .figure { animation: fig-in 600ms ease-out; }
 .person[data-fx="out"] .figure { animation: fig-out 500ms ease-in forwards; }
@@ -46,15 +50,19 @@
 @keyframes fig-type { 50% { transform: translateY(-3px); } }
 @keyframes fig-sfx { 50% { opacity: .25; } }
 
-/* 等你處理：站起來，右臂舉到頭上揮動（靜止時停在 175°，減少動態時照樣舉手）；集中線淡入淡出、「！」框脈動、汗滴往下滑 */
-.person[data-act="up"] .arm-r { transform: rotate(175deg); animation: fig-wave .8s ease-in-out infinite; }
-.person[data-act="up"] .lines { animation: fig-lines 1.6s ease-in-out infinite; }
-.person[data-act="up"] .burst { animation: fig-pop 1.6s ease-in-out infinite; }
-.person[data-act="up"] .drop { animation: fig-drop 1.6s ease-in infinite; }
-@keyframes fig-wave { 0%, 100% { transform: rotate(160deg); } 50% { transform: rotate(195deg); } }
-@keyframes fig-lines { 50% { opacity: .35; } }
-@keyframes fig-pop { 50% { transform: scale(1.12); } }
-@keyframes fig-drop { 0% { opacity: 0; transform: translateY(-3px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(5px); } }
+/* 等你處理：爆氣。站起來握拳，只有角色自己抖動（.shake 在 .fig 裡面）；氣場三層各自跳動、火舌往上竄、小石子往上飄。
+   幅度與 figure.ts 的 SHAKE、FLARE／FLARE_SKEW、TONGUE_RISE、ROCK_RISE 同值（外框測試用那邊的數字） */
+.person[data-act="up"] .shake { animation: fig-shake .09s linear infinite; }
+.person[data-act="up"] .aura-1 { animation: fig-flare .22s steps(2) infinite alternate; }
+.person[data-act="up"] .aura-2 { animation: fig-flare .17s steps(2) infinite alternate; }
+.person[data-act="up"] .aura-3 { animation: fig-flare .13s steps(2) infinite alternate; }
+.person .tongue, .person .rock { opacity: 0; }
+.person[data-act="up"] .tongue { animation: fig-tongue .9s ease-out infinite; } /* 各自的 animation-delay 寫在 SVG 上 */
+.person[data-act="up"] .rock { animation: fig-rock 2.6s ease-in infinite; }
+@keyframes fig-shake { 25% { transform: translate(-1px, .5px); } 75% { transform: translate(1px, -.5px); } }
+@keyframes fig-flare { from { transform: scale(1) skewX(-2deg); } to { transform: scale(1.03) skewX(2deg); } }
+@keyframes fig-tongue { 0% { opacity: 0; transform: translateY(0) scale(.6); } 20% { opacity: .85; } 100% { opacity: 0; transform: translateY(-46px) scale(1); } }
+@keyframes fig-rock { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(-46px); } }
 
 /* 輪到你：閉眼點頭；zZ 輪流往上飄 */
 .person[data-act="idle"] .head { animation: fig-nod 2.6s ease-in-out infinite; }

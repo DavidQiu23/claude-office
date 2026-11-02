@@ -90,8 +90,9 @@ const openEye = (round: boolean) => (ex: number, side: number) => round
     + inkStroke(`M${ex + side * 3.4} ${EY - 3.2} l${side * 1.8} -1.4 M${ex + side * 3.9} ${EY - 1.6} l${side * 1.9} -.6`, 1.1)
   : path(`M${ex - 4} ${EY - 2.4} L${ex + 4} ${EY - 2.4} Q${ex + 4.4} ${EY + 3} ${ex} ${EY + 3.2} Q${ex - 4.4} ${EY + 3} ${ex - 4} ${EY - 2.4}Z`, 'mk-thin', WHITE)
     + ellipse(ex, EY + 0.6, 1.6, 2.3, undefined, INK) + circle(ex - 0.5, EY - 0.3, 0.6, undefined, WHITE);
+/** 爆氣的眼：上緣從外眼角往內眼角壓低（內眼角低） */
 const angryEye = (ex: number, side: number) =>
-  path(`M${n(ex - 4.2)} ${n(EY - 1.2 - side * 1.2)} L${n(ex + 4.2)} ${n(EY - 1.2 + side * 1.2)} Q${ex + 4} ${EY + 3.2} ${ex} ${EY + 3.2} Q${ex - 4} ${EY + 3.2} ${n(ex - 4.2)} ${n(EY - 1.2 - side * 1.2)}Z`, 'mk-thin', WHITE)
+  path(`M${n(ex - 4.2)} ${n(EY - 1.2 + side * 1.2)} L${n(ex + 4.2)} ${n(EY - 1.2 - side * 1.2)} Q${ex + 4} ${EY + 3.2} ${ex} ${EY + 3.2} Q${ex - 4} ${EY + 3.2} ${n(ex - 4.2)} ${n(EY - 1.2 + side * 1.2)}Z`, 'mk-thin', WHITE)
   + circle(ex, EY + 1.2, 1.3, undefined, INK);
 const shutEye = (ex: number) => inkStroke(`M${ex - 4} ${EY + 0.5} q4 2.4 8 0`, 1.6);
 
@@ -117,7 +118,7 @@ function head(look: Look, moods: Mood[]): string {
     + path('M12 24.5 q-3.2 1 -1.5 5 q1 2 2.4 1.4 M48 24.5 q3.2 1 1.5 5 q-1 2 -2.4 1.4', 'mk-thin', SKIN) // 耳朵
     + line('M30.3 29.1 l1.4 1.8 l-1.6 .4', 'mk-thin') // 鼻子
     + moods.map((m) => face(look, m)).join('')
-    + hair(look).front + (look.glasses ? GLASSES : ''));
+    + g('hair', hair(look).front) + (moods.includes('wait') ? g('hair-up', hairUp(look)) : '') + (look.glasses ? GLASSES : ''));
 }
 
 // ── 身體與衣服：窄肩的身體、右側一條硬影。T 恤（領口弧線）、帽 T（帽緣、兩條繩、口袋）、襯衫（白領加領帶） ──
@@ -142,6 +143,76 @@ const arm = (side: 'l' | 'r', look: Look) => {
     + circle(x + 4.5, 73.5, 4, 'mk-thin', SKIN));
 };
 
+// ── 爆氣：幾何資料同時拿來畫與算外框（AURA_BOX 等），兩邊不會對不上 ──
+
+/** 站起來時 .fig 上移的距離（figure.css 的 translateY 同值，測試檢查） */
+export const STAND_Y = 12;
+/** 爆氣時 .shake 抖動的幅度（figure.css 的 fig-shake 同值） */
+const SHAKE = { x: 1, y: 0.5 };
+
+/** 雙拳握在腰側（坐姿座標，站起來後整個上移 STAND_Y）：前臂往下、拳頭上兩條指縫 */
+const FISTS: Pt[] = [[11.5, 61.5], [48.5, 61.5]];
+const FIST_R = 5;
+const fists = (look: Look) => {
+  const c = SHIRT_COLORS[look.shirt]!;
+  return FISTS.map(([fx, fy]) => rect(fx - 4.5, fy - 19, 9, 18, 4.5, 'ol', fill(c)) + rect(fx + 0.7, fy - 17, 2.6, 14, 1.3, undefined, fill(clothShade(c)))
+    + circle(fx, fy, FIST_R, 'ol', SKIN) + line(`M${fx - 2.5} ${fy - 2} h5 M${fx - 2.5} ${fy + 0.5} h5`, 'mk-thin')).join('');
+};
+
+/** 豎起的頭髮：所有髮型共用一個往上炸開的形狀，顏色照原本的髮色（不變色） */
+const HAIR_UP: Pt[] = [[11, 27.5], [7, 7.5], [13, 9.5], [11, -8.5], [20, 1.5], [22, -18.5], [29, -2.5], [34, -21.5], [38, -3.5], [46, -16.5], [46, 2.5],
+  [54, -6.5], [51, 12.5], [49, 27.5], [45, 18.5], [42, 23.5], [36, 14.5], [32, 22.5], [26, 13.5], [22, 21.5], [16, 14.5]];
+const poly = (pts: Pt[]) => 'M' + pts.map((p) => p.join(' ')).join(' L') + 'Z';
+const hairUp = (look: Look) => {
+  const c = HAIR_COLORS[look.hair]!;
+  return path(poly(HAIR_UP), 'ol', fill(c)) + path(poly(HAIR_UP.slice(7, 15).concat([[40, 15.5], [39, -0.5]])), undefined, fill(hairShade(c)));
+};
+
+/** 氣場：半透明白色的一圈火焰（外層有墨線輪廓），（連續三次貝茲的控制點），底邊在 y 83.5（被桌子擋住）。中、內兩層是同形往底邊中點縮小 */
+const AURA_BASE: Pt = [30, 83.5];
+const AURA: Pt[] = [[-4, 83.5], [-16, 53.5], [0, 33.5], [-8, 11.5], [4, 19.5], [4, 3.5], [8, -14.5], [16, -2.5], [20, -18.5], [26, -30.5],
+  [32, -16.5], [38, -24.5], [42, -30.5], [46, -16.5], [52, -10.5], [58, -18.5], [58, 3.5], [66, 7.5], [72, -0.5], [64, 27.5], [78, 51.5], [64, 83.5]];
+const shrink = (k: number): Pt[] => AURA.map(([x, y]) => [n(AURA_BASE[0] + (x - AURA_BASE[0]) * k), n(AURA_BASE[1] + (y - AURA_BASE[1]) * k)]);
+const flame = (pts: Pt[]) => `M${pts[0]!.join(' ')} C${pts.slice(1).map((p) => p.join(' ')).join(' ')}Z`;
+/** 跳動（figure.css 的 fig-flare）：以自己的底邊中點放大到 FLARE 倍、左右斜 ±FLARE_SKEW 度 */
+const FLARE = 1.03, FLARE_SKEW = 2;
+/** 往上竄的小火舌：從 (x, 27.5) 往上 TONGUE_RISE（fig-tongue 同值） */
+const TONGUES = [6, 22, 40, 56];
+const TONGUE_RISE = 46;
+const tongue = (x: number): Pt[] => [[x - 4, 27.5], [x + 4, 11.5]];
+/** 小石子：桌子左右外緣，從桌面附近往上飄 ROCK_RISE（fig-rock 同值），不經過名牌 */
+const ROCKS: Pt[] = [[-27, 66], [82, 66], [-22, 66]];
+const ROCK_RISE = 46;
+const rockPts = ([x, y]: Pt): Pt[] => [[x, y], [x + 3, y - 2], [x + 6, y - 1], [x + 6.5, y + 2], [x + 3.5, y + 3.5], [x + 0.5, y + 2.5]];
+
+const shift = (pts: Pt[], dx: number, dy: number): Pt[] => pts.map(([x, y]) => [x + dx, y + dy]);
+/** 抖動與站起來後的範圍 */
+const standing = (pts: Pt[]): Pt[] => [...shift(pts, -SHAKE.x, -STAND_Y - SHAKE.y), ...shift(pts, SHAKE.x, -STAND_Y + SHAKE.y)];
+/** 跳動到最大時的範圍：以外框底邊中點放大、再左右斜 */
+function flared(pts: Pt[]): Pt[] {
+  const b = boxOf(pts, 0), cx = (b.x0 + b.x1) / 2, t = Math.tan((FLARE_SKEW * Math.PI) / 180);
+  return pts.flatMap(([x, y]): Pt[] => {
+    const sx = cx + (x - cx) * FLARE, sy = b.y1 + (y - b.y1) * FLARE;
+    return [[sx - t * (sy - b.y1), sy], [sx + t * (sy - b.y1), sy]];
+  });
+}
+
+/** 氣場（含跳動、火舌竄到最高）的外框，pad 涵蓋線寬 */
+export const AURA_BOX: Box = boxOf([...flared(AURA), ...TONGUES.flatMap((x) => shift(tongue(x), 0, -TONGUE_RISE))], 0.7);
+/** 小石子（含往上飄）的外框 */
+export const ROCKS_BOX: Box = boxOf(ROCKS.flatMap((r) => [...rockPts(r), ...shift(rockPts(r), 0, -ROCK_RISE)]), 0.5);
+/** 豎起的頭髮（站著、含抖動）的外框 */
+export const HAIR_UP_BOX: Box = boxOf(standing(HAIR_UP), 0.8);
+/** 爆氣拳頭（站著、含抖動）的外框 */
+export const FIST_BOX: Box = boxOf(standing(FISTS.flatMap(([x, y]): Pt[] => [[x - FIST_R, y - FIST_R], [x + FIST_R, y + FIST_R]])), 0.8);
+
+const AURA_SVG = g('aura', path(flame(AURA), 'aura-1', `fill:#fff;fill-opacity:.4;${pen(1.4).replace('fill:none;', '')}`)
+  + path(flame(shrink(0.78)), 'aura-2', 'fill:#fff;fill-opacity:.5')
+  + path(flame(shrink(0.55)), 'aura-3', 'fill:#fff;fill-opacity:.7')
+  + TONGUES.map((x, i) => path(`M${x} 27.5 q-4 -8 0 -16 q4 8 0 16z`, 'tongue mk-thin', `fill:#fff;fill-opacity:.85;animation-delay:${n(-0.23 * i)}s`)).join(''));
+const ROCKS_SVG = g('rocks', ROCKS.map((r, i) =>
+  tag('polygon', { points: rockPts(r).map((p) => p.join(',')).join(' '), class: 'rock mk-thin', style: `${fill(i % 2 ? '#a8a29a' : '#8c8780')};animation-delay:${[0, -0.9, -1.7][i]}s` })).join(''));
+
 /** 腿：坐著時被桌子擋住，站起來時露出一點 */
 const leg = (side: 'l' | 'r') => {
   const x = side === 'l' ? 22.5 : 30.5;
@@ -150,19 +221,6 @@ const leg = (side: 'l' | 'r') => {
 
 // ── 漫符：幾何資料同時拿來畫與算外框（FX_BOXES），兩邊不會對不上 ──
 
-/** 集中線：只在站著（等你處理，.fig 上移 12）時顯示，以站姿頭心 (30, 16) 為圓心，−170° 到 −10° 每 14° 一條，半徑 30 → 44，每隔一條畫到 52 並加粗 */
-const LINES = Array.from({ length: 12 }, (_, i) => {
-  const a = ((-170 + i * 14) * Math.PI) / 180, long = i % 2 === 1, r1 = long ? 52 : 44;
-  return { x1: n(30 + 30 * Math.cos(a)), y1: n(16 + 30 * Math.sin(a)), x2: n(30 + r1 * Math.cos(a)), y2: n(16 + r1 * Math.sin(a)), long };
-});
-/** 「！」尖角框：站姿頭的右上方、集中線外側；16 個頂點的相對位置（外凸 8 點、內凹 8 點）縮成 0.8 倍（寬 38 高 30）。放在站姿頭的右側偏上，含 1.12 倍脈動後頂端不高於人物座標 y −29（= 樓層 y 45），才不會蓋住坐在座位 0 的人上方的招牌（樓層 y 14–40） */
-const BURST_C: Pt = [66, -11];
-const BURST_PTS: Pt[] = [[0, -19], [5, -10], [16, -15], [12, -4], [24, 0], [12, 4], [16, 15], [5, 10], [0, 19], [-5, 10], [-16, 15], [-12, 4], [-24, 0], [-12, -4], [-16, -15], [-5, -10]];
-const burstAt = (k: number): Pt[] => BURST_PTS.map(([x, y]) => [n(BURST_C[0] + x * k), n(BURST_C[1] + y * k)]);
-const BURST_K = 0.8;
-const BURST = burstAt(BURST_K);
-const BURST_PULSE = burstAt(BURST_K * 1.12); // CSS 以框的中心放大到 1.12 倍時的範圍
-const DROP: Pt = [11, 8]; // 汗滴頂點（站姿頭的左側，在集中線內圈裡面）
 const BUBBLE = { cx: 56, cy: -18, r: 11 };
 const SFX = { x: -24, y: 40, size: 14 }; // 「噠噠」
 const Z1 = { x: -4, y: -4, size: 13 }, Z2 = { x: 0, y: -14, size: 16 };
@@ -187,13 +245,9 @@ function boxOf(pts: Pt[], pad: number): Box {
   return { x0: n(Math.min(...xs) - pad), y0: n(Math.min(...ys) - pad), x1: n(Math.max(...xs) + pad), y1: n(Math.max(...ys) + pad) };
 }
 
-/** 「！」框含脈動（1.12 倍）的外框（不含 pad），測試用來確認不會蓋到招牌 */
-export const BURST_BOX: Box = boxOf(BURST_PULSE, 0);
-
 /** 漫符在人物座標裡的外框（人物座標 x 30 = 座位中心；座位 ±60 → x −30 到 90）；pad 涵蓋線寬 */
-export const FX_BOXES: Record<'work' | 'wait' | 'turn' | 'in' | 'out', Box> = {
+export const FX_BOXES: Record<'work' | 'turn' | 'in' | 'out', Box> = {
   work: boxOf([...textPts(SFX.x, SFX.y, SFX.size, SFX.size * 2), [1, 48], [6, 56], [54, 48], [59, 56]], 1),
-  wait: boxOf([...LINES.flatMap((l): Pt[] => [[l.x1, l.y1], [l.x2, l.y2]]), ...BURST_PULSE, [DROP[0] - 4, DROP[1]], [DROP[0] + 4, DROP[1] + 9]], 1),
   turn: boxOf([[BUBBLE.cx - BUBBLE.r, BUBBLE.cy - BUBBLE.r], [BUBBLE.cx + BUBBLE.r, BUBBLE.cy + BUBBLE.r],
     ...textPts(Z1.x, Z1.y, Z1.size, Z1.size * 0.6), ...textPts(Z2.x, Z2.y, Z2.size, Z2.size * 0.6)], 1),
   in: boxOf(stickPts(STICK_IN), 1),
@@ -203,10 +257,6 @@ export const FX_BOXES: Record<'work' | 'wait' | 'turn' | 'in' | 'out', Box> = {
 const FX = {
   work: text(SFX.x, SFX.y, SFX.size, '噠噠', fill('var(--fx)'), 'sfx')
     + path('M6 48 q-5 3 -2 8 M54 48 q5 3 2 8', 'speed', FX_STROKE(1.2)),
-  wait: g('lines', LINES.map((l) => path(`M${l.x1} ${l.y1} L${l.x2} ${l.y2}`, undefined, FX_STROKE(l.long ? 1.8 : 1))).join(''))
-    + path(`M${DROP[0]} ${DROP[1]} q-4 6 0 9 q4 -3 0 -9z`, 'drop mk-thin', fill('#bfe3ff'))
-    + g('burst', tag('polygon', { points: BURST.map((p) => p.join(',')).join(' '), class: 'mk-thin', style: WHITE })
-      + text(BURST_C[0], BURST_C[1] + 5, 14, '！', fill('var(--waiting)'), undefined, 'middle')),
   turn: g('bubble', circle(BUBBLE.cx, BUBBLE.cy, BUBBLE.r, 'mk', fill('var(--turn)'))
     + path(`M${BUBBLE.cx - 5} ${BUBBLE.cy} l4 4 l7 -7`, undefined, 'fill:none;stroke:var(--fig-ink);stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round'))
     + text(Z1.x, Z1.y, Z1.size, 'z', fill('var(--fx)'), 'z1') + text(Z2.x, Z2.y, Z2.size, 'Z', fill('var(--fx)'), 'z2'),
@@ -214,13 +264,14 @@ const FX = {
   out: path(RISE, 'speed', FX_STROKE(1.4)) + sticker(STICK_OUT),
 };
 
-/** 一個人物（照美術定稿，坐著時不畫椅子）：人（腿、後髮、身體、兩隻前臂、頭）、三種狀態漫符與進出貼紙；顯示哪個表情／漫符交給 CSS 依 data-act／data-fx 決定 */
+/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字或握拳的手、頭）、小石子、漫符與進出貼紙；
+ *  顯示哪個表情、姿勢、漫符交給 CSS 依 data-act／data-fx 決定。.fig 的 transform 給站起來用，抖動放在裡面的 .shake */
 export function figureSvg(look: Look): string {
-  const fig = g('fig', leg('l') + leg('r') + g('hair-back', hair(look).back)
-    + body(look) + arm('l', look) + arm('r', look) + head(look, ['work', 'wait', 'turn']));
+  const fig = g('fig', g('shake', leg('l') + leg('r') + g('hair-back', hair(look).back)
+    + body(look) + g('arms-type', arm('l', look) + arm('r', look)) + g('arms-fist', fists(look)) + head(look, ['work', 'wait', 'turn'])));
   return tag('svg', { class: 'figure', xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' },
-    fig
-    + g('fx-work', FX.work) + g('fx-wait', FX.wait) + g('fx-turn', FX.turn) + g('fx-in', FX.in) + g('fx-out', FX.out));
+    AURA_SVG + fig + ROCKS_SVG
+    + g('fx-work', FX.work) + g('fx-turn', FX.turn) + g('fx-in', FX.in) + g('fx-out', FX.out));
 }
 
 /** 資訊卡頭像：頭與肩膀、睜眼（工作中的臉），viewBox 只框頭肩 */

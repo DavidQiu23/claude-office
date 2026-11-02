@@ -49,7 +49,7 @@ const BOOKS = ['#c9d8e8', '#f1d0c4', '#d8e4cf', '#e8dcc0', '#d9c9e6', '#f3c9d2',
 const SCREEN: Record<DeskState, string> = {
   empty: 'var(--screen-off)',
   working: 'var(--screen-working)',
-  waiting: 'var(--screen-waiting)',
+  waiting: '#1f3a66', // 深藍底，上面是權限對話框（淺紅標題列）
   idle: 'var(--screen-turn)',
 };
 
@@ -67,6 +67,9 @@ function desk(st: DeskState): string {
   o += rect(20, -74, 32, 23, 2, 'mk', fill('var(--monitor)'))
     + rect(24, -70, 24, 15, 0, undefined, fill(SCREEN[st]))
     + rect(33, -51, 6, 2.5, 0, 'mk-thin', fill('var(--monitor)'));
+  if (st === 'waiting') o += tag('g', { class: 'dialog' }, rect(26.5, -68.5, 19, 12, 1.5, 'mk-thin', WHITE)
+    + rect(26.5, -68.5, 19, 3.5, 1, undefined, fill('var(--screen-waiting)'))
+    + rect(29, -61.5, 6, 2.5, 1, undefined, fill('#5cba69')) + rect(37, -61.5, 6, 2.5, 1, undefined, fill('#c9c2b6')));
   if (st === 'working') o += line('M27 -66.5 h10 M27 -63 h15 M27 -59.5 h7', 'mk-thin', 'stroke:var(--monitor);opacity:.45');
   if (lit) o += path('M25 -69 h6 l-5 7 h-1z', undefined, 'fill:#fff;opacity:.5'); // 反光
   // 桌上：筆記本、馬克杯、鍵盤

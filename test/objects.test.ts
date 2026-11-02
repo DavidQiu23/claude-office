@@ -69,6 +69,16 @@ test('四種桌子都存在且彼此不同', () => {
   expect(symbolOf(s, 'desk-idle')).toContain('var(--screen-turn)');
 });
 
+test('等你處理的螢幕是權限對話框：深色畫面上一個白色視窗，淺紅標題列加兩顆按鈕', () => {
+  const w = symbolOf(defsSvg(), 'desk-waiting');
+  expect(w).toContain('class="dialog"');
+  for (const d of ['desk-empty', 'desk-working', 'desk-idle']) expect(symbolOf(defsSvg(), d), d).not.toContain('class="dialog"');
+  const dialog = w.match(/<g class="dialog">[\s\S]*?<\/g>/)![0];
+  expect(dialog).toContain('fill:#fff');
+  expect(dialog).toContain('var(--screen-waiting)');
+  expect(dialog.match(/<rect/g)!.length).toBeGreaterThanOrEqual(4); // 視窗、標題列、兩顆按鈕
+});
+
 test('顏色不寫在屬性上', () => {
   expect(defsSvg()).not.toMatch(/\s(fill|stroke)="(?!none")/);
 });

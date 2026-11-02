@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { BURST_BOX, FIG, FX_BOXES, avatarSvg, figureSvg } from '../web/src/figure.js';
+import { AURA_BOX, FIG, FIST_BOX, FX_BOXES, HAIR_UP_BOX, ROCKS_BOX, STAND_Y, avatarSvg, figureSvg } from '../web/src/figure.js';
 import { esc, tag } from '../web/src/svg.js';
 import { appearance, EYE_TYPES, HAIR_STYLES, OUTFIT_COUNT, type Look } from '../web/src/view.js';
 
@@ -37,10 +37,11 @@ test('.person 與人物 SVG 的寬高等於人物框 FIG', () => {
 });
 
 test('每個部件與漫符群組都在', () => {
-  const names = ['fig', 'leg-l', 'leg-r', 'hair-back', 'arm-l', 'body', 'arm-r', 'head', 'fx-work', 'fx-wait', 'fx-turn', 'fx-in', 'fx-out', 'face-work', 'face-wait', 'face-turn'];
+  const names = ['fig', 'shake', 'leg-l', 'leg-r', 'hair-back', 'arms-type', 'arm-l', 'body', 'arm-r', 'arms-fist', 'head', 'hair', 'hair-up',
+    'aura', 'rocks', 'fx-work', 'fx-turn', 'fx-in', 'fx-out', 'face-work', 'face-wait', 'face-turn'];
   for (const l of looks) {
     const s = figureSvg(l);
-    for (const n of names) expect(s, n).toMatch(new RegExp(`class="[^"]*\\b${n}\\b`));
+    for (const n of names) expect(s, n).toMatch(new RegExp(`class="([^"]* )?${n}( [^"]*)?"`));
     // 姿勢群組 fig 只有一個；線稿 class 不與群組同名
     expect(s).toMatch(/<g class="fig"[ >]/);
     expect(s.match(/class="[^"]*(?<![\w-])fig(?![\w-])[^"]*"/g)).toHaveLength(1);
@@ -62,15 +63,24 @@ test('人物不用網點：硬影是同色加深的實色', () => {
   for (const l of looks) expect(figureSvg(l)).not.toContain('class="tone"');
 });
 
-test('figure.css 的狀態規則：漫符只在對應狀態顯示，減少動態不隱藏漫符', () => {
+test('figure.css 的狀態規則：漫符與爆氣群組只在對應狀態顯示，減少動態不隱藏', () => {
   const css = readFileSync('web/src/styles/figure.css', 'utf8');
-  // 預設全藏
-  expect(css).toMatch(/\.person \.fx-work, \.person \.fx-wait, \.person \.fx-turn \{ display: none; \}/);
-  // 顯示條件：工作中的 fx-work、站起來的 fx-wait、坐著的 fx-turn
+  const hidden = css.match(/([^{}]*)\{ display: none; \}/g)?.join('\n') ?? '';
   const shown = css.match(/([^{}]*)\{ display: inline; \}/g)?.join('\n') ?? '';
-  expect(shown).toContain('.person[data-act="work"] .fx-work');
-  expect(shown).toContain('.person[data-act="up"] .fx-wait');
-  expect(shown).toContain('.person[data-act="idle"] .fx-turn');
+  // 預設藏起來，只在對應狀態顯示
+  for (const [act, grp] of [['work', 'fx-work'], ['idle', 'fx-turn'], ['up', 'aura'], ['up', 'rocks'], ['up', 'hair-up'], ['up', 'arms-fist']]) {
+    expect(hidden, grp).toMatch(new RegExp(`\\.person \\.${grp}[,{ ]`));
+    expect(shown, grp).toContain(`.person[data-act="${act}"] .${grp}`);
+    for (const other of ['work', 'up', 'idle'].filter((a) => a !== act)) expect(shown, grp).not.toContain(`.person[data-act="${other}"] .${grp}`);
+  }
+  // 爆氣時平常的頭髮和打字的手藏起來
+  expect(hidden).toContain('.person[data-act="up"] .hair');
+  expect(hidden).toContain('.person[data-act="up"] .arms-type');
+  // 只有角色自己抖動：抖動掛在人物 SVG 裡的 .shake，不碰樓層
+  expect(css).toMatch(/\.person\[data-act="up"\] \.shake \{ animation:/);
+  expect(readFileSync('web/src/styles/building.css', 'utf8')).not.toMatch(/animation/);
+  // 拿掉的漫符
+  expect(css).not.toMatch(/fx-wait|\.lines|\.burst|\.drop|fig-wave/);
   // 減少動態：只停動畫與過場，不動 display
   const reduce = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
   expect(reduce).toMatch(/animation: none/);
@@ -109,9 +119,6 @@ test('顏色不寫在屬性上', () => {
 });
 
 test('漫符在自己的座位內', () => {
-  // 等你處理的漫符是站著時顯示：集中線以站姿頭心 (30, 16) 為圓心（最遠半徑 52），汗滴在站姿頭的左側，都不低於 y 20
-  expect(FX_BOXES.wait.y0).toBeLessThanOrEqual(16 - 52);
-  expect(FX_BOXES.wait.y1).toBeLessThan(20);
   for (const b of Object.values(FX_BOXES)) {
     expect(b.x0).toBeGreaterThanOrEqual(-30);
     expect(b.x1).toBeLessThanOrEqual(90);
@@ -120,10 +127,52 @@ test('漫符在自己的座位內', () => {
   }
 });
 
-test('「！」框（含脈動）不蓋住招牌，也不超出座位右緣', () => {
-  // 人物頂在樓層 y 74、招牌在樓層 y 14–40 → 人物座標 y −29 以上會碰到招牌
-  expect(BURST_BOX.y0).toBeGreaterThanOrEqual(-29);
-  expect(BURST_BOX.x1).toBeLessThanOrEqual(90);
+// ── 爆氣的外框：樓層位置從 CSS 讀，換成人物座標（人物框左上角 = 原點，x 30 = 座位中心） ──
+const px = (file: string, sel: string, prop: string) => Number(rule(file, sel).match(new RegExp(`(?<![\\w-])${prop}: ([\\d.]+)px`))?.[1]);
+const PERSON_TOP = px('web/src/styles/figure.css', '.person', 'top');
+const SIGN_TOP = px('web/src/styles/building.css', '.sign', 'top') - PERSON_TOP;
+const SIGN_BOTTOM = SIGN_TOP + px('web/src/styles/building.css', '.sign', 'height');
+const SIGN_TEXT_BOTTOM = SIGN_BOTTOM - px('web/src/styles/building.css', '.sign', 'border'); // 框線以內都算文字範圍
+const PLATE_TOP = px('web/src/styles/building.css', '.plate', 'top') - PERSON_TOP;
+const DESK_TOP = 143.5 - PERSON_TOP; // 桌子底邊在樓層 y 192（floor.ts），桌面高 48.5（objects.ts）
+const SEAT = { x0: 30 - 60, x1: 30 + 60 };
+
+test('版面常數讀得到', () => {
+  expect([PERSON_TOP, SIGN_TOP, SIGN_BOTTOM, SIGN_TEXT_BOTTOM, PLATE_TOP]).toEqual([74, -60, -34, -35.6, 76]);
+});
+
+test('站起來的位移和 figure.css 一致', () => {
+  expect(rule('web/src/styles/figure.css', '.person[data-act="up"] .fig')).toContain(`translateY(-${STAND_Y}px)`);
+});
+
+test('氣場（含跳動）：左右在自己座位內，頂端最多碰到招牌下緣幾 px、不進入招牌文字', () => {
+  expect(AURA_BOX.x0).toBeGreaterThanOrEqual(SEAT.x0);
+  expect(AURA_BOX.x1).toBeLessThanOrEqual(SEAT.x1);
+  expect(AURA_BOX.y0).toBeGreaterThanOrEqual(SIGN_TEXT_BOTTOM);
+  expect(AURA_BOX.y0).toBeGreaterThanOrEqual(SIGN_BOTTOM - 3);
+  expect(AURA_BOX.y0).toBeLessThan(SIGN_BOTTOM + 10); // 真的是一團大火，不是縮在身後
+});
+
+test('小石子：在座位內、名牌上緣以上', () => {
+  expect(ROCKS_BOX.x0).toBeGreaterThanOrEqual(SEAT.x0);
+  expect(ROCKS_BOX.x1).toBeLessThanOrEqual(SEAT.x1);
+  expect(ROCKS_BOX.y1).toBeLessThanOrEqual(PLATE_TOP);
+});
+
+test('豎起的頭髮（站著、含抖動）不進入招牌文字', () => {
+  expect(HAIR_UP_BOX.y0).toBeGreaterThanOrEqual(SIGN_TEXT_BOTTOM);
+});
+
+test('氣場排在人後面；集中線、「！」框、汗滴拿掉了', () => {
+  for (const l of looks) {
+    const s = figureSvg(l);
+    expect(s.indexOf('class="aura"')).toBeLessThan(s.indexOf('class="fig"'));
+    expect(s).not.toMatch(/>！<|class="(lines|burst|drop)"/);
+  }
+});
+
+test('爆氣的拳頭站起來後高於桌面', () => {
+  expect(FIST_BOX.y1).toBeLessThan(DESK_TOP);
 });
 
 test('avatarSvg 對所有外觀都畫得出來', () => {
@@ -149,7 +198,7 @@ test('figure.css：data-fx 期間只顯示進出漫符，狀態漫符藏起來',
   expect(css).toMatch(/\.person \.fx-in, \.person \.fx-out \{ display: none; \}/);
   expect(css).toContain('.person[data-fx="in"] .fx-in');
   expect(css).toContain('.person[data-fx="out"] .fx-out');
-  expect(css).toMatch(/\.person\[data-fx\] \.fx-work, \.person\[data-fx\] \.fx-wait, \.person\[data-fx\] \.fx-turn \{ display: none !important; \}/);
+  expect(css).toMatch(/\.person\[data-fx\] \.fx-work, \.person\[data-fx\] \.fx-turn, \.person\[data-fx\] \.aura, \.person\[data-fx\] \.rocks \{ display: none !important; \}/);
   // 動畫放在 .figure（不是 .fig，.fig 的 transform 給站起來用）
   expect(css).toMatch(/\.person\[data-fx="in"\] \.figure \{ animation: fig-in 600ms/);
   expect(css).toMatch(/\.person\[data-fx="out"\] \.figure \{ animation: fig-out 500ms/);
