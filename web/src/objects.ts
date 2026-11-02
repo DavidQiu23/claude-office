@@ -70,7 +70,6 @@ function desk(st: DeskState): string {
   if (st === 'waiting') o += tag('g', { class: 'dialog' }, rect(26.5, -68.5, 19, 12, 1.5, 'mk-thin', WHITE)
     + rect(26.5, -68.5, 19, 3.5, 1, undefined, fill('var(--screen-waiting)'))
     + rect(29, -61.5, 6, 2.5, 1, undefined, fill('#5cba69')) + rect(37, -61.5, 6, 2.5, 1, undefined, fill('#c9c2b6')));
-  if (st === 'working') o += line('M27 -66.5 h10 M27 -63 h15 M27 -59.5 h7', 'mk-thin', 'stroke:var(--monitor);opacity:.45');
   if (lit) o += path('M25 -69 h6 l-5 7 h-1z', undefined, 'fill:#fff;opacity:.5'); // 反光
   // 桌上：筆記本、馬克杯、鍵盤
   o += rect(-43, -50.5, 12, 2, 0.5, 'mk-thin', fill('#4f86b8')) + rect(-42, -52.5, 10, 2, 0.5, 'mk-thin', fill('var(--plate)'))
@@ -83,6 +82,16 @@ function desk(st: DeskState): string {
   o += tone(-55, -43.5, 110, 2.5) + line('M-55 -43.5 H55', 'mk-thin') + line('M-55 -4 H55', 'mk-thin');
   return o;
 }
+
+/** 工作中螢幕上捲動的程式碼。Chromium 不會把 CSS 動畫帶進 <use> 的複本，所以不放在桌子 symbol 裡：
+ *  floor.ts 把這段疊在每張桌子的 svg 上（外層 viewBox 和 symbol 相同，座標照桌子），只在工作中顯示。
+ *  畫兩份接起來，theme.css 的 code-scroll 一行一行往上捲一份的高度後接回開頭 */
+const CODE_LINES = [[27, 10], [30, 12], [30, 7], [27, 14], [30, 9], [27, 5]];
+const CODE_DY = 3.5; // 行距
+const code = (dy: number) => CODE_LINES.map(([x, w], i) => `M${x} ${-66.5 + i * CODE_DY + dy} h${w}`).join(' ');
+export const DESK_CODE = tag('svg', { class: 'desk-code', width: DESK.w, height: DESK.h, viewBox: `${-DESK.w / 2} ${-DESK.h} ${DESK.w} ${DESK.h}`, style: 'overflow:visible' },
+  tag('svg', { x: 24, y: -70, width: 24, height: 15, viewBox: '24 -70 24 15' }, // 內層 svg 切在畫面範圍
+    line(`${code(0)} ${code(CODE_LINES.length * CODE_DY)}`, 'mk-thin code-scroll', 'stroke:var(--monitor);opacity:.45')));
 
 // ── 窗：70×52（含窗台）。只有紙張風墨線窗框與窗台；玻璃裡的風景是下面的全景，由 floor.ts 依窗的位置與樓層露出一塊 ──
 

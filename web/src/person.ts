@@ -2,7 +2,7 @@
 // 姿勢、表情、漫符與動畫全交給 figure.css 依 data-act／data-fx 決定，這裡只設屬性
 import { div } from './dom.js';
 import { figureSvg, FIG } from './figure.js';
-import type { Look } from './view.js';
+import { appearance, motionDelay } from './view.js';
 
 export type Act = 'work' | 'up' | 'idle';
 
@@ -14,8 +14,9 @@ export class Person {
   private act: Act | null = null;
   private fxT: ReturnType<typeof setTimeout> | undefined; // 登場或退場的計時器，同時只有一個
 
-  constructor(look: Look) {
-    this.el.innerHTML = figureSvg(look); // figure.ts 產生、不含使用者資料
+  constructor(sessionId: string) {
+    this.el.innerHTML = figureSvg(appearance(sessionId)); // figure.ts 產生、不含使用者資料
+    this.el.style.setProperty('--delay', `-${motionDelay(sessionId)}s`); // 打字、推鼻子等動作每個人錯開
     this.el.style.marginLeft = `${-FIG.w / 2}px`;
     this.setAct('work');
   }

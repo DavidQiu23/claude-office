@@ -135,11 +135,20 @@ function body(look: Look): string {
     + path('M36 41.5 Q45 42.5 45 51.5 L45 85.5 L37 85.5Z', undefined, fill(clothShade(c))) + outfit);
 }
 
-/** 只露前臂：打字時手在桌緣（大半被桌子擋住） */
-const arm = (side: 'l' | 'r', look: Look) => {
+/** 只露前臂：打字時手在桌緣（下半被桌子擋住，殘影才看得到手）。cls 預設是會打字的手，殘影和推鼻子時靜止的左手另給 class */
+const arm = (side: 'l' | 'r', look: Look, cls = `arm arm-${side}`) => {
   const c = SHIRT_COLORS[look.shirt]!, x = side === 'l' ? 10 : 41;
-  return g(`arm arm-${side}`, rect(x, 57.5, 9, 16, 4.5, 'ol', fill(c)) + rect(x + 5.2, 59.5, 2.6, 12, 1.3, undefined, fill(clothShade(c)))
-    + circle(x + 4.5, 73.5, 4, 'mk-thin', SKIN));
+  return g(cls, rect(x, 53, 9, 16, 4.5, 'ol', fill(c)) + rect(x + 5.2, 55, 2.6, 12, 1.3, undefined, fill(clothShade(c)))
+    + circle(x + 4.5, 69, 4, 'mk-thin', SKIN));
+};
+/** 殘像打字：每隻手後面兩層殘影（透明度和落後的時間在 figure.css），排在真的手前面才會畫在後面 */
+const typing = (look: Look) => (['l', 'r'] as const).map((s) =>
+  arm(s, look, `ghost ghost-2 ghost-${s}`) + arm(s, look, `ghost ghost-1 ghost-${s}`) + arm(s, look)).join('');
+/** 推鼻子：左手停在桌緣，右手手肘撐桌、食指推到鼻樑（眼鏡中間） */
+const nosePush = (look: Look) => {
+  const c = SHIRT_COLORS[look.shirt]!;
+  return arm('l', look, 'arm-rest') + g('push', path('M48.3 66.6 L39.7 69.4 L28.7 36.4 L37.3 33.6Z', 'ol', fill(c))
+    + rect(29.6, 26.5, 2.6, 8, 1.3, 'mk-thin', SKIN) + circle(32.5, 34.5, 4, 'mk-thin', SKIN));
 };
 
 // ── 爆氣 ──
@@ -190,7 +199,6 @@ const leg = (side: 'l' | 'r') => {
 // ── 漫符 ──
 
 const BUBBLE = { cx: 56, cy: -18, r: 11 };
-const SFX = { x: -24, y: 40, size: 14 }; // 「噠噠」
 const Z1 = { x: -4, y: -4, size: 13 }, Z2 = { x: 0, y: -14, size: 16 };
 /** 進出貼紙：白底墨線小框（左下一個小尾巴指向頭），和「！」框同在頭的右上方；文字置中 */
 const STICK_IN = { x: 44, y: -20, w: 42, h: 18, size: 13, text: '到！' };
@@ -203,8 +211,6 @@ const sticker = (s: Stick) =>
   + text(s.x + s.w / 2, s.y + s.h - 5, s.size, s.text, INK, undefined, 'middle'); // 白底貼紙：字用墨色（夜晚的 --fx 是淺色）
 
 const FX = {
-  work: text(SFX.x, SFX.y, SFX.size, '噠噠', fill('var(--fx)'), 'sfx')
-    + path('M6 48 q-5 3 -2 8 M54 48 q5 3 2 8', 'speed', FX_STROKE(1.2)),
   turn: g('bubble', circle(BUBBLE.cx, BUBBLE.cy, BUBBLE.r, 'mk', fill('var(--turn)'))
     + path(`M${BUBBLE.cx - 5} ${BUBBLE.cy} l4 4 l7 -7`, undefined, 'fill:none;stroke:var(--fig-ink);stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round'))
     + text(Z1.x, Z1.y, Z1.size, 'z', fill('var(--fx)'), 'z1') + text(Z2.x, Z2.y, Z2.size, 'Z', fill('var(--fx)'), 'z2'),
@@ -212,14 +218,15 @@ const FX = {
   out: path(RISE, 'speed', FX_STROKE(1.4)) + sticker(STICK_OUT),
 };
 
-/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字或握拳的手、頭）、小石子、漫符與進出貼紙；
+/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字或握拳的手、頭、推鼻子的手）、小石子、漫符與進出貼紙；
  *  顯示哪個表情、姿勢、漫符交給 CSS 依 data-act／data-fx 決定。.fig 的 transform 給站起來用，抖動放在裡面的 .shake */
 export function figureSvg(look: Look): string {
   const fig = g('fig', g('shake', leg('l') + leg('r') + g('hair-back', hair(look).back)
-    + body(look) + g('arms-type', arm('l', look) + arm('r', look)) + g('arms-fist', fists(look)) + head(look, ['work', 'wait', 'turn'])));
+    + body(look) + g('arms-type', g('typing', typing(look))) + g('arms-fist', fists(look)) + head(look, ['work', 'wait', 'turn'])
+    + g('nose', nosePush(look)))); // 推鼻子的手要蓋在臉上，排在頭後面
   return tag('svg', { class: 'figure', xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' },
     AURA_SVG + fig + ROCKS_SVG
-    + g('fx-work', FX.work) + g('fx-turn', FX.turn) + g('fx-in', FX.in) + g('fx-out', FX.out));
+    + g('fx-turn', FX.turn) + g('fx-in', FX.in) + g('fx-out', FX.out));
 }
 
 /** 資訊卡頭像：頭與肩膀、睜眼（工作中的臉），viewBox 只框頭肩 */

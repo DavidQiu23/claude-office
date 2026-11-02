@@ -7,7 +7,6 @@ import { FloorView, lobby } from './floor.js';
 import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
-import { appearance } from './view.js';
 
 const ACT: Record<Employee['status'], Act> = { working: 'work', waiting: 'up', idle: 'idle' };
 
@@ -157,7 +156,7 @@ export class Building {
         if (!rec) {
           rec = this.comeBack(id, f.key);
           if (!rec) {
-            const p = new Person(appearance(id));
+            const p = new Person(id);
             p.el.dataset.key = id; // floor.ts 依 data-key 找這個座位的員工
             rec = { p, floor: '', emp: e };
             if (animate) p.enter(); // 第一次載入與重新連線時直接坐好

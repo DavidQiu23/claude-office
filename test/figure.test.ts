@@ -38,7 +38,7 @@ test('.person 與人物 SVG 的寬高等於人物框 FIG', () => {
 
 test('每個部件與漫符群組都在', () => {
   const names = ['fig', 'shake', 'leg-l', 'leg-r', 'hair-back', 'arms-type', 'arm-l', 'body', 'arm-r', 'arms-fist', 'head', 'hair', 'hair-up',
-    'aura', 'rocks', 'fx-work', 'fx-turn', 'fx-in', 'fx-out', 'face-work', 'face-wait', 'face-turn'];
+    'aura', 'rocks', 'ghost', 'fx-turn', 'fx-in', 'fx-out', 'face-work', 'face-wait', 'face-turn'];
   for (const l of looks) {
     const s = figureSvg(l);
     for (const n of names) expect(s, n).toMatch(new RegExp(`class="([^"]* )?${n}( [^"]*)?"`));
@@ -55,7 +55,7 @@ test('figure.css 的狀態規則：漫符與爆氣群組只在對應狀態顯示
   const hidden = css.match(/([^{}]*)\{ display: none; \}/g)?.join('\n') ?? '';
   const shown = css.match(/([^{}]*)\{ display: inline; \}/g)?.join('\n') ?? '';
   // 預設藏起來，只在對應狀態顯示
-  for (const [act, grp] of [['work', 'fx-work'], ['idle', 'fx-turn'], ['up', 'aura'], ['up', 'rocks'], ['up', 'hair-up'], ['up', 'arms-fist']]) {
+  for (const [act, grp] of [['work', 'ghost'], ['idle', 'fx-turn'], ['up', 'aura'], ['up', 'rocks'], ['up', 'hair-up'], ['up', 'arms-fist']]) {
     expect(hidden, grp).toMatch(new RegExp(`\\.person \\.${grp}[,{ ]`));
     expect(shown, grp).toContain(`.person[data-act="${act}"] .${grp}`);
     for (const other of ['work', 'up', 'idle'].filter((a) => a !== act)) expect(shown, grp).not.toContain(`.person[data-act="${other}"] .${grp}`);
@@ -71,6 +71,17 @@ test('figure.css 的狀態規則：漫符與爆氣群組只在對應狀態顯示
   expect(reduce).toMatch(/animation: none/);
   expect(reduce).toMatch(/transition: none/);
   expect(reduce).not.toMatch(/display/);
+});
+
+test('工作中：殘影跟著打字動，動作依 --delay 錯開；「噠噠」拿掉了', () => {
+  const css = readFileSync('web/src/styles/figure.css', 'utf8');
+  expect(css).toMatch(/\.person\[data-act="work"\] \.ghost[^{]*\{ animation:/);
+  // 推鼻子和打字都依 person.ts 設的 --delay 錯開
+  expect(css).toMatch(/animation:[^;]*var\(--delay/);
+  // 「噠噠」和打字速度線（fx-work 群組）拿掉了
+  const s = figureSvg(looks[0]!);
+  expect(s).not.toContain('噠噠');
+  expect(s).not.toContain('fx-work');
 });
 
 test('名牌小標「↳N」不縮，名牌太長時縮的是文字', () => {
@@ -112,7 +123,7 @@ test('figure.css：data-fx 期間只顯示進出漫符，狀態漫符藏起來',
   expect(css).toMatch(/\.person \.fx-in, \.person \.fx-out \{ display: none; \}/);
   expect(css).toContain('.person[data-fx="in"] .fx-in');
   expect(css).toContain('.person[data-fx="out"] .fx-out');
-  expect(css).toMatch(/\.person\[data-fx\] \.fx-work, \.person\[data-fx\] \.fx-turn, \.person\[data-fx\] \.aura, \.person\[data-fx\] \.rocks \{ display: none !important; \}/);
+  expect(css).toMatch(/\.person\[data-fx\] \.fx-turn, \.person\[data-fx\] \.aura, \.person\[data-fx\] \.rocks \{ display: none !important; \}/);
   // 動畫放在 .figure（不是 .fig，.fig 的 transform 給站起來用）
   expect(css).toMatch(/\.person\[data-fx="in"\] \.figure \{ animation: fig-in 600ms/);
   expect(css).toMatch(/\.person\[data-fx="out"\] \.figure \{ animation: fig-out 500ms/);

@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { OBJECTS, PANO, defsSvg, type ObjectId } from '../web/src/objects.js';
+import { DESK_CODE, OBJECTS, PANO, defsSvg, type ObjectId } from '../web/src/objects.js';
 
 const IDS = Object.keys(OBJECTS) as ObjectId[];
 const DESKS: ObjectId[] = ['desk-empty', 'desk-working', 'desk-waiting', 'desk-idle'];
@@ -76,6 +77,20 @@ test('窗景是一張共用的全景：整片天空、街道與城市', () => {
   expect(pano).toContain(`viewBox="0 0 ${PANO.w} ${PANO.h}"`);
   expect(pano).toContain('var(--window-sky)');
   expect(pano).toContain('var(--city-lit)');
+});
+
+test('螢幕上捲動的程式碼：只在工作中的桌子顯示，減少動態時停住但不藏', () => {
+  expect(DESK_CODE).toContain('code-scroll');
+  expect(DESK_CODE).not.toMatch(/\s(fill|stroke)="(?!none")/);
+  expect(defsSvg()).not.toContain('code-scroll'); // 不在 symbol 裡：CSS 動畫在 <use> 的複本裡不會動
+  const building = readFileSync('web/src/styles/building.css', 'utf8');
+  expect(building).toMatch(/\.desk \.desk-code \{ display: none; \}/);
+  expect(building).toContain('.desk[data-st="working"] .desk-code { display: inline; }');
+  const theme = readFileSync('web/src/styles/theme.css', 'utf8');
+  expect(theme).toMatch(/\.code-scroll \{ animation:/);
+  const reduce = theme.slice(theme.indexOf('@media (prefers-reduced-motion: reduce)'));
+  expect(reduce).toMatch(/\.code-scroll \{ animation: none; \}/);
+  expect(reduce).not.toMatch(/display/);
 });
 
 test('同一份 defs 每次相同', () => {

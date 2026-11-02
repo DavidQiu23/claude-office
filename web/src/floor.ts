@@ -2,7 +2,7 @@
 import type { Employee } from '../../src/state/types.js';
 import { GEO, plateText, seatCenter, type Floor } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
-import { GLASS, OBJECTS, PANO, type DeskState, type ObjectId } from './objects.js';
+import { DESK_CODE, GLASS, OBJECTS, PANO, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -97,6 +97,7 @@ export class FloorView {
     while (this.desks.length > f.desks) this.desks.pop()!.el.remove();
     while (this.desks.length < f.desks) {
       const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = el('span'), helpers = el('b', 'helpers');
+      pic.insertAdjacentHTML('beforeend', DESK_CODE); // 捲動的程式碼疊在螢幕上（CSS 動畫在 symbol 裡不會動），只在工作中顯示
       helpers.title = '工作中的助理';
       plate.append(text, helpers);
       desk.append(pic, plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上
@@ -108,6 +109,7 @@ export class FloorView {
       const d = this.desks[i]!;
       const st = deskState(s.occ);
       d.use.setAttribute('href', `#desk-${st}`); // 狀態變了就換 symbol
+      d.el.dataset.st = st; // building.css 依此顯示螢幕上的程式碼
       // 名牌永遠等於這個座位目前的員工；空桌連字與底色一起清掉。「↳N」是工作中的助理數，0 不顯示
       const p = s.occ ? plateText(s.occ) : null;
       d.plate.hidden = !p;

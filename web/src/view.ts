@@ -21,6 +21,9 @@ export const HAIR_STYLES = 6;
 export const OUTFIT_COUNT = 3;
 export const EYE_TYPES = 2;
 
+/** 人物動畫的錯開量（秒，0–7，7 是推鼻子的週期）：person.ts 設成負的 animation-delay，大家不同步。另加字尾雜湊，和外觀互不相關 */
+export const motionDelay = (sessionId: string): number => (hash(`${sessionId}#motion`) % 7000) / 1000;
+
 export const appearance = (sessionId: string): Look => {
   const h = hash(sessionId);
   const n = SHIRT_COLORS.length;

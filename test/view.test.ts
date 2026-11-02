@@ -1,11 +1,18 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, EYE_TYPES, HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, projectColor, formatTime, nameplate, SHIRT_COLORS, summary } from '../web/src/view.js';
+import { appearance, assistantList, motionDelay, EYE_TYPES, HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, projectColor, formatTime, nameplate, SHIRT_COLORS, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
 const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Employee> = {}): Employee => ({
   sessionId: id, folder: 'proj', cwd: '/x/proj', lastPrompt: 'hi', firstPrompt: '', title: '', transcriptPath: '', status, activity: null,
   seat: 0, arrivedAt: 0, lastEventAt: 0, assistants: [], ...over,
+});
+
+test('motionDelay：同一個 sessionId 每次相同，不同 sessionId 分散在 0–7 秒', () => {
+  expect(motionDelay('abc')).toBe(motionDelay('abc'));
+  const ds = Array.from({ length: 40 }, (_, i) => motionDelay(`sim-${i}`));
+  for (const d of ds) expect(d >= 0 && d < 7, String(d)).toBe(true);
+  expect(new Set(ds.map((d) => Math.floor(d))).size).toBeGreaterThanOrEqual(5); // 7 個 1 秒的格子至少佔 5 個
 });
 
 test('appearance 對同一個 sessionId 永遠相同', () => {
