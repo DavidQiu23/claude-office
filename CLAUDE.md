@@ -5,7 +5,8 @@
 ## 改設計
 
 - 動手前先讀 `docs/design.md`。改完直接更新這份文件，讓它描述改完後的現況。
-- 討論用的 spec、plan、mockup 放在 `docs/superpowers/` 底下，做完、結論併進 `design.md` 後就刪掉，git 歷史找得回來。
+- superpowers skill（例如 brainstorming、writing-plans）：討論用的 spec、plan、mockup 放在 `docs/superpowers/` 底下，做完、結論併進 `design.md` 後就刪掉，git 歷史找得回來。
+- mattpocock skill（例如 `/to-spec`、`/to-tickets`）：規格和票放在 `.scratch/<功能>/`，規則見下方「Agent skills」。這個資料夾在 `.gitignore` 裡，只留在本機，做完、結論併進 `design.md` 後就刪掉。
 - `README.md` 是使用者看得到的行為的唯一說明。行為改了，同一個 commit 要一起改 README。畫面改了，要重拍 `docs/images/office-day.png`、`office-night.png`。
 
 ## 驗證
@@ -37,3 +38,19 @@
 - 訊息用繁體中文，保留 `feat:`／`fix:`／`docs:`／`refactor:`／`chore:` 前綴。
 - 結尾加 `Co-Authored-By`，不加 session 連結。
 - 修正上一個 commit 的東西，用 `--fixup` 搭配 `rebase --autosquash` 併回去，不另外開一個 commit。
+
+## Agent skills
+
+這一節給 mattpocock skill 用，superpowers skill 照「改設計」的規則。
+
+### Issue tracker
+
+規格和票是 `.scratch/<功能>/` 底下的 markdown 檔，不進 git。見 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+用預設的五個角色名稱，寫在每張票的 `Status:` 行。見 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+single-context：根目錄的 `GLOSSARY.md` 和 `docs/adr/`，有需要時才建立。見 `docs/agents/domain.md`。
