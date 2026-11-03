@@ -124,6 +124,7 @@ npm run simulate -- --loop
 
 - 本機時間 6:00（含）到 18:00（不含）是白天，其餘是夜晚；頁面開著時會自動切換。
 - 網址加 `?time=day` 或 `?time=night` 可以固定。系統的深色模式不影響。
+- 夜晚的房間蓋一層深藍色，天上有月亮和星星。桌燈、螢幕、窗外夜空、立燈和販賣機亮著，名牌、招牌、狀態列、電梯面板和資訊卡和白天一樣清楚。
 
 ## 三種狀態
 
@@ -132,7 +133,7 @@ npm run simulate -- --loop
 | 狀態 | 動作 | 名牌 | 觸發事件 |
 | --- | --- | --- | --- |
 | 工作中 | 坐著飛快打字，手後面拖著兩層半透明殘影，偶爾停下來推一下鼻子；螢幕上的程式碼在捲動 | 米白色 | UserPromptSubmit、PreToolUse（AskUserQuestion 除外）、PostToolUse、PostToolUseFailure、ElicitationResult |
-| 等你處理 | 站起來爆氣：握拳大喊、頭髮豎起、全身發抖，背後冒半透明白色的火焰氣場（白天外圍多一圈藍色光暈），桌子兩側有小石子往上飄；螢幕顯示權限對話框 | 紅色，以「!」開頭 | PermissionRequest、PreToolUse 的 AskUserQuestion、Elicitation、權限或輸入類的 Notification |
+| 等你處理 | 站起來爆氣：握拳大喊、頭髮豎起、全身發抖，背後冒半透明白色的火焰氣場（白天外圍多一圈藍色光暈，夜晚周圍映出紅光），桌子兩側有小石子往上飄；螢幕顯示權限對話框 | 紅色，以「!」開頭 | PermissionRequest、PreToolUse 的 AskUserQuestion、Elicitation、權限或輸入類的 Notification |
 | 輪到你 | 坐著抱胸、閉眼冥想，偶爾睜開一隻眼睛、挑起眉毛瞄你一下 | 琥珀色，以「✓」開頭 | Stop、StopFailure；剛出現、還沒有其他事件的新 session |
 
 左側電梯面板上，有人等你處理的那層亮紅燈，有人輪到你的亮琥珀燈。
@@ -203,11 +204,12 @@ npm run build
 | `scripts/simulate.ts` | 模擬事件 |
 | `web/src/floors.ts` | 樓層、座位、電梯燈、各層共用寬度等純計算，尺寸常數 `GEO` |
 | `web/src/building.ts`、`floor.ts`、`person.ts` | 大樓、單層樓、單一人物 |
-| `web/src/figure.ts`、`objects.ts`、`furniture.ts` | 人物、桌窗家具的 SVG |
+| `web/src/figure.ts`、`objects.ts` | 人物的 SVG；桌子、窗、家具和樓層兩側斜牆的 SVG |
+| `web/src/furniture.ts` | 每層樓的家具組合，窗和招牌的位置 |
 | `web/src/elevator.ts`、`card.ts`、`main.ts` | 電梯面板、資訊卡、狀態列與分頁標題 |
 | `web/index.html` | 頁面入口 |
 | `web/src/theme.ts`、`web/src/styles/theme.css` | 日夜判斷（6:00–18:00 白天）、配色與夜晚遮罩的顏色 |
-| `web/src/view.ts` | 名牌文字、狀態摘要、配色表 |
+| `web/src/view.ts` | 名牌文字、狀態摘要、人物外觀和動作錯開的延遲、專案色 |
 | `web/src/sync.ts` | 連伺服器收事件、前端的員工狀態 |
 | `web/src/svg.ts`、`dom.ts`、`motion.ts` | SVG 與 DOM 小工具、減少動態判斷 |
 | `web/src/styles/*.css` | 大樓、人物、資訊卡與狀態列等樣式 |
