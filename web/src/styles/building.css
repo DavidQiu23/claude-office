@@ -63,10 +63,9 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .side-r { right: 0; transform: scaleX(-1); --side-wall: var(--side-wall-r); }
 /* 樓板：上下各一條墨線 */
 .slab { left: 0; right: 0; top: 192px; height: 8px; box-sizing: border-box; border: solid var(--ink); border-width: 1.6px 0; background: var(--slab); }
-/* 招牌：不透明的專案色（floor.ts 設）、1.6px 墨線框、白色粗體，放不下用「…」；left 與 max-width（到第一扇窗之前）由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定。
-   top 14：0 號座位輪到你的泡泡頂在 y 44，招牌底在 40，不重疊 */
-.sign { top: 14px; height: 26px; padding: 0 12px; border: 1.6px solid var(--ink); border-radius: 7px; box-sizing: border-box;
-  color: #fff; font: bold 15px/22.8px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 招牌：不透明的專案色（floor.ts 設）、共用的介面樣式（theme.css 的 --ui-*）、白色粗體，放不下用「…」；left 與 max-width（到第一扇窗之前）由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定 */
+.sign { top: 14px; height: 26px; padding: 0 12px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px; box-sizing: border-box;
+  color: #fff; font: bold 15px/22px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chairs, .people, .desks, .windows { inset: 0; pointer-events: none; }
 /* 右端家具區：離樓層右緣 24（GEO.sideGap）、寬 200（GEO.furnitureW） */
 .furniture { top: 0; right: 24px; width: 200px; height: 200px; pointer-events: none; }
@@ -77,15 +76,15 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .desk .desk-steam { display: none; }
 .desk[data-st="idle"] .desk-steam { display: inline; } /* 輪到你時馬克杯冒煙（objects.ts 的 DESK_STEAM） */
 /* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色依狀態：工作中米白（--plate）、等你處理紅、輪到你琥珀。
-   右邊的「↳N」是工作中的助理數（淡綠），不縮，名牌太長時縮的是文字 */
-.plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; gap: 3px; }
-.plate > span { min-width: 0; max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: 1.4px solid var(--fig-ink); border-radius: 3px;
-  font: bold 13px/17px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+   右邊的「↳N」是工作中的助理數（淡綠），不縮，名牌太長時縮的是文字。框、白外圈、硬投影用共用的介面樣式（theme.css 的 --ui-*），間距 5 讓兩塊的白外圈不黏在一起 */
+.plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; gap: 5px; }
+.plate > span { min-width: 0; max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px;
+  font: bold 13px/15px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plate.working > span { background: var(--plate); color: #3b3020; }
 .plate.waiting > span { background: var(--waiting); color: #fff; }
 .plate.idle > span { background: var(--turn); color: #4a3000; }
-.plate > .helpers { flex: none; box-sizing: border-box; height: 19px; padding: 0 4px; border: 1.4px solid var(--fig-ink); border-radius: 3px; background: #dfeedd; color: #2f4a32;
-  font: bold 12px/16px system-ui, "Microsoft JhengHei", sans-serif; }
+.plate > .helpers { flex: none; box-sizing: border-box; height: 19px; padding: 0 4px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px; background: #dfeedd; color: #2f4a32;
+  font: bold 12px/15px system-ui, "Microsoft JhengHei", sans-serif; }
 /* 沒有人上班：空大廳，兩行字寫在貼在牆上的紙條（微微歪 −2°） */
 .lobby-msg { left: 0; right: 0; top: 40px; display: flex; justify-content: center; }
 .lobby-msg .note { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 22px; border: 1.6px solid var(--ink); border-radius: 4px;

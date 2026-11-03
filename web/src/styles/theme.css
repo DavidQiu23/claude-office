@@ -6,6 +6,10 @@
   --screen-turn: #f6d68a;
   --screen-waiting: #f2a0a0;
   --sun: #fbeec4; /* 太陽和月亮：淡奶油色，不借狀態色 */
+  /* 介面樣式（名牌、招牌、狀態列、電梯面板、資訊卡共用，日夜相同）：粗黑框、白外圈、往右下的半透明硬投影；值取自設計稿白天畫板的名牌 */
+  --ui-ink: #1b1716;
+  --ui-border: 2px solid var(--ui-ink);
+  --ui-shadow: 0 0 0 2.5px #fff, 2px 3px 0 2.5px rgb(27 23 22 / .35);
 }
 
 :root[data-time="day"] {

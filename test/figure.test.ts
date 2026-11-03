@@ -104,6 +104,15 @@ test('名牌小標「↳N」不縮，名牌太長時縮的是文字', () => {
   expect(rule('web/src/styles/building.css', '.plate > span')).toMatch(/min-width: 0/);
 });
 
+test('名牌、招牌、狀態列、電梯面板、資訊卡共用同一組粗黑框、白外圈、硬投影', () => {
+  const ui = 'web/src/styles/ui.css', building = 'web/src/styles/building.css';
+  for (const [file, sel] of [[building, '.plate > span'], [building, '.plate > .helpers'], [building, '.sign'], [ui, '#summary'], [ui, '#elevator'], [ui, '.card']] as const) {
+    const r = rule(file, sel);
+    expect(r, sel).toContain('border: var(--ui-border)');
+    expect(r, sel).toContain('box-shadow: var(--ui-shadow)');
+  }
+});
+
 test('狀態列在整頁橫向捲動時釘在左邊', () => {
   expect(rule('web/src/styles/ui.css', '#top')).toMatch(/left: 0/);
 });
