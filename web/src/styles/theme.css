@@ -5,7 +5,6 @@
   --working: #6fae7a;
   --screen-turn: #f6d68a;
   --screen-waiting: #f2a0a0;
-  --sun: #fbeec4; /* 太陽和月亮：淡奶油色，不借狀態色 */
   /* 介面樣式（名牌、招牌、狀態列、電梯面板、資訊卡共用，日夜相同）：粗黑框、白外圈、往右下的半透明硬投影；值取自設計稿白天畫板的名牌 */
   --ui-ink: #1b1716;
   --ui-border: 2px solid var(--ui-ink);
@@ -45,7 +44,7 @@
   --roof: #e6d2ab;
 }
 
-/* 日夜只切換：只在白天或只在夜晚出現的東西（--day／--night，雲、星星、燈罩亮起、光暈）和天空。天空漸層固定在視窗上（html 與頂端狀態列共用才接得起來） */
+/* 日夜只切換：只在白天或只在夜晚出現的東西（--day／--night，燈罩亮起、光暈）和天空。天空漸層固定在視窗上（html 與頂端狀態列共用才接得起來） */
 :root[data-time="day"] {
   color-scheme: light;
   --day: 1;
@@ -77,22 +76,13 @@
 .code-scroll { animation: code-scroll 4.8s steps(6) infinite; }
 @keyframes code-scroll { to { transform: translateY(-24px); } }
 /* 環境動態（objects.ts 疊在物件上的部件）：比爆氣安靜得多，慢、幅度小。--delay 由 floor.ts 依樓層與家具（或座位）設，大家不同步 */
-/* 屋頂上方天空的三朵雲：和窗景的雲同方向，一直往左飄過整片天空（.sky 是 overflow:hidden），飄出左邊再從右邊進來。
-   大的快、小的慢（像遠近）；負的 delay 讓開頁面時大致在 building.css 定的位置。減少動態時停在 building.css 的 left */
-.sky .cloud.c1 { animation: sky-drift 40s linear -32s infinite; }
-.sky .cloud.c2 { animation: sky-drift 80s linear -47s infinite; }
-.sky .cloud.c3 { animation: sky-drift 60s linear -26s infinite; }
-@keyframes sky-drift { from { left: 100%; } to { left: 0; transform: translateX(-100%); } }
-/* 窗景的雲（floor.ts 的 .drift）：所有窗看的是同一片天，所以一起往左飄；8 分鐘飄完一個全景寬（PANO.w 1440），一朵雲約 15 秒飄過一扇窗 */
-.drift { animation: drift 480s linear infinite; }
-@keyframes drift { to { transform: translateX(-1440px); } }
 /* 盆栽：葉子以莖頂 (0, −26) 為軸左右輕晃 ±2° */
 .sway { transform-origin: 0 -26px; animation: sway 5s ease-in-out var(--delay, 0s) infinite alternate; }
 @keyframes sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
 /* 咖啡煙：一縷往上飄、淡掉；兩縷依 --lag 錯開。減少動態時停在半透明，煙還在 */
 .steam { opacity: .45; animation: steam 2.8s ease-out calc(var(--delay, 0s) - var(--lag, 0s)) infinite; }
 @keyframes steam { 0% { opacity: 0; transform: translateY(2px); } 35% { opacity: .55; } 100% { opacity: 0; transform: translateY(-5px); } }
-/* 減少動態：大樓裡所有環境動畫（天空的雲、窗景的雲、盆栽、咖啡煙、螢幕程式碼）全停；ID 選擇器壓過各自的 class 規則。人物另由 figure.css 停 */
+/* 減少動態：大樓裡所有環境動畫（盆栽、咖啡煙、螢幕程式碼）全停；ID 選擇器壓過各自的 class 規則。人物另由 figure.css 停 */
 @media (prefers-reduced-motion: reduce) {
   #building * { animation: none; }
 }

@@ -33,10 +33,10 @@ export function useObj(id: ObjectId, x: number, y: number): SVGSVGElement {
 }
 
 /** 一扇窗：玻璃是一個小 svg，viewBox 對到全景（#panorama）上的一塊（placeWindows 依樓層設定）；圓窗框（#window，連同蓋住方形四角的牆色）疊在上面。
- *  全景畫兩份並排，露出的那塊跨過右緣時接得上。雲（#pano-clouds）疊在上面、整片往左飄一個全景寬（theme.css 的 drift），所以畫三份 */
+ *  全景畫兩份並排，露出的那塊跨過右緣時接得上 */
 function windowEl(x: number): HTMLElement {
   const win = useObj('window', x, WIN_Y), { w, h } = OBJECTS.window;
-  const view = document.createElementNS(SVG_NS, 'svg'), drift = document.createElementNS(SVG_NS, 'g');
+  const view = document.createElementNS(SVG_NS, 'svg');
   for (const [k, v] of [['x', w / 2 + GLASS.x], ['y', h + GLASS.y], ['width', GLASS.w], ['height', GLASS.h]] as const) view.setAttribute(k, String(v));
   const panoUse = (id: string, at: number) => {
     const use = document.createElementNS(SVG_NS, 'use');
@@ -46,9 +46,7 @@ function windowEl(x: number): HTMLElement {
     use.setAttribute('height', String(PANO.h));
     return use;
   };
-  drift.setAttribute('class', 'drift');
-  drift.append(...[0, PANO.w, 2 * PANO.w].map((at) => panoUse('pano-clouds', at)));
-  view.append(panoUse('panorama', 0), panoUse('panorama', PANO.w), drift);
+  view.append(panoUse('panorama', 0), panoUse('panorama', PANO.w));
   win.prepend(view);
   // 包一層 display:contents 的 div，窗和夜空的光（building.css 的 .windows .glow）一起增減
   const box = div('win'), glow = div('glow');

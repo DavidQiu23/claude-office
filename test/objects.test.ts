@@ -30,7 +30,7 @@ test('defsSvg 有窗景全景與每個物件的 symbol，id 不重複；不再�
   for (const id of IDS) expect(s, id).toContain(`<symbol id="${id}"`);
   const ids = [...s.matchAll(/\sid="([^"]*)"/g)].map((m) => m[1]);
   expect(new Set(ids).size).toBe(ids.length);
-  expect(ids).toHaveLength(IDS.length + 2); // + panorama、pano-clouds
+  expect(ids).toHaveLength(IDS.length + 1); // + panorama
 });
 
 test('symbol 的 viewBox 依原點在底邊中點', () => {
@@ -62,7 +62,6 @@ test('房間側牆（含天花板和地板的斜角）用主題變數上色，�
 
 test('日夜群組用變數控制', () => {
   const s = defsSvg();
-  expect(symbolOf(s, 'pano-clouds')).toContain('opacity:var(--day)');
   expect(symbolOf(s, 'panorama')).toContain('opacity:var(--night)');
   expect(symbolOf(s, 'desk-empty')).not.toContain('var(--night)');
   for (const d of ['desk-working', 'desk-waiting', 'desk-idle']) expect(symbolOf(s, d), d).toContain('opacity:var(--night)');
@@ -103,23 +102,7 @@ test('盆栽的葉子會晃、咖啡會冒煙：會動的部件疊在 symbol 外
   expect(building).toContain('.desk[data-st="idle"] .desk-steam { display: inline; }');
 });
 
-test('窗景的雲是另一張和全景同寬的圖，整片往左飄一個全景寬後接回開頭', () => {
-  const s = defsSvg();
-  expect(symbolOf(s, 'pano-clouds')).toContain(`viewBox="0 0 ${PANO.w} ${PANO.h}"`);
-  expect(symbolOf(s, 'panorama')).not.toContain('opacity:var(--day)'); // 雲不再畫死在全景裡
-  const theme = readFileSync('web/src/styles/theme.css', 'utf8');
-  expect(theme).toMatch(/\.drift \{ animation:[^;]*infinite/);
-  expect(theme).toMatch(new RegExp(`@keyframes drift \\{[^}]*translateX\\(-${PANO.w}px\\)`));
-});
-
-test('屋頂上方天空的三朵雲各自慢慢飄，週期不同、不同步', () => {
-  const theme = readFileSync('web/src/styles/theme.css', 'utf8');
-  const secs = ['c1', 'c2', 'c3'].map((c) => theme.match(new RegExp(`\\.sky \\.cloud\\.${c} \\{[^}]*animation: \\S+ (\\d+)s`))?.[1]);
-  expect(secs.every(Boolean), String(secs)).toBe(true);
-  expect(new Set(secs).size).toBe(3);
-});
-
-test('減少動態：整棟大樓（天空、窗景、家具、螢幕）的環境動畫一條規則全停，不藏東西', () => {
+test('減少動態：整棟大樓（家具、螢幕）的環境動畫一條規則全停，不藏東西', () => {
   const theme = readFileSync('web/src/styles/theme.css', 'utf8');
   const reduce = theme.slice(theme.indexOf('@media (prefers-reduced-motion: reduce)'));
   expect(reduce).toContain('#building * { animation: none; }');

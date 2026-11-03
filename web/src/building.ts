@@ -1,11 +1,9 @@
-// 整棟大樓：天空（白天太陽白雲、夜晚月牙星星）、屋頂、樓層（最高樓在上、1F 在下）、地面人行道；沒人時是空大廳。store 每個事件都重算 floorPlan，差異套到既有的樓層與人物
+// 整棟大樓：天空、屋頂、樓層（最高樓在上、1F 在下）、地面人行道；沒人時是空大廳。store 每個事件都重算 floorPlan，差異套到既有的樓層與人物
 import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div } from './dom.js';
 import { FloorView, lobby } from './floor.js';
-import { CLOUD_D } from './objects.js';
-import { tag } from './svg.js';
 import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
@@ -17,27 +15,9 @@ interface Rec { p: Person; floor: string; emp: Employee }
 /** 正在退場的人：座位已空，等瞬移消失才移除人物（那層最後一人時才拆樓） */
 interface Leaving { emp: Employee; p: Person; floor: string }
 
-/** 星星：[左緣 %, 離天空底部 px]（白雲 c1~c3 的位置在 CSS）；日夜由 CSS 依 data-time 顯示 */
-const STARS: [number, number][] = [[13, 42], [25, 12], [37, 34], [49, 18], [62, 30], [74, 8], [92, 44]];
-
-/** 白雲：設計稿的蓬鬆輪廓（objects.ts 的 CLOUD_D），大小和位置在 CSS */
-function cloud(c: string): HTMLElement {
-  const el = div(`cloud ${c}`);
-  el.innerHTML = tag('svg', { viewBox: '-39 -20 78 36' }, tag('path', { d: CLOUD_D, class: 'ink', style: 'fill:var(--paper);vector-effect:non-scaling-stroke' }));
-  return el;
-}
-
-/** 天空：太陽、白雲、月牙、星星（雲以外的造型都在 CSS） */
+/** 天空：空的，只露出頁面的天空漸層，撐出屋頂上方的空間 */
 function sky(): HTMLElement {
-  const el = div('sky');
-  el.append(div('sun'), cloud('c1'), cloud('c2'), cloud('c3'), div('moon'));
-  for (const [x, y] of STARS) {
-    const s = div('star');
-    s.style.left = `${x}%`;
-    s.style.bottom = `${y}px`;
-    el.append(s);
-  }
-  return el;
+  return div('sky');
 }
 
 /** 最高樓上面的屋頂：女兒牆、水塔、冷氣機、天線（造型都在 CSS） */

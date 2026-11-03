@@ -32,7 +32,6 @@ export const OBJECTS: Record<ObjectId, ObjectSpec> = {
 // ── 小工具（共用的圖形在 svg.ts） ──
 
 const g = (style: string, children: string) => tag('g', { style }, children);
-const day = (children: string) => g('opacity:var(--day)', children);
 const night = (children: string) => g('opacity:var(--night)', children);
 /** 鉚釘：奶油白小圓點加細墨線 */
 const rivet = (x: number, y: number) => circle(x, y, 1.3, 'mk-thin', 'fill:#fff8e8;stroke-width:.8');
@@ -42,8 +41,6 @@ const shade = (x: number, y: number, w: number, h: number, rx: number, c: string
 const circlePath = (cx: number, cy: number, r: number) => `M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0z`;
 
 const WHITE = fill('#fff');
-/** 蓬鬆的雲（設計稿的雲）：平底、上緣三個圓包，原點在中間，約 x −37…37、y −18…14。窗景的雲和屋頂上方的雲（building.ts）共用 */
-export const CLOUD_D = 'M-36 12 Q-40 0 -26 -2 Q-22 -16 -6 -12 Q4 -24 18 -12 Q34 -12 32 2 Q42 6 34 14Z';
 const STEEL = '#8c8f99';
 const BOOKS = ['#9cd3ff', '#5cba69', '#f2f2f2', '#9b7fd8', '#43b0c8', '#5a8fd8', '#b6ddd3', '#d9d2f2'];
 
@@ -150,12 +147,11 @@ const windowSym = () =>
   + line('M-13 -36 a17 17 0 0 1 10 -6', 'mk-thin', 'stroke:#fff;stroke-width:2.6;opacity:.75')
   + Array.from({ length: 8 }, (_, i) => rivet(+(23 * Math.cos((i * Math.PI) / 4)).toFixed(2), +(WIN_C + 23 * Math.sin((i * Math.PI) / 4)).toFixed(2))).join('');
 
-// ── 窗景：所有窗共用的一張全景，左上角是原點、y 往下。由上往下：天空（白天有雲；夜晚有星星，不畫月亮：整個畫面只有屋頂上方天空裡那一個）、遠處的屋頂、對面的大樓、街道。
+// ── 窗景：所有窗共用的一張全景，左上角是原點、y 往下。由上往下：天空（沒有雲和星星）、遠處的屋頂、對面的大樓、街道。
 //    左右兩端接得起來（窗多時從頭接）；寬是窗距 240 的整數倍。furniture.ts 的 windowView 決定每扇窗露出哪一塊 ──
 
 export const PANO = { w: 1440, h: 260 } as const;
 const STREET_Y = 244;
-const STAR = fill('#f1e9d8');
 
 /** 固定種子的亂數（mulberry32）：全景每次畫出來都一樣 */
 function rng(seed: number): () => number {
@@ -180,23 +176,14 @@ function lots(r: () => number, w: [number, number], gap: [number, number]): [num
   }
 }
 
-/** 全景與白天的雲（雲另成一張圖，窗裡讓它飄；一起產生，亂數順序不變，城市長相才不變） */
-function panorama(): { view: string; clouds: string } {
+/** 全景 */
+function panorama(): string {
   const r = rng(7);
   // 夜晚蓋一片暗夜空：遮罩壓暗後幾乎是黑的，building.css 的 .windows .glow 再用 screen 把設計稿的夜空漸層疊回來
   const sky = rect(0, 0, PANO.w, PANO.h, 0, undefined, fill('var(--window-sky)')) + night(rect(0, 0, PANO.w, PANO.h, 0, undefined, fill('#141c36')));
-  let clouds = '';
-  for (let x = 30; x < PANO.w - 40; x += between(r, 110, 190)) {
-    const y = between(r, 22, 105), k = 0.8 + r() * 0.8;
-    // 線寬不跟著縮放，小雲也有看得到的墨線
-    clouds += tag('path', { d: CLOUD_D, transform: `translate(${x} ${y}) scale(${0.28 * k})`, class: 'mk-thin', style: `${WHITE};vector-effect:non-scaling-stroke` });
-  }
-  let stars = '';
-  for (let i = 0; i < 90; i++) stars += circle(between(r, 2, PANO.w - 2), between(r, 6, 120), 0.5 + r() * 0.4, undefined, STAR);
-  for (let i = 0; i < 12; i++) {
-    const x = between(r, 4, PANO.w - 4), y = between(r, 10, 100);
-    stars += line(`M${x - 2} ${y} h4 M${x} ${y - 2} v4`, 'mk-thin', 'stroke:#f1e9d8;stroke-width:.9');
-  }
+  // 以前的雲和星星用掉的亂數照樣抽掉，城市長相才不變
+  for (let x = 30; x < PANO.w - 40; x += between(r, 110, 190)) r(), r();
+  for (let i = 0; i < 294; i++) r();
   // 遠處的屋頂：淡一點，夜裡有零星的燈
   let far = '', farLit = '';
   for (const [x, w] of lots(r, [30, 70], [0, 10])) {
@@ -219,7 +206,7 @@ function panorama(): { view: string; clouds: string } {
   const street = rect(0, STREET_Y, PANO.w, PANO.h - STREET_Y, 0, undefined, fill('var(--ground)'))
     + line(`M0 ${STREET_Y} H${PANO.w}`, 'mk-thin')
     + line(`M4 ${STREET_Y + 9} H${PANO.w}`, 'mk-thin', 'stroke:var(--paper);stroke-dasharray:10 8;opacity:.7');
-  return { view: sky + night(stars) + g('opacity:.5', far) + night(farLit) + near + street, clouds: day(clouds) };
+  return sky + g('opacity:.5', far) + night(farLit) + near + street;
 }
 
 // ── 右端家具（尺寸沿用原本的版本，layoutSet 排出來的位置不變）：都是圓角，右側一塊硬影 ──
@@ -329,14 +316,13 @@ const DRAW: Record<ObjectId, () => string> = {
   waterCooler, vending, plant, bookshelf, copier, sofa, floorLamp, sideTable,
 };
 
-/** 隱藏的 <svg>：<defs> 裡有每個 ObjectId 的 <symbol id>、窗景全景與窗景的雲。
+/** 隱藏的 <svg>：<defs> 裡有每個 ObjectId 的 <symbol id>與窗景全景。
  *  symbol 設 overflow:visible：外緣的墨線不被切掉一半，暖光可以超出物件範圍 */
 export function defsSvg(): string {
-  const pano = panorama(), box = `0 0 ${PANO.w} ${PANO.h}`;
   const symbols = (Object.keys(OBJECTS) as ObjectId[]).map((id) => {
     const { w, h } = OBJECTS[id];
     return tag('symbol', { id, viewBox: `${-w / 2} ${-h} ${w} ${h}`, style: 'overflow:visible' }, DRAW[id]());
-  }).join('') + tag('symbol', { id: 'panorama', viewBox: box }, pano.view) + tag('symbol', { id: 'pano-clouds', viewBox: box }, pano.clouds);
+  }).join('') + tag('symbol', { id: 'panorama', viewBox: `0 0 ${PANO.w} ${PANO.h}` }, panorama());
   return tag('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 0, height: 0, 'aria-hidden': 'true', style: 'position:absolute' },
     tag('defs', {}, symbols));
 }
