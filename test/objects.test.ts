@@ -47,9 +47,7 @@ test('四種桌子都存在且彼此不同', () => {
   const s = defsSvg();
   const bodies = DESKS.map((d) => symbolOf(s, d).replace(/^<symbol[^>]*>/, ''));
   expect(new Set(bodies).size).toBe(4);
-  // 螢幕色依狀態
-  expect(symbolOf(s, 'desk-empty')).toContain('var(--screen-off)');
-  expect(symbolOf(s, 'desk-working')).toContain('var(--screen-working)');
+  // 只有狀態專用的螢幕用狀態色變數（空桌和工作中是深藍底）
   expect(symbolOf(s, 'desk-waiting')).toContain('var(--screen-waiting)');
   expect(symbolOf(s, 'desk-idle')).toContain('var(--screen-turn)');
 });
@@ -59,7 +57,7 @@ test('顏色不寫在屬性上', () => {
 });
 
 test('房間側牆（含天花板和地板的斜角）用主題變數上色，日夜才切得過去', () => {
-  for (const v of ['--ceiling', '--side-wall', '--floor-wood']) expect(ROOM_SIDE).toContain(`var(${v})`);
+  for (const v of ['--ceiling', '--side-wall', '--floor-wood', '--floor-back']) expect(ROOM_SIDE).toContain(`var(${v})`);
 });
 
 test('日夜群組用變數控制', () => {

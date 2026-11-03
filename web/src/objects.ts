@@ -74,12 +74,9 @@ export function floorSeams(width: number): string {
 
 // ── 桌子 112×88：冷白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54（外殼不放大，畫面放大、邊框變窄）；正面 y −42 到 −23 留白給 HTML 名牌 ──
 
-const SCREEN: Record<DeskState, string> = {
-  empty: 'var(--screen-off)',
-  working: 'var(--screen-working)',
-  waiting: '#1f3a66', // 深藍底，上面是權限對話框（淺紅標題列）
-  idle: 'var(--screen-turn)',
-};
+/** 映像管的深藍底（設計稿）：空桌畫一道淡藍弧、工作中疊亮色程式碼（DESK_CODE）、等你處理疊權限對話框；只有輪到你是琥珀色（狀態信號） */
+const NAVY = '#1f3a66';
+const SCREEN: Record<DeskState, string> = { empty: NAVY, working: NAVY, waiting: NAVY, idle: 'var(--screen-turn)' };
 /** 映像管的畫面（DESK_CODE 也切在這個範圍） */
 const SCR = { x: 19, y: -84, w: 29, h: 24 } as const;
 
@@ -97,6 +94,7 @@ function desk(st: DeskState): string {
     + rect(16, -87, 38, 33, 9, 'mk', fill('#e9e4d8')) + shade(49.5, -84.5, 3.5, 28, 1.75, '#c8c0ae')
     + rect(SCR.x, SCR.y, SCR.w, SCR.h, 5, 'mk-thin', fill(SCREEN[st]))
     + rivet(19.5, -57) + rivet(46.5, -57);
+  if (st === 'empty') o += line(`M${SCR.x + 9} ${SCR.y + 14} q5.5 -5 11 0`, 'mk-thin', 'stroke:#7ab0ff;stroke-width:1.6;opacity:.7');
   if (st === 'waiting') o += tag('g', { class: 'dialog' }, rect(SCR.x + 4, SCR.y + 4, 21, 16, 1.5, 'mk-thin', WHITE)
     + rect(SCR.x + 4, SCR.y + 4, 21, 4, 1, undefined, fill('var(--screen-waiting)'))
     + rect(SCR.x + 6.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#5cba69')) + rect(SCR.x + 15.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#c9c2b6')));
@@ -135,10 +133,12 @@ const CODE_LINES = [[3, 12], [6, 14], [6, 8], [3, 17], [6, 11], [3, 6]];
 const CODE_DY = 4; // 行距
 /** 一份程式碼的高度：theme.css 的 code-scroll 一輪往上捲這麼多 */
 export const CODE_SCROLL = CODE_LINES.length * CODE_DY;
-const code = (dy: number) => CODE_LINES.map(([x, w], i) => `M${SCR.x + x!} ${SCR.y + 4 + i * CODE_DY + dy} h${w}`).join(' ');
+/** 深藍底上的亮色程式碼（設計稿）：綠、藍、白輪流，第 i 行用 CODE_COLORS[i % 3] */
+const CODE_COLORS = ['#7dff9a', '#9cd3ff', '#e8f4ff'];
+const code = (dy: number, k: number) => CODE_LINES.map(([x, w], i) => (i % CODE_COLORS.length === k ? `M${SCR.x + x!} ${SCR.y + 4 + i * CODE_DY + dy} h${w}` : '')).join('');
 export const DESK_CODE = overlay(DESK, 'desk-code',
   tag('svg', { x: SCR.x, y: SCR.y, width: SCR.w, height: SCR.h, viewBox: `${SCR.x} ${SCR.y} ${SCR.w} ${SCR.h}` }, // 內層 svg 切在畫面範圍
-    line(`${code(0)} ${code(CODE_SCROLL)}`, 'mk-thin code-scroll', 'stroke:var(--monitor);opacity:.45')));
+    CODE_COLORS.map((c, k) => line(`${code(0, k)} ${code(CODE_SCROLL, k)}`, 'mk-thin code-scroll', `stroke:${c};stroke-width:1.6`)).join('')));
 
 // ── 窗：52×52 的鉚釘圓窗。玻璃裡的風景是下面的全景，由 floor.ts 依窗的位置與樓層露出一塊（方形），這裡的圖疊在上面：
 //    先用牆色蓋住方形玻璃在圓外的四個角，再畫金屬窗框、八顆鉚釘和玻璃反光 ──
