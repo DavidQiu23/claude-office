@@ -11,6 +11,9 @@
 .person .aura path { transform-origin: 50% 100%; } /* 火焰和火舌以底邊中點跳動 */
 /* 白天：白色氣場疊在奶油色牆上看不出來，外圍加一圈冷藍光暈襯出輪廓（不用紅、琥珀）；夜晚維持原樣 */
 :root:not([data-time="night"]) .person .aura { filter: drop-shadow(0 0 2px rgba(60, 110, 190, .7)) drop-shadow(0 0 5px rgba(60, 110, 190, .45)); }
+/* 夜晚爆氣：氣場周圍映出一圈紅光（設計稿的 rAura；狀態紅比設計稿的 #ff5a4a 暗，濃度從 .55 拉到 .8），screen 疊在遮罩上（.glow 的共用規則在 building.css）。橢圓 112×128，中心在站起來的胸口；瞬移時跟氣場一起藏 */
+.person .glow { left: -26px; top: -28px; width: 112px; height: 128px; background: radial-gradient(closest-side, color-mix(in srgb, var(--waiting) 80%, transparent), transparent); }
+:root[data-time="night"] .person[data-act="up"]:not([data-fx]) .glow { display: block; }
 /* 氣場、小石子超出人物框，不接滑鼠（資訊卡只認人） */
 .person .aura, .person .rocks { pointer-events: none; }
 

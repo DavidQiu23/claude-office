@@ -12,19 +12,13 @@
   --ui-shadow: 0 0 0 2.5px #fff, 2px 3px 0 2.5px rgb(27 23 22 / .35);
   /* 桌子、家具、屋頂往右下的半透明硬投影（設計稿的 feDropShadow）。設計稿用暖褐 #5a3418，色相太接近琥珀，改用墨色 */
   --drop: drop-shadow(3px 3px 0 rgb(27 23 22 / .18));
-}
-
-:root[data-time="day"] {
-  color-scheme: light;
-  --day: 1;
-  --night: 0;
-  --sky-bg: linear-gradient(#5fb6f5, #bfe6ff) fixed; /* 天空漸層固定在視窗上（html 與頂端狀態列共用才接得起來） */
+  /* 環境顏色只有這一套：夜晚不換色，由 building.css 在每層樓蓋一層 --night-shade 的 multiply 遮罩（設計稿的夜晚畫板） */
+  --night-shade: #16224a;
   --paper: #faf5ea;
   --text: #2d2a26;
   --text-sub: #6b5f4f;
   --ink: #1b1716;
   --fig-ink: #1b1716;
-  --fx: #1b1716;
   --wall: #fbf1dc;
   --ceiling: #e6d2ab;
   --side-wall: #efdcb8;
@@ -49,45 +43,21 @@
   --plate: #fbf6ea;
   --ground: #d9d2c2;
   --roof: #e6d2ab;
-  --lamp-glow: transparent; /* 白天不顯示 */
+}
+
+/* 日夜只切換：只在白天或只在夜晚出現的東西（--day／--night，雲、星星、燈罩亮起、光暈）和天空。天空漸層固定在視窗上（html 與頂端狀態列共用才接得起來） */
+:root[data-time="day"] {
+  color-scheme: light;
+  --day: 1;
+  --night: 0;
+  --sky-bg: linear-gradient(#5fb6f5, #bfe6ff) fixed;
 }
 
 :root[data-time="night"] {
   color-scheme: dark;
   --day: 0;
   --night: 1;
-  --sky-bg: #1b2140;
-  --paper: #2a3152;
-  --text: #f1e9d8;
-  --text-sub: #b7b0c8;
-  --ink: #0d1120;
-  --fig-ink: #0d1120;
-  --fx: #f1e9d8;
-  --wall: #2e3a5c;
-  --ceiling: #252f4d;
-  --side-wall: #34416a;
-  --side-wall-r: #28324f;
-  --wainscot: #2f5a63;
-  --wainscot-top: #26494f;
-  --floor-wood: #3a3f5c;
-  --floor-back: #33375a;
-  --slab: #1d2640;
-  --window-sky: #141c36;
-  --city: #26304f;
-  --city-lit: #ffd98a;
-  --desk: #cfc8b6;
-  --desk-top: #e2dccb;
-  --desk-shade: #aaa290;
-  --wood: #a8805a;
-  --wood-shade: #86643f;
-  --skin: #f3d6bd;
-  --elevator: #46557f;
-  --tank: #3f6a99;
-  --button: #3a4470;
-  --plate: #f3ead6;
-  --ground: #2a3048;
-  --roof: #3a4470;
-  --lamp-glow: #ffd98a;
+  --sky-bg: linear-gradient(#0a0f33, #2e2f6e) fixed;
 }
 
 /* 共用線條 class：大樓外殼的墨線、物件的輪廓與細節；人物的外輪廓 ol（比內線粗） */

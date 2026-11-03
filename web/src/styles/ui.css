@@ -1,5 +1,5 @@
-/* 狀態列、電梯面板、資訊卡日夜長得一樣：在元素上把會隨日夜變的主題變數蓋回固定值（白底、墨字），框和投影用共用的介面樣式（theme.css 的 --ui-*） */
-:is(#summary, #elevator, .card) { --paper: #fff; --text: var(--ui-ink); --text-sub: #6b5f4f; --ink: var(--ui-ink); --button: #e8dbc2; }
+/* 狀態列、電梯面板、資訊卡：白底墨字（比環境的奶油紙色更白），框和投影用共用的介面樣式（theme.css 的 --ui-*）。主題變數只有一套，又不在遮罩下，日夜長得一樣 */
+:is(#summary, #elevator, .card) { --paper: #fff; --text: var(--ui-ink); }
 /* 狀態列：白卡，圖例＋比例條；外框跟著最緊急的狀態變色（等你處理紅、輪到你琥珀、其餘一般墨線）。
    整頁橫向捲動時釘在左邊，寬度維持視窗寬（--view-w 由 building.ts 設） */
 #top { position: sticky; top: 0; left: 0; z-index: 20; box-sizing: border-box; width: var(--view-w, auto); padding: 12px 16px 10px 56px; background: var(--sky-bg); }

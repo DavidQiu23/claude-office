@@ -60,10 +60,10 @@ test('髮色、衣服色、專案色三張表沒有狀態色', () => {
   expect([...HAIR_COLORS, ...SHIRT_COLORS, ...PROJECT_COLORS].filter(isStateLike)).toEqual([]);
 });
 
-test('大樓外殼（building.css）只有名牌用狀態色變數', () => {
+test('大樓外殼（building.css）只有名牌和輪到你的螢幕光用狀態色變數', () => {
   const css = readFileSync('web/src/styles/building.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const users = [...css.matchAll(new RegExp(`([^{}]*)\\{[^}]*var\\((${STATE_VARS.join('|')})\\)[^}]*\\}`, 'g'))].map((m) => m[1]!.trim());
-  for (const sel of users) expect(sel).toMatch(/^\.plate\b/);
+  for (const sel of users) expect(sel).toMatch(/^(\.plate\b|\.desk\[data-st="idle"\] \.glow$)/);
 });
 
 test('專案色 8 個，兩兩分得出來', () => {

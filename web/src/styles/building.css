@@ -8,7 +8,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 #building .sky { position: relative; overflow: hidden; flex: 1 0 72px; pointer-events: none; }
 .sky > div { position: absolute; box-sizing: border-box; }
 .sky .sun, .sky .moon { right: 12%; bottom: 36px; width: 30px; height: 30px; border: 1.4px solid var(--ink); border-radius: 50%; background: var(--sun); }
-/* 月牙：右上蓋一個夜空色（夜晚的 --sky-bg 是平塗）的圓（不描邊），只留左下的彎月 */
+/* 月牙：右上蓋一個夜空色的圓（不描邊），只留左下的彎月；--sky-bg 的漸層固定在視窗上，蓋上去的那塊和後面的天空接得起來 */
 .sky .moon { width: 27px; height: 27px; }
 .sky .moon::after { content: ''; position: absolute; left: 6.6px; top: -3.9px; width: 23px; height: 23px; border-radius: 50%; background: var(--sky-bg); }
 /* 白雲：building.ts 畫的蓬鬆輪廓 svg 撐滿框；框的寬高比照輪廓（78:36） */
@@ -17,7 +17,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .sky .cloud.c2 { left: 41%; bottom: 30px; width: 36px; height: 17px; }
 .sky .cloud.c3 { left: 56%; bottom: 8px; width: 44px; height: 20px; }
 /* 星星：一個小十字 */
-.sky .star { width: 7px; height: 7px; background: linear-gradient(var(--fx), var(--fx)) center / 100% 1.2px no-repeat, linear-gradient(var(--fx), var(--fx)) center / 1.2px 100% no-repeat; }
+.sky .star { width: 7px; height: 7px; background: linear-gradient(var(--sun), var(--sun)) center / 100% 1.2px no-repeat, linear-gradient(var(--sun), var(--sun)) center / 1.2px 100% no-repeat; }
 :root[data-time="night"] .sky .sun, :root[data-time="night"] .sky .cloud,
 :root:not([data-time="night"]) .sky .moon, :root:not([data-time="night"]) .sky .star { display: none; }
 /* 屋頂：疊在天空底部（往上蓋 30px），只多出 12px 的女兒牆；寬度對齊樓層。圓角機械風，平塗加 1.6px 墨線框 */
@@ -35,7 +35,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .roof .antenna::after { content: ''; position: absolute; left: -3.7px; top: -7px; width: 9px; height: 9px; box-sizing: border-box; border: 1.3px solid var(--ink); border-radius: 50%; background: var(--tank); }
 #building .floors { padding: 0 16px 0 56px; }
 /* 地面（高 72）：人行道、上緣墨線、兩排錯開的磚縫短線 */
-#building .ground { height: 72px; box-sizing: border-box; border-top: 1.6px solid var(--ink);
+#building .ground { position: relative; height: 72px; box-sizing: border-box; border-top: 1.6px solid var(--ink);
   background: linear-gradient(90deg, var(--seam) 0 12px, transparent 12px) 60px 11px / 48px 1.2px repeat-x,
     linear-gradient(90deg, var(--seam) 0 12px, transparent 12px) 36px 35px / 48px 1.2px repeat-x, var(--ground);
   --seam: color-mix(in srgb, var(--text-sub) 40%, var(--ground)); }
@@ -64,7 +64,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 /* 樓板：上下各一條墨線 */
 .slab { left: 0; right: 0; top: 192px; height: 8px; box-sizing: border-box; border: solid var(--ink); border-width: 1.6px 0; background: var(--slab); }
 /* 招牌：不透明的專案色（floor.ts 設）、共用的介面樣式（theme.css 的 --ui-*）、白色粗體，放不下用「…」；left 與 max-width（到第一扇窗之前）由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定 */
-.sign { top: 14px; height: 26px; padding: 0 12px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px; box-sizing: border-box;
+.sign { z-index: 3; top: 14px; height: 26px; padding: 0 12px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px; box-sizing: border-box;
   color: #fff; font: bold 15px/22px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chairs, .people, .desks, .windows { inset: 0; pointer-events: none; }
 /* 右端家具區：離樓層右緣 24（GEO.sideGap）、寬 200（GEO.furnitureW） */
@@ -79,7 +79,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .desk[data-st="idle"] .desk-steam { display: inline; } /* 輪到你時馬克杯冒煙（objects.ts 的 DESK_STEAM） */
 /* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色依狀態：工作中米白（--plate）、等你處理紅、輪到你琥珀。
    右邊的「↳N」是工作中的助理數（淡綠），不縮，名牌太長時縮的是文字。框、白外圈、硬投影用共用的介面樣式（theme.css 的 --ui-*），間距 5 讓兩塊的白外圈不黏在一起 */
-.plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; gap: 5px; }
+.plate { position: absolute; z-index: 3; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; gap: 5px; }
 .plate > span { min-width: 0; max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px;
   font: bold 13px/15px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plate.working > span { background: var(--plate); color: #3b3020; }
@@ -88,7 +88,30 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .plate > .helpers { flex: none; box-sizing: border-box; height: 19px; padding: 0 4px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px; background: #dfeedd; color: #2f4a32;
   font: bold 12px/15px system-ui, "Microsoft JhengHei", sans-serif; }
 /* 沒有人上班：空大廳，兩行字寫在貼在牆上的紙條（微微歪 −2°） */
-.lobby-msg { left: 0; right: 0; top: 40px; display: flex; justify-content: center; }
+.lobby-msg { z-index: 3; left: 0; right: 0; top: 40px; display: flex; justify-content: center; }
 .lobby-msg .note { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 22px; border: 1.6px solid var(--ink); border-radius: 4px;
   background: var(--paper); color: var(--text-sub); font-size: 13px; text-align: center; transform: rotate(-2deg); }
 .lobby-msg b { font-size: 16px; color: var(--text); }
+
+/* ── 夜晚：同一套顏色，每層樓蓋一層深藍色 multiply 遮罩（設計稿的夜晚畫板：#16224a、不透明度 .62），壓在房間、家具和人物上。
+   疊放順序（都在根的疊層裡：樓層、桌子、人物都不建立自己的疊層）：遮罩 1 → 光暈 2 → 名牌、招牌、大廳紙條 3，所以名牌和招牌夜晚和白天一樣清楚 ── */
+.floor-in::after { content: ''; position: absolute; inset: 0; z-index: 1; display: none; background: var(--night-shade); mix-blend-mode: multiply; opacity: .62; pointer-events: none; }
+/* 屋頂女兒牆和地面也壓暗（水塔、冷氣不壓，同設計稿）；連墨線框一起蓋 */
+.roof .parapet::after, #building .ground::after { content: ''; position: absolute; display: none; background: var(--night-shade); mix-blend-mode: multiply; opacity: .62; border-radius: inherit; }
+.roof .parapet::after { inset: -1.6px; }
+#building .ground::after { inset: -1.6px 0 0; }
+:root[data-time="night"] .floor-in::after, :root[data-time="night"] .roof .parapet::after, :root[data-time="night"] #building .ground::after { display: block; }
+/* 光暈：screen 疊在遮罩上，只在夜晚。人物爆氣的紅光在 figure.css */
+.glow { position: absolute; z-index: 2; display: none; mix-blend-mode: screen; pointer-events: none; }
+/* 桌燈與螢幕的光（設計稿的 rLamp、rMon）：桌子元素座標的燈罩中心 (12, 123)、螢幕中心 (93.5, 120)；左右各多留 60，光暈才不會被切掉。輪到你的螢幕發琥珀色的光 */
+.desk .glow { left: -60px; right: -60px; top: 0; height: 200px; --mon: rgb(159 208 255 / .7);
+  background: radial-gradient(circle 58px at 153.5px 120px, var(--mon), transparent), radial-gradient(circle 40px at 72px 123px, rgb(255 243 196 / .85), rgb(255 240 184 / .4) 35%, transparent); }
+.desk[data-st="idle"] .glow { --mon: color-mix(in srgb, var(--screen-turn) 70%, transparent); }
+:root[data-time="night"] .desk:not([data-st="empty"]) .glow { display: block; }
+.windows .win { display: contents; }
+/* 窗外夜空：蓋在圓窗玻璃上（圓心在樓層 y 40、半徑 21），設計稿的夜空漸層 */
+.windows .glow { top: 19px; width: 42px; height: 42px; margin-left: -21px; border-radius: 50%; background: linear-gradient(#0a0f33, #2e2f6e); }
+/* 家具的燈：立燈燈罩中心在家具區 y 72，販賣機整台微微發光 */
+.furniture .glow-floorLamp { top: 6px; width: 132px; height: 132px; margin-left: -66px; background: radial-gradient(closest-side, rgb(255 243 196 / .85), rgb(255 240 184 / .4) 35%, transparent); }
+.furniture .glow-vending { top: 44px; width: 92px; height: 112px; margin-left: -46px; background: radial-gradient(closest-side, rgb(255 243 196 / .35), transparent); }
+:root[data-time="night"] :is(.windows, .furniture) .glow { display: block; }

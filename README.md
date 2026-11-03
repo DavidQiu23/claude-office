@@ -206,7 +206,7 @@ npm run build
 | `web/src/figure.ts`、`objects.ts`、`furniture.ts` | 人物、桌窗家具的 SVG |
 | `web/src/elevator.ts`、`card.ts`、`main.ts` | 電梯面板、資訊卡、狀態列與分頁標題 |
 | `web/index.html` | 頁面入口 |
-| `web/src/theme.ts`、`web/src/styles/theme.css` | 日夜判斷（6:00–18:00 白天）與兩組配色 |
+| `web/src/theme.ts`、`web/src/styles/theme.css` | 日夜判斷（6:00–18:00 白天）、配色與夜晚遮罩的顏色 |
 | `web/src/view.ts` | 名牌文字、狀態摘要、配色表 |
 | `web/src/sync.ts` | 連伺服器收事件、前端的員工狀態 |
 | `web/src/svg.ts`、`dom.ts`、`motion.ts` | SVG 與 DOM 小工具、減少動態判斷 |

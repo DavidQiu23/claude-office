@@ -34,7 +34,7 @@ export function useObj(id: ObjectId, x: number, y: number): SVGSVGElement {
 
 /** 一扇窗：玻璃是一個小 svg，viewBox 對到全景（#panorama）上的一塊（placeWindows 依樓層設定）；圓窗框（#window，連同蓋住方形四角的牆色）疊在上面。
  *  全景畫兩份並排，露出的那塊跨過右緣時接得上。雲（#pano-clouds）疊在上面、整片往左飄一個全景寬（theme.css 的 drift），所以畫三份 */
-function windowEl(x: number): SVGSVGElement {
+function windowEl(x: number): HTMLElement {
   const win = useObj('window', x, WIN_Y), { w, h } = OBJECTS.window;
   const view = document.createElementNS(SVG_NS, 'svg'), drift = document.createElementNS(SVG_NS, 'g');
   for (const [k, v] of [['x', w / 2 + GLASS.x], ['y', h + GLASS.y], ['width', GLASS.w], ['height', GLASS.h]] as const) view.setAttribute(k, String(v));
@@ -50,7 +50,11 @@ function windowEl(x: number): SVGSVGElement {
   drift.append(...[0, PANO.w, 2 * PANO.w].map((at) => panoUse('pano-clouds', at)));
   view.append(panoUse('panorama', 0), panoUse('panorama', PANO.w), drift);
   win.prepend(view);
-  return win;
+  // 包一層 display:contents 的 div，窗和夜空的光（building.css 的 .windows .glow）一起增減
+  const box = div('win'), glow = div('glow');
+  glow.style.left = `${x}px`;
+  box.append(win, glow);
+  return box;
 }
 
 /** 房間外殼與樓板（building.css）：兩側斜牆是 ROOM_SIDE，右邊那張由 CSS 鏡像 */
@@ -127,7 +131,7 @@ export class FloorView {
       desk.style.setProperty('--delay', `-${motionDelay(`${f.key}#${this.desks.length}`)}s`); // 各層各座位的煙不同步
       helpers.title = '工作中的助理';
       plate.append(text, helpers);
-      desk.append(pic, plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上
+      desk.append(pic, div('glow'), plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上；glow 是夜晚的桌燈與螢幕光（building.css）
       const x = seatCenter(this.desks.length), chair = useObj('chair', x, CHAIR_Y);
       desk.style.left = `${x - GEO.seatW / 2}px`; // 一格寬 120
       this.chairs.append(chair);
@@ -156,21 +160,24 @@ export class FloorView {
     while (wins.length < xs.length) this.windows.append(windowEl(xs[wins.length]!));
     xs.forEach((x, i) => {
       const v = windowView(x, level);
-      wins[i]!.firstElementChild!.setAttribute('viewBox', `${v.x} ${v.y} ${GLASS.w} ${GLASS.h}`);
+      wins[i]!.firstElementChild!.firstElementChild!.setAttribute('viewBox', `${v.x} ${v.y} ${GLASS.w} ${GLASS.h}`); // .win > 窗 svg > 玻璃 svg
     });
   }
 
   /** 右端家具：依 roomKey 挑一組（同一層永遠同一組），家具區貼著樓層右緣 */
   private placeFurniture(key: string): void {
     this.furnKey = key;
-    this.furniture.replaceChildren(...layoutSet(furnitureSet(key)).map((it) => {
+    this.furniture.replaceChildren(...layoutSet(furnitureSet(key)).flatMap((it) => {
       const n = useObj(it.id, it.x, FURN_Y), anim = FURN_ANIM[it.id];
       n.dataset.id = it.id;
       if (anim) {
         n.insertAdjacentHTML('beforeend', anim); // 葉子、咖啡煙（objects.ts 產生、不含使用者資料）
         n.style.setProperty('--delay', `-${motionDelay(`${key}#${it.id}`)}s`); // 各層同一件家具不同步
       }
-      return n;
+      if (it.id !== 'floorLamp' && it.id !== 'vending') return [n];
+      const glow = div(`glow glow-${it.id}`); // 夜晚的燈光（building.css）
+      glow.style.left = `${it.x}px`;
+      return [n, glow];
     }));
   }
 

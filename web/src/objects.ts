@@ -34,8 +34,6 @@ export const OBJECTS: Record<ObjectId, ObjectSpec> = {
 const g = (style: string, children: string) => tag('g', { style }, children);
 const day = (children: string) => g('opacity:var(--day)', children);
 const night = (children: string) => g('opacity:var(--night)', children);
-/** 夜晚的暖光：--lamp-glow（白天是 transparent），不透明度 0.1 */
-const glow = (cx: number, cy: number, rx: number, ry: number) => ellipse(cx, cy, rx, ry, undefined, 'fill:var(--lamp-glow);opacity:.1');
 /** 鉚釘：奶油白小圓點加細墨線 */
 const rivet = (x: number, y: number) => circle(x, y, 1.3, 'mk-thin', 'fill:#fff8e8;stroke-width:.8');
 /** 硬影：一塊加深的實色，不描邊 */
@@ -83,11 +81,10 @@ const SCR = { x: 19, y: -84, w: 29, h: 24 } as const;
 function desk(st: DeskState): string {
   const lit = st !== 'empty';
   let o = '';
-  // 圓頭檯燈與人周圍的暖光：只有非空桌、只在夜晚
+  // 圓頭檯燈：只有非空桌、只在夜晚亮著（燈光是 building.css 疊在遮罩上的 .desk .glow）
   if (lit) {
-    o += night(glow(0, -56, 58, 46)
-      + line('M-48 -48.5 V-64', 'mk', 'stroke-width:1.6')
-      + path('M-56 -64 Q-56 -74 -48 -74 Q-40 -74 -40 -64Z', 'mk', fill('var(--lamp-glow)')));
+    o += night(line('M-48 -48.5 V-64', 'mk', 'stroke-width:1.6')
+      + path('M-56 -64 Q-56 -74 -48 -74 Q-40 -74 -40 -64Z', 'mk', fill('#fff3c4')));
   }
   // 映像管：支架、圓角外殼、右側硬影、畫面、兩顆鉚釘
   o += rect(26, -57, 18, 8, 3, 'mk-thin', fill('#cfd2d8'))
@@ -123,7 +120,7 @@ const overlay = ({ w, h }: ObjectSpec, cls: string, body: string) =>
   tag('svg', { class: cls, width: w, height: h, viewBox: `${-w / 2} ${-h} ${w} ${h}`, style: 'overflow:visible' }, body);
 /** 從杯口 (x, y) 往上的兩縷煙，第二縷落後半拍（--lag） */
 const steam = (x: number, y: number) => [0, 1].map((i) =>
-  path(`M${x + i * 4} ${y - i * 0.5} q-2 -3 0 -6 q2 -3 0 -6`, 'steam', `fill:none;stroke:var(--fx);stroke-width:1;stroke-linecap:round;--lag:${i * 1.4}s`)).join('');
+  path(`M${x + i * 4} ${y - i * 0.5} q-2 -3 0 -6 q2 -3 0 -6`, 'steam', `fill:none;stroke:var(--fig-ink);stroke-width:1;stroke-linecap:round;--lag:${i * 1.4}s`)).join('');
 
 /** 輪到你的桌上，馬克杯冒煙（building.css 只在 data-st="idle" 顯示） */
 export const DESK_STEAM = overlay(DESK, 'desk-steam', steam(-38, -59.5));
@@ -186,7 +183,8 @@ function lots(r: () => number, w: [number, number], gap: [number, number]): [num
 /** 全景與白天的雲（雲另成一張圖，窗裡讓它飄；一起產生，亂數順序不變，城市長相才不變） */
 function panorama(): { view: string; clouds: string } {
   const r = rng(7);
-  const sky = rect(0, 0, PANO.w, PANO.h, 0, undefined, fill('var(--window-sky)'));
+  // 夜晚蓋一片暗夜空：遮罩壓暗後幾乎是黑的，building.css 的 .windows .glow 再用 screen 把設計稿的夜空漸層疊回來
+  const sky = rect(0, 0, PANO.w, PANO.h, 0, undefined, fill('var(--window-sky)')) + night(rect(0, 0, PANO.w, PANO.h, 0, undefined, fill('#141c36')));
   let clouds = '';
   for (let x = 30; x < PANO.w - 40; x += between(r, 110, 190)) {
     const y = between(r, 22, 105), k = 0.8 + r() * 0.8;
@@ -236,10 +234,9 @@ const waterCooler = () =>
   + rivet(-9, -5) + rivet(9, -5);
 
 const SNACKS = ['#3a8ee6', '#5cba69', '#f2f2f2', '#9b7fd8', '#43b0c8'];
-/** 販賣機 56×112：鋼藍圓角機身、燈箱（夜晚亮起、周圍暖光）、三層商品窗、取物口、四角鉚釘 */
+/** 販賣機 56×112：鋼藍圓角機身、燈箱（夜晚亮起；周圍的光是 building.css 的 .glow-vending）、三層商品窗、取物口、四角鉚釘 */
 function vending(): string {
-  let o = night(glow(0, -56, 46, 56))
-    + rect(-27, -111, 54, 111, 10, 'mk', fill('#8a9bb0')) + shade(16, -107, 8, 103, 4, '#6f8096')
+  let o = rect(-27, -111, 54, 111, 10, 'mk', fill('#8a9bb0')) + shade(16, -107, 8, 103, 4, '#6f8096')
     + rect(-21, -105, 34, 9, 3, 'mk-thin', fill('#dfe8f2'))
     + night(rect(-21, -105, 34, 9, 3, 'mk-thin', fill('#fff3c4')));
   for (let row = 0; row < 3; row++) {
@@ -299,11 +296,10 @@ const sofa = () =>
   + rect(-31, -24, 62, 19, 8, 'mk', fill('#a594dc'))
   + line('M-24 -4 V0 M24 -4 V0', 'mk', 'stroke-width:2.4');
 
-/** 立燈 28×102：圓頂燈罩加小圓鈕（夜晚亮起、周圍暖光）、鋼管、圓底座 */
+/** 立燈 28×102：圓頂燈罩加小圓鈕（夜晚亮起；周圍的光是 building.css 的 .glow-floorLamp）、鋼管、圓底座 */
 const DOME = 'M-14 -76 Q-14 -98 0 -98 Q14 -98 14 -76Z';
 const floorLamp = () =>
-  night(glow(0, -80, 40, 46))
-  + line('M0 -76 V-4', 'mk', 'stroke-width:4.5') + line('M0 -76 V-4', 'mk', `stroke:${STEEL};stroke-width:2.2`)
+  line('M0 -76 V-4', 'mk', 'stroke-width:4.5') + line('M0 -76 V-4', 'mk', `stroke:${STEEL};stroke-width:2.2`)
   + ellipse(0, -4, 12, 4, 'mk', fill(STEEL))
   + circle(0, -99.5, 2.5, 'mk-thin', fill('#bfe3ff'))
   + path(DOME, 'mk', fill('#bfe3ff')) + path('M6 -96 Q14 -92 14 -76 L8 -76Z', undefined, fill('#8fbfe0'))

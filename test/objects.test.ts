@@ -66,10 +66,7 @@ test('日夜群組用變數控制', () => {
   expect(symbolOf(s, 'panorama')).toContain('opacity:var(--night)');
   expect(symbolOf(s, 'desk-empty')).not.toContain('var(--night)');
   for (const d of ['desk-working', 'desk-waiting', 'desk-idle']) expect(symbolOf(s, d), d).toContain('opacity:var(--night)');
-  for (const f of ['vending', 'floorLamp']) {
-    expect(symbolOf(s, f), f).toContain('opacity:var(--night)');
-    expect(symbolOf(s, f), f).toContain('var(--lamp-glow)');
-  }
+  for (const f of ['vending', 'floorLamp']) expect(symbolOf(s, f), f).toContain('opacity:var(--night)'); // 夜晚亮起的燈；光暈不在 symbol 裡，疊在遮罩上（building.css 的 .glow）
 });
 
 test('窗景是一張共用的全景：整片天空、街道與城市', () => {
