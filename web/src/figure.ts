@@ -203,12 +203,13 @@ const leg = (side: 'l' | 'r') => {
 
 // ── 瞬移 ──
 
-/** 退場的雙指點額：左手垂在身側，右手手肘往外抬，食指和中指併攏朝上、貼在右邊額頭（畫得比真的大，100px 也認得出兩根手指） */
+/** 退場的雙指點額：左手垂在身側，右手手肘收在胸前，食指和中指併攏朝上、指腹壓在眉心（畫得比真的大，100px 也認得出兩根手指）。
+ *  前臂從手往下斜到胸前，從右眼下方經過，兩眼都還看得到 */
 const salute = (look: Look) => {
   const c = SHIRT_COLORS[look.shirt]!;
-  return arm('l', look, 'arm-rest') + sleeve(c, 'M43 47 L53 34') + sleeve(c, 'M53 34 L42.5 19')
-    + rect(35.2, 4, 3.6, 13, 1.8, 'mk-thin', SKIN) + rect(38.8, 5, 3.6, 12, 1.8, 'mk-thin', SKIN)
-    + circle(40.5, 18, 4.4, 'mk-thin', SKIN);
+  return arm('l', look, 'arm-rest') + sleeve(c, 'M43 50 L34 47') + sleeve(c, 'M34 47 L31 26')
+    + rect(26.4, 9, 3.6, 13, 1.8, 'mk-thin', SKIN) + rect(30, 9.5, 3.6, 12.5, 1.8, 'mk-thin', SKIN)
+    + circle(30.5, 23.5, 4, 'mk-thin', SKIN);
 };
 
 const SVG_ATTRS = { xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${FIG.w} ${FIG.h}`, overflow: 'visible' };
