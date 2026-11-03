@@ -67,9 +67,9 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
    top 14：0 號座位輪到你的泡泡頂在 y 44，招牌底在 40，不重疊 */
 .sign { top: 14px; height: 26px; padding: 0 12px; border: 1.6px solid var(--ink); border-radius: 7px; box-sizing: border-box;
   color: #fff; font: bold 15px/22.8px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.people, .desks, .windows { inset: 0; pointer-events: none; }
-/* 右端家具區：貼樓層右緣、寬 200（GEO.furnitureW） */
-.furniture { top: 0; right: 0; width: 200px; height: 200px; pointer-events: none; }
+.chairs, .people, .desks, .windows { inset: 0; pointer-events: none; }
+/* 右端家具區：離樓層右緣 24（GEO.sideGap）、寬 200（GEO.furnitureW） */
+.furniture { top: 0; right: 24px; width: 200px; height: 200px; pointer-events: none; }
 .obj { position: absolute; display: block; overflow: visible; }
 .desk { position: absolute; top: 0; width: 120px; height: 200px; }
 .desk .desk-code { display: none; }

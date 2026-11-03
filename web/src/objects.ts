@@ -1,4 +1,4 @@
-// 圓滾滾機械風物件：桌子、圓窗、右端家具、房間的兩側斜牆。純函式產生 SVG 字串（不碰 DOM），defsSvg() 放進頁面共用的隱藏 <svg>，再用 <use href="#id"> 擺上去。
+// 圓滾滾機械風物件：桌子、椅子、圓窗、右端家具、房間的兩側斜牆。純函式產生 SVG 字串（不碰 DOM），defsSvg() 放進頁面共用的隱藏 <svg>，再用 <use href="#id"> 擺上去。
 // 畫風和人物一樣：黑色線稿（mk 粗、mk-thin 細）、一階硬影（右側一塊加深的實色，不用網點）、圓角、鉚釘。
 // 座標：原點 = 底邊中點，x 往右、y 往上是負的；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}`。
 // 顏色規則：一律寫在 style 或 class，不用 fill="色"／stroke="色" 屬性。
@@ -7,7 +7,7 @@ import { circle, ellipse, fill, line, path, rect, tag } from './svg.js';
 
 export type DeskState = 'empty' | 'working' | 'waiting' | 'idle';
 export type FurnitureId = 'waterCooler' | 'vending' | 'plant' | 'bookshelf' | 'copier' | 'sofa' | 'floorLamp' | 'sideTable';
-export type ObjectId = `desk-${DeskState}` | 'window' | FurnitureId;
+export type ObjectId = `desk-${DeskState}` | 'chair' | 'window' | FurnitureId;
 /** 原點 = 底邊中點；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}` */
 export interface ObjectSpec { w: number; h: number }
 
@@ -17,6 +17,7 @@ export const OBJECTS: Record<ObjectId, ObjectSpec> = {
   'desk-working': DESK,
   'desk-waiting': DESK,
   'desk-idle': DESK,
+  chair: { w: 56, h: 60 },
   window: { w: 52, h: 52 },
   waterCooler: { w: 28, h: 78 },
   vending: { w: 56, h: 112 },
@@ -56,7 +57,7 @@ export const ROOM_SIDE = tag('svg', { xmlns: 'http://www.w3.org/2000/svg', width
   + path(`M${SIDE} ${BACK} V${FLOOR} H0Z`, undefined, fill('var(--floor-wood)'))
   + line(`M0 0 L${SIDE} ${CEIL} V${BACK} L0 ${FLOOR}`, 'mk'));
 
-// ── 桌子 112×88：奶油白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54；正面 y −42 到 −23 留白給 HTML 名牌 ──
+// ── 桌子 112×88：奶油白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54（外殼不放大，畫面放大、邊框變窄）；正面 y −42 到 −23 留白給 HTML 名牌 ──
 
 const SCREEN: Record<DeskState, string> = {
   empty: 'var(--screen-off)',
@@ -65,7 +66,7 @@ const SCREEN: Record<DeskState, string> = {
   idle: 'var(--screen-turn)',
 };
 /** 映像管的畫面（DESK_CODE 也切在這個範圍） */
-const SCR = { x: 21, y: -82, w: 24, h: 20 } as const;
+const SCR = { x: 19, y: -84, w: 29, h: 24 } as const;
 
 function desk(st: DeskState): string {
   const lit = st !== 'empty';
@@ -78,13 +79,13 @@ function desk(st: DeskState): string {
   }
   // 映像管：支架、圓角外殼、右側硬影、畫面、兩顆鉚釘
   o += rect(26, -57, 18, 8, 3, 'mk-thin', fill('#cfd2d8'))
-    + rect(16, -87, 38, 33, 9, 'mk', fill('#e9e4d8')) + shade(46.5, -84.5, 5.5, 28, 2.75, '#c8c0ae')
+    + rect(16, -87, 38, 33, 9, 'mk', fill('#e9e4d8')) + shade(49.5, -84.5, 3.5, 28, 1.75, '#c8c0ae')
     + rect(SCR.x, SCR.y, SCR.w, SCR.h, 5, 'mk-thin', fill(SCREEN[st]))
-    + rivet(19.5, -58) + rivet(42.5, -58);
-  if (st === 'waiting') o += tag('g', { class: 'dialog' }, rect(SCR.x + 3, SCR.y + 3, 18, 13, 1.5, 'mk-thin', WHITE)
-    + rect(SCR.x + 3, SCR.y + 3, 18, 3.5, 1, undefined, fill('var(--screen-waiting)'))
-    + rect(SCR.x + 5, SCR.y + 10.5, 6, 2.5, 1, undefined, fill('#5cba69')) + rect(SCR.x + 13, SCR.y + 10.5, 6, 2.5, 1, undefined, fill('#c9c2b6')));
-  if (lit) o += line(`M${SCR.x + 3} ${SCR.y + 4} q3 -2 7 -2`, 'mk-thin', 'stroke:#fff;stroke-width:1.6;opacity:.55'); // 反光
+    + rivet(19.5, -57) + rivet(46.5, -57);
+  if (st === 'waiting') o += tag('g', { class: 'dialog' }, rect(SCR.x + 4, SCR.y + 4, 21, 16, 1.5, 'mk-thin', WHITE)
+    + rect(SCR.x + 4, SCR.y + 4, 21, 4, 1, undefined, fill('var(--screen-waiting)'))
+    + rect(SCR.x + 6.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#5cba69')) + rect(SCR.x + 15.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#c9c2b6')));
+  if (lit) o += line(`M${SCR.x + 3.5} ${SCR.y + 5} q3.5 -2.5 8.5 -2.5`, 'mk-thin', 'stroke:#fff;stroke-width:1.6;opacity:.55'); // 反光
   // 桌上：馬克杯、鍵盤
   o += rect(-40, -57, 9, 8.5, 3, 'mk-thin', WHITE) + line('M-31 -55 q3 0 3 2.5 q0 2.5 -3 2.5', 'mk-thin')
     + rect(-15, -51, 30, 2.5, 1, 'mk-thin', fill('#f2f2f2'));
@@ -97,15 +98,24 @@ function desk(st: DeskState): string {
   return o;
 }
 
+// ── 椅子 56×60：藍色圓角椅背（不用藍綠：會和護牆板混在一起）、淺色靠墊、右側硬影、頂端兩顆鉚釘。放在人後面（floor.ts 的 chairs 圖層），下半被桌子擋住 ──
+
+const chair = () =>
+  rect(-27, -59, 54, 59, 14, 'mk', fill('#4f7fd6')) + shade(13, -55, 9, 51, 4.5, '#3c66b3')
+  + rect(-20, -52, 32, 42, 10, 'mk-thin', fill('#82a9ec'))
+  + rivet(-21, -53) + rivet(21, -53);
+
 /** 工作中螢幕上捲動的程式碼。Chromium 不會把 CSS 動畫帶進 <use> 的複本，所以不放在桌子 symbol 裡：
  *  floor.ts 把這段疊在每張桌子的 svg 上（外層 viewBox 和 symbol 相同，座標照桌子），只在工作中顯示。
  *  畫兩份接起來，theme.css 的 code-scroll 一行一行往上捲一份的高度後接回開頭 */
-const CODE_LINES = [[2, 10], [5, 12], [5, 7], [2, 14], [5, 9], [2, 5]];
-const CODE_DY = 3.5; // 行距
-const code = (dy: number) => CODE_LINES.map(([x, w], i) => `M${SCR.x + x!} ${SCR.y + 3.5 + i * CODE_DY + dy} h${w}`).join(' ');
+const CODE_LINES = [[3, 12], [6, 14], [6, 8], [3, 17], [6, 11], [3, 6]];
+const CODE_DY = 4; // 行距
+/** 一份程式碼的高度：theme.css 的 code-scroll 一輪往上捲這麼多 */
+export const CODE_SCROLL = CODE_LINES.length * CODE_DY;
+const code = (dy: number) => CODE_LINES.map(([x, w], i) => `M${SCR.x + x!} ${SCR.y + 4 + i * CODE_DY + dy} h${w}`).join(' ');
 export const DESK_CODE = tag('svg', { class: 'desk-code', width: DESK.w, height: DESK.h, viewBox: `${-DESK.w / 2} ${-DESK.h} ${DESK.w} ${DESK.h}`, style: 'overflow:visible' },
   tag('svg', { x: SCR.x, y: SCR.y, width: SCR.w, height: SCR.h, viewBox: `${SCR.x} ${SCR.y} ${SCR.w} ${SCR.h}` }, // 內層 svg 切在畫面範圍
-    line(`${code(0)} ${code(CODE_LINES.length * CODE_DY)}`, 'mk-thin code-scroll', 'stroke:var(--monitor);opacity:.45')));
+    line(`${code(0)} ${code(CODE_SCROLL)}`, 'mk-thin code-scroll', 'stroke:var(--monitor);opacity:.45')));
 
 // ── 窗：52×52 的鉚釘圓窗。玻璃裡的風景是下面的全景，由 floor.ts 依窗的位置與樓層露出一塊（方形），這裡的圖疊在上面：
 //    先用牆色蓋住方形玻璃在圓外的四個角，再畫金屬窗框、八顆鉚釘和玻璃反光 ──
@@ -255,12 +265,13 @@ const copier = () =>
   + line('M-8 -35 h8 M-8 -17 h8', 'mk', 'stroke-width:1.8')
   + rivet(-20, -4) + rivet(20, -4);
 
-/** 沙發 92×46：藍綠色圓角椅背、兩側扶手、坐墊、紫色抱枕、椅背右側硬影、短腳 */
+/** 沙發 92×46：紫色圓角椅背（不用藍綠：會和護牆板混在一起）、兩側扶手、坐墊、奶油色抱枕、椅背右側硬影、短腳 */
+const SOFA = '#8a74c9';
 const sofa = () =>
-  rect(-41, -45, 82, 32, 12, 'mk', fill('#5fb3a8')) + shade(20, -42, 16, 18, 6, '#4a998f')
-  + rect(-30, -38, 14, 13, 5, 'mk-thin', fill('#9b7fd8'))
-  + rect(-45.5, -33, 16, 31, 8, 'mk', fill('#5fb3a8')) + rect(29.5, -33, 16, 31, 8, 'mk', fill('#5fb3a8'))
-  + rect(-31, -24, 62, 19, 8, 'mk', fill('#7cc7bc'))
+  rect(-41, -45, 82, 32, 12, 'mk', fill(SOFA)) + shade(20, -42, 16, 18, 6, '#7060ad')
+  + rect(-30, -38, 14, 13, 5, 'mk-thin', fill('#f4e6b8'))
+  + rect(-45.5, -33, 16, 31, 8, 'mk', fill(SOFA)) + rect(29.5, -33, 16, 31, 8, 'mk', fill(SOFA))
+  + rect(-31, -24, 62, 19, 8, 'mk', fill('#a594dc'))
   + line('M-24 -4 V0 M24 -4 V0', 'mk', 'stroke-width:2.4');
 
 /** 立燈 28×102：圓頂燈罩加小圓鈕（夜晚亮起、周圍暖光）、鋼管、圓底座 */
@@ -286,6 +297,7 @@ const DRAW: Record<ObjectId, () => string> = {
   'desk-working': () => desk('working'),
   'desk-waiting': () => desk('waiting'),
   'desk-idle': () => desk('idle'),
+  chair,
   window: windowSym,
   waterCooler, vending, plant, bookshelf, copier, sofa, floorLamp, sideTable,
 };

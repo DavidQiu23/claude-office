@@ -38,7 +38,7 @@ export function layoutSet(set: (typeof SETS)[number]): (FurnItem & { x: number }
 }
 
 // ---------- 後牆：招牌區與窗 ----------
-export const SIGN_X = 12; // 招牌左緣（樓層左緣留 12）
+export const SIGN_X = GEO.sideGap; // 招牌左緣：和第一張桌子一樣離左牆一段
 /** 窗：第一扇中心 300、之後每 240 一扇；half = 留給一扇窗的半寬（圓窗本身半寬 26） */
 export const WIN = { first: 300, step: 240, half: 36 } as const;
 /** 招牌最大寬：到第一扇窗之前再留 12 */
@@ -47,7 +47,7 @@ export const SIGN_MAX_W = WIN.first - WIN.half - 12 - SIGN_X;
 /** 樓層寬 width 時後牆每扇窗的中心 x；從招牌區右邊開始，不壓到右端家具區。只跟寬度有關 */
 export function windowXs(width: number): number[] {
   const out: number[] = [];
-  for (let x = WIN.first; x + WIN.half <= width - GEO.furnitureW; x += WIN.step) out.push(x);
+  for (let x = WIN.first; x + WIN.half <= width - GEO.furnitureW - GEO.sideGap; x += WIN.step) out.push(x);
   return out;
 }
 

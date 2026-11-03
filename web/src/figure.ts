@@ -226,7 +226,7 @@ export const WARP_SVG = tag('svg', { class: 'warp', ...SVG_ATTRS },
   + g('streak', line('M30 -8 V72', 'streak-glow', 'stroke:#8fd8ff;stroke-width:6;stroke-linecap:round;opacity:.6')
     + line('M30 -8 V72', 'streak-core', 'stroke:#fff;stroke-width:2;stroke-linecap:round')));
 
-/** 一個人物（照美術定稿，坐著時不畫椅子）：氣場（排在人後面）、人（腿、後髮、身體、打字／握拳／抱胸的手、頭、推鼻子和點額的手）、小石子；
+/** 一個人物（照美術定稿，人物本身不畫椅子：椅子在 floor.ts 的 chairs 圖層）：氣場（排在人後面）、人（腿、後髮、身體、打字／握拳／抱胸的手、頭、推鼻子和點額的手）、小石子；
  *  顯示哪個表情、姿勢交給 CSS 依 data-act／data-fx 決定。.fig 的 transform 給站起來用，抖動放在裡面的 .shake */
 export function figureSvg(look: Look): string {
   const fig = g('fig', g('shake', leg('l') + leg('r') + g('hair-back', hair(look).back)

@@ -54,24 +54,25 @@ describe('後牆窗', () => {
     const xs = F.windowXs(w);
     expect(xs).toEqual([300, 540, 780]);
     expect(xs[0]! - F.WIN.half).toBeGreaterThanOrEqual(F.SIGN_X + F.SIGN_MAX_W);
-    for (const c of xs) expect(c + F.WIN.half).toBeLessThanOrEqual(w - GEO.furnitureW);
+    for (const c of xs) expect(c + F.WIN.half).toBeLessThanOrEqual(w - GEO.furnitureW - GEO.sideGap);
   });
 
   it('位置只跟樓層寬有關：變寬只在後面加窗；太窄就沒有窗', () => {
     expect(F.windowXs(400)).toEqual([]);
     const a = F.windowXs(1000), b = F.windowXs(2000);
     expect(b.slice(0, a.length)).toEqual(a);
-    expect(F.windowXs(F.WIN.first + F.WIN.half + GEO.furnitureW)).toEqual([F.WIN.first]);
-    expect(F.windowXs(F.WIN.first + F.WIN.half + GEO.furnitureW - 1)).toEqual([]);
+    const fits = F.WIN.first + F.WIN.half + GEO.furnitureW + GEO.sideGap;
+    expect(F.windowXs(fits)).toEqual([F.WIN.first]);
+    expect(F.windowXs(fits - 1)).toEqual([]);
   });
 
   it('窗寬不超過 2 × WIN.half', () => {
     expect(OBJECTS.window.w).toBeLessThanOrEqual(2 * F.WIN.half);
   });
 
-  it('招牌從左緣 12 開始，最大寬到第一扇窗之前', () => {
-    expect(F.SIGN_X).toBe(12);
-    expect(F.SIGN_MAX_W).toBe(240);
+  it('招牌和第一張桌子一樣從左緣 sideGap 開始，最大寬到第一扇窗之前', () => {
+    expect(F.SIGN_X).toBe(GEO.sideGap);
+    expect(F.SIGN_MAX_W).toBe(F.WIN.first - F.WIN.half - 12 - GEO.sideGap);
     expect(F.SIGN_X + F.SIGN_MAX_W).toBeLessThan(F.WIN.first - F.WIN.half);
   });
 });

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { DESK_CODE, OBJECTS, PANO, ROOM_SIDE, defsSvg, type ObjectId } from '../web/src/objects.js';
+import { CODE_SCROLL, DESK_CODE, OBJECTS, PANO, ROOM_SIDE, defsSvg, type ObjectId } from '../web/src/objects.js';
 
 const IDS = Object.keys(OBJECTS) as ObjectId[];
 const DESKS: ObjectId[] = ['desk-empty', 'desk-working', 'desk-waiting', 'desk-idle'];
@@ -13,8 +13,8 @@ const symbolOf = (svg: string, id: string): string => {
   return m![0];
 };
 
-test('物件表涵蓋四種桌子、窗與八種家具', () => {
-  expect(IDS.sort()).toEqual([...DESKS, 'window', ...FURNITURE].sort());
+test('物件表涵蓋四種桌子、椅子、窗與八種家具', () => {
+  expect(IDS.sort()).toEqual([...DESKS, 'chair', 'window', ...FURNITURE].sort());
 });
 
 test('每個物件都有正的寬高', () => {
@@ -92,6 +92,7 @@ test('螢幕上捲動的程式碼：只在工作中的桌子顯示，減少動�
   expect(building).toContain('.desk[data-st="working"] .desk-code { display: inline; }');
   const theme = readFileSync('web/src/styles/theme.css', 'utf8');
   expect(theme).toMatch(/\.code-scroll \{ animation:/);
+  expect(theme).toContain(`translateY(-${CODE_SCROLL}px)`); // 一輪剛好捲完一份，接回開頭時不跳
   const reduce = theme.slice(theme.indexOf('@media (prefers-reduced-motion: reduce)'));
   expect(reduce).toMatch(/\.code-scroll \{ animation: none; \}/);
   expect(reduce).not.toMatch(/display/);
