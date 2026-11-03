@@ -136,7 +136,7 @@ function body(look: Look): string {
     + path('M36 41.5 Q45 42.5 45 51.5 L45 85.5 L37 85.5Z', undefined, fill(clothShade(c))) + outfit);
 }
 
-/** 只露前臂：打字時手在桌緣（下半被桌子擋住，殘影才看得到手）。cls 預設是會打字的手，殘影和推鼻子時靜止的左手另給 class */
+/** 只露前臂：打字時手在桌緣（下半被桌子擋住，殘影才看得到手）。cls 預設是會打字的手，殘影和點額時靜止的左手另給 class */
 const arm = (side: 'l' | 'r', look: Look, cls = `arm arm-${side}`) => {
   const c = SHIRT_COLORS[look.shirt]!, x = side === 'l' ? 10 : 41;
   return g(cls, rect(x, 53, 9, 16, 4.5, 'ol', fill(c)) + rect(x + 5.2, 55, 2.6, 12, 1.3, undefined, fill(clothShade(c)))
@@ -145,12 +145,6 @@ const arm = (side: 'l' | 'r', look: Look, cls = `arm arm-${side}`) => {
 /** 殘像打字：每隻手後面兩層殘影（透明度和落後的時間在 figure.css），排在真的手前面才會畫在後面 */
 const typing = (look: Look) => (['l', 'r'] as const).map((s) =>
   arm(s, look, `ghost ghost-2 ghost-${s}`) + arm(s, look, `ghost ghost-1 ghost-${s}`) + arm(s, look)).join('');
-/** 推鼻子：左手停在桌緣，右手手肘撐桌、食指推到鼻樑（眼鏡中間） */
-const nosePush = (look: Look) => {
-  const c = SHIRT_COLORS[look.shirt]!;
-  return arm('l', look, 'arm-rest') + g('push', path('M48.3 66.6 L39.7 69.4 L28.7 36.4 L37.3 33.6Z', 'ol', fill(c))
-    + rect(29.6, 26.5, 2.6, 8, 1.3, 'mk-thin', SKIN) + circle(32.5, 34.5, 4, 'mk-thin', SKIN));
-};
 
 /** 斜的袖子（圓頭粗筆畫：外面一圈墨線、裡面衣服色） */
 const sleeve = (c: string, d: string) => path(d, undefined, pen(11.6)) + path(d, undefined, `fill:none;stroke:${c};stroke-width:8.4;stroke-linecap:round`);
@@ -226,13 +220,13 @@ export const WARP_SVG = tag('svg', { class: 'warp', ...SVG_ATTRS },
   + g('streak', line('M30 -8 V72', 'streak-glow', 'stroke:#8fd8ff;stroke-width:6;stroke-linecap:round;opacity:.6')
     + line('M30 -8 V72', 'streak-core', 'stroke:#fff;stroke-width:2;stroke-linecap:round')));
 
-/** 一個人物（照美術定稿，人物本身不畫椅子：椅子在 floor.ts 的 chairs 圖層）：氣場（排在人後面）、人（腿、後髮、身體、打字／握拳／抱胸的手、頭、推鼻子和點額的手）、小石子；
+/** 一個人物（照美術定稿，人物本身不畫椅子：椅子在 floor.ts 的 chairs 圖層）：氣場（排在人後面）、人（腿、後髮、身體、打字／握拳／抱胸的手、頭、點額的手）、小石子；
  *  顯示哪個表情、姿勢交給 CSS 依 data-act／data-fx 決定。.fig 的 transform 給站起來用，抖動放在裡面的 .shake */
 export function figureSvg(look: Look): string {
   const fig = g('fig', g('shake', leg('l') + leg('r') + g('hair-back', hair(look).back)
-    + body(look) + g('arms-type', g('typing', typing(look))) + g('arms-fist', fists(look)) + g('arms-cross', armsCross(look))
+    + body(look) + g('arms-type', typing(look)) + g('arms-fist', fists(look)) + g('arms-cross', armsCross(look))
     + head(look, ['work', 'wait', 'turn'])
-    + g('nose', nosePush(look)) + g('salute', salute(look)))); // 推鼻子、點額的手要蓋在臉和頭髮上，排在頭後面
+    + g('salute', salute(look)))); // 點額的手要蓋在臉和頭髮上，排在頭後面
   return tag('svg', { class: 'figure', ...SVG_ATTRS }, AURA_SVG + fig + ROCKS_SVG);
 }
 

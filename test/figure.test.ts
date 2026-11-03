@@ -79,7 +79,7 @@ test('figure.css 的狀態規則：漫符與爆氣群組只在對應狀態顯示
 test('工作中：殘影跟著打字動，動作依 --delay 錯開；「噠噠」拿掉了', () => {
   const css = readFileSync('web/src/styles/figure.css', 'utf8');
   expect(css).toMatch(/\.person\[data-act="work"\] \.ghost[^{]*\{ animation:/);
-  // 推鼻子和打字都依 person.ts 設的 --delay 錯開
+  // 打字依 person.ts 設的 --delay 錯開
   expect(css).toMatch(/animation:[^;]*var\(--delay/);
   // 「噠噠」和打字速度線（fx-work 群組）拿掉了
   const s = figureSvg(looks[0]!);

@@ -16,7 +16,7 @@ export class Person {
 
   constructor(sessionId: string) {
     this.el.innerHTML = figureSvg(appearance(sessionId)) + WARP_SVG + '<div class="glow"></div>'; // figure.ts 產生、不含使用者資料；glow 是夜晚爆氣的紅光（figure.css）
-    this.el.style.setProperty('--delay', `-${motionDelay(sessionId)}s`); // 打字、推鼻子等動作每個人錯開
+    this.el.style.setProperty('--delay', `-${motionDelay(sessionId)}s`); // 打字、冥想睜眼等動作每個人錯開
     this.el.style.marginLeft = `${-FIG.w / 2}px`;
     this.setAct('work');
   }

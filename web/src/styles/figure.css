@@ -60,7 +60,7 @@
 .person[data-fx="out"] .leg { transform: none; }
 .person[data-fx="out"] .shake { animation: none !important; } /* 蓋過後面同優先順序的爆氣抖動 */
 .person .salute { display: none; }
-.person[data-fx="out"] :is(.face-wait, .face-turn, .hair-up, .arms-type, .arms-fist, .arms-cross, .nose) { display: none !important; }
+.person[data-fx="out"] :is(.face-wait, .face-turn, .hair-up, .arms-type, .arms-fist, .arms-cross) { display: none !important; }
 .person[data-fx="out"] .salute, .person[data-fx="out"] .face-work, .person[data-fx="out"] .hair { display: inline !important; }
 .person[data-fx="out"] .figure { animation: fig-out 800ms linear forwards; }
 .person[data-fx="out"] .streak { animation: warp-out 800ms linear forwards; }
@@ -68,23 +68,15 @@
   73% { opacity: 1; transform: none; } 87% { opacity: 1; transform: scaleX(.04) scaleY(1.06); } 88%, 100% { opacity: 0; transform: scaleX(0); } }
 @keyframes warp-out { 0%, 86% { opacity: 0; transform: none; } 89% { opacity: 1; } 100% { opacity: 0; transform: scaleY(.2); } }
 
-/* 工作中：殘像打字。兩手輪流飛快上下（錯開半週期），兩層殘影落後一點跟著動。
-   約每 7 秒停下來推一次鼻子：打字的手整組換成推鼻子的姿勢約 0.9 秒。--delay 由 person.ts 依 sessionId 設（負值），每個人錯開 */
-.person .ghost, .person .nose { display: none; }
-.person[data-act="work"] .ghost, .person[data-act="work"] .nose { display: inline; }
+/* 工作中：殘像打字。兩手輪流飛快上下（錯開半週期），兩層殘影落後一點跟著動。--delay 由 person.ts 依 sessionId 設（負值），每個人錯開 */
+.person .ghost { display: none; }
+.person[data-act="work"] .ghost { display: inline; }
 /* 殘影往左錯開（translate 和動畫的 transform 疊加），不然整個藏在真的手後面；往右會被螢幕擋住 */
 .person .ghost-1 { opacity: .3; --ghost-lag: .06s; translate: -3px 0; }
 .person .ghost-2 { opacity: .2; --ghost-lag: .12s; translate: -6px 0; }
 .person .arm-r, .person .ghost-r { --phase: .12s; }
 .person[data-act="work"] .arm, .person[data-act="work"] .ghost { animation: fig-type .24s ease-in-out calc(var(--delay, 0s) - var(--phase, 0s) + var(--ghost-lag, 0s)) infinite; }
-.person .nose { opacity: 0; }
-.person[data-act="work"] .typing { animation: fig-typing 7s step-end var(--delay, 0s) infinite; }
-.person[data-act="work"] .nose { animation: fig-nose 7s step-end var(--delay, 0s) infinite; }
-.person[data-act="work"] .push { animation: fig-push 7s ease-in-out var(--delay, 0s) infinite; }
 @keyframes fig-type { 50% { transform: translateY(-5px); } }
-@keyframes fig-typing { 0% { opacity: 1; } 87% { opacity: 0; } }
-@keyframes fig-nose { 0% { opacity: 0; } 87% { opacity: 1; } }
-@keyframes fig-push { 0%, 90% { transform: none; } 93% { transform: translateY(-1.5px); } 96%, 100% { transform: none; } }
 
 /* 等你處理：爆氣。站起來握拳，只有角色自己抖動（.shake 在 .fig 裡面）；氣場三層各自跳動、火舌往上竄、小石子往上飄。
    幅度與 figure.ts 的 SHAKE、FLARE／FLARE_SKEW、TONGUE_RISE、ROCK_RISE 同值（外框測試用那邊的數字） */

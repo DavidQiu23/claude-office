@@ -77,11 +77,12 @@
 .code-scroll { animation: code-scroll 4.8s steps(6) infinite; }
 @keyframes code-scroll { to { transform: translateY(-24px); } }
 /* 環境動態（objects.ts 疊在物件上的部件）：比爆氣安靜得多，慢、幅度小。--delay 由 floor.ts 依樓層與家具（或座位）設，大家不同步 */
-/* 屋頂上方天空的三朵雲（building.css 定位置）：各自慢慢左右飄 ±18px，週期不同、不同步（樓層很窄時可能稍微疊到隔壁那朵） */
-.sky .cloud.c1 { animation: sky-drift 47s ease-in-out -12s infinite alternate; }
-.sky .cloud.c2 { animation: sky-drift 33s ease-in-out -25s infinite alternate; }
-.sky .cloud.c3 { animation: sky-drift 61s ease-in-out -40s infinite alternate; }
-@keyframes sky-drift { from { transform: translateX(-18px); } to { transform: translateX(18px); } }
+/* 屋頂上方天空的三朵雲：和窗景的雲同方向，一直往左飄過整片天空（.sky 是 overflow:hidden），飄出左邊再從右邊進來。
+   大的快、小的慢（像遠近）；負的 delay 讓開頁面時大致在 building.css 定的位置。減少動態時停在 building.css 的 left */
+.sky .cloud.c1 { animation: sky-drift 40s linear -32s infinite; }
+.sky .cloud.c2 { animation: sky-drift 80s linear -47s infinite; }
+.sky .cloud.c3 { animation: sky-drift 60s linear -26s infinite; }
+@keyframes sky-drift { from { left: 100%; } to { left: 0; transform: translateX(-100%); } }
 /* 窗景的雲（floor.ts 的 .drift）：所有窗看的是同一片天，所以一起往左飄；8 分鐘飄完一個全景寬（PANO.w 1440），一朵雲約 15 秒飄過一扇窗 */
 .drift { animation: drift 480s linear infinite; }
 @keyframes drift { to { transform: translateX(-1440px); } }
