@@ -4,6 +4,8 @@ import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div } from './dom.js';
 import { FloorView, lobby } from './floor.js';
+import { CLOUD_D } from './objects.js';
+import { tag } from './svg.js';
 import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
@@ -18,10 +20,17 @@ interface Leaving { emp: Employee; p: Person; floor: string }
 /** 星星：[左緣 %, 離天空底部 px]（白雲 c1~c3 的位置在 CSS）；日夜由 CSS 依 data-time 顯示 */
 const STARS: [number, number][] = [[13, 42], [25, 12], [37, 34], [49, 18], [62, 30], [74, 8], [92, 44]];
 
-/** 天空：太陽、白雲、月牙、星星（造型都在 CSS） */
+/** 白雲：設計稿的蓬鬆輪廓（objects.ts 的 CLOUD_D），大小和位置在 CSS */
+function cloud(c: string): HTMLElement {
+  const el = div(`cloud ${c}`);
+  el.innerHTML = tag('svg', { viewBox: '-39 -20 78 36' }, tag('path', { d: CLOUD_D, class: 'ink', style: 'fill:var(--paper);vector-effect:non-scaling-stroke' }));
+  return el;
+}
+
+/** 天空：太陽、白雲、月牙、星星（雲以外的造型都在 CSS） */
 function sky(): HTMLElement {
   const el = div('sky');
-  el.append(div('sun'), div('cloud c1'), div('cloud c2'), div('cloud c3'), div('moon'));
+  el.append(div('sun'), cloud('c1'), cloud('c2'), cloud('c3'), div('moon'));
   for (const [x, y] of STARS) {
     const s = div('star');
     s.style.left = `${x}%`;

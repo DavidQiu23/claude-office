@@ -44,6 +44,8 @@ const shade = (x: number, y: number, w: number, h: number, rx: number, c: string
 const circlePath = (cx: number, cy: number, r: number) => `M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0z`;
 
 const WHITE = fill('#fff');
+/** 蓬鬆的雲（設計稿的雲）：平底、上緣三個圓包，原點在中間，約 x −37…37、y −18…14。窗景的雲和屋頂上方的雲（building.ts）共用 */
+export const CLOUD_D = 'M-36 12 Q-40 0 -26 -2 Q-22 -16 -6 -12 Q4 -24 18 -12 Q34 -12 32 2 Q42 6 34 14Z';
 const STEEL = '#8c8f99';
 const BOOKS = ['#9cd3ff', '#5cba69', '#f2f2f2', '#9b7fd8', '#43b0c8', '#5a8fd8', '#b6ddd3', '#d9d2f2'];
 
@@ -175,7 +177,8 @@ function panorama(): { view: string; clouds: string } {
   let clouds = '';
   for (let x = 30; x < PANO.w - 40; x += between(r, 110, 190)) {
     const y = between(r, 22, 105), k = 0.8 + r() * 0.8;
-    clouds += ellipse(x, y, 9 * k, 3.2 * k, undefined, WHITE) + ellipse(x + 6 * k, y - 2.5 * k, 5 * k, 2.6 * k, undefined, WHITE);
+    // 線寬不跟著縮放，小雲也有看得到的墨線
+    clouds += tag('path', { d: CLOUD_D, transform: `translate(${x} ${y}) scale(${0.28 * k})`, class: 'mk-thin', style: `${WHITE};vector-effect:non-scaling-stroke` });
   }
   let stars = '';
   for (let i = 0; i < 90; i++) stars += circle(between(r, 2, PANO.w - 2), between(r, 6, 120), 0.5 + r() * 0.4, undefined, STAR);
