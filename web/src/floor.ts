@@ -2,8 +2,9 @@
 import type { Employee } from '../../src/state/types.js';
 import { GEO, plateText, seatCenter, type Floor } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
-import { DESK_CODE, GLASS, OBJECTS, PANO, ROOM_SIDE, type DeskState, type ObjectId } from './objects.js';
+import { DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, OBJECTS, PANO, ROOM_SIDE, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
+import { motionDelay } from './view.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WIN_Y = 66; // 圓窗底邊：窗頂 14 與招牌同高，窗在坐著的人頭上
@@ -32,19 +33,22 @@ export function useObj(id: ObjectId, x: number, y: number): SVGSVGElement {
 }
 
 /** 一扇窗：玻璃是一個小 svg，viewBox 對到全景（#panorama）上的一塊（placeWindows 依樓層設定）；圓窗框（#window，連同蓋住方形四角的牆色）疊在上面。
- *  全景畫兩份並排，露出的那塊跨過右緣時接得上 */
+ *  全景畫兩份並排，露出的那塊跨過右緣時接得上。雲（#pano-clouds）疊在上面、整片往左飄一個全景寬（theme.css 的 drift），所以畫三份 */
 function windowEl(x: number): SVGSVGElement {
   const win = useObj('window', x, WIN_Y), { w, h } = OBJECTS.window;
-  const view = document.createElementNS(SVG_NS, 'svg');
+  const view = document.createElementNS(SVG_NS, 'svg'), drift = document.createElementNS(SVG_NS, 'g');
   for (const [k, v] of [['x', w / 2 + GLASS.x], ['y', h + GLASS.y], ['width', GLASS.w], ['height', GLASS.h]] as const) view.setAttribute(k, String(v));
-  for (const at of [0, PANO.w]) {
+  const panoUse = (id: string, at: number) => {
     const use = document.createElementNS(SVG_NS, 'use');
-    use.setAttribute('href', '#panorama');
+    use.setAttribute('href', `#${id}`);
     use.setAttribute('x', String(at));
     use.setAttribute('width', String(PANO.w));
     use.setAttribute('height', String(PANO.h));
-    view.append(use);
-  }
+    return use;
+  };
+  drift.setAttribute('class', 'drift');
+  drift.append(...[0, PANO.w, 2 * PANO.w].map((at) => panoUse('pano-clouds', at)));
+  view.append(panoUse('panorama', 0), panoUse('panorama', PANO.w), drift);
   win.prepend(view);
   return win;
 }
@@ -113,7 +117,8 @@ export class FloorView {
     }
     while (this.desks.length < f.desks) {
       const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = el('span'), helpers = el('b', 'helpers');
-      pic.insertAdjacentHTML('beforeend', DESK_CODE); // 捲動的程式碼疊在螢幕上（CSS 動畫在 symbol 裡不會動），只在工作中顯示
+      pic.insertAdjacentHTML('beforeend', DESK_CODE + DESK_STEAM); // 捲動的程式碼、馬克杯的煙疊在桌上（CSS 動畫在 symbol 裡不會動），依狀態顯示
+      desk.style.setProperty('--delay', `-${motionDelay(`${f.key}#${this.desks.length}`)}s`); // 各層各座位的煙不同步
       helpers.title = '工作中的助理';
       plate.append(text, helpers);
       desk.append(pic, plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上
@@ -153,8 +158,12 @@ export class FloorView {
   private placeFurniture(key: string): void {
     this.furnKey = key;
     this.furniture.replaceChildren(...layoutSet(furnitureSet(key)).map((it) => {
-      const n = useObj(it.id, it.x, FURN_Y);
+      const n = useObj(it.id, it.x, FURN_Y), anim = FURN_ANIM[it.id];
       n.dataset.id = it.id;
+      if (anim) {
+        n.insertAdjacentHTML('beforeend', anim); // 葉子、咖啡煙（objects.ts 產生、不含使用者資料）
+        n.style.setProperty('--delay', `-${motionDelay(`${key}#${it.id}`)}s`); // 各層同一件家具不同步
+      }
       return n;
     }));
   }

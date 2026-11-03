@@ -74,6 +74,8 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; back
 .desk { position: absolute; top: 0; width: 120px; height: 200px; }
 .desk .desk-code { display: none; }
 .desk[data-st="working"] .desk-code { display: inline; } /* 工作中螢幕上捲動的程式碼（objects.ts 的 DESK_CODE） */
+.desk .desk-steam { display: none; }
+.desk[data-st="idle"] .desk-steam { display: inline; } /* 輪到你時馬克杯冒煙（objects.ts 的 DESK_STEAM） */
 /* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色依狀態：工作中米白（--plate）、等你處理紅、輪到你琥珀。
    右邊的「↳N」是工作中的助理數（淡綠），不縮，名牌太長時縮的是文字 */
 .plate { position: absolute; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; gap: 3px; }

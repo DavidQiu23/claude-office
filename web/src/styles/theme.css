@@ -106,6 +106,22 @@
 /* 工作中螢幕上的程式碼（objects.ts 的 DESK_CODE）：一行一行往上捲，捲完一份（objects.ts 的 CODE_SCROLL：6 行 × 行距 4 = 24）接回開頭 */
 .code-scroll { animation: code-scroll 4.8s steps(6) infinite; }
 @keyframes code-scroll { to { transform: translateY(-24px); } }
+/* 環境動態（objects.ts 疊在物件上的部件）：比爆氣安靜得多，慢、幅度小。--delay 由 floor.ts 依樓層與家具（或座位）設，大家不同步 */
+/* 屋頂上方天空的三朵雲（building.css 定位置）：各自慢慢左右飄 ±18px，週期不同、不同步（樓層很窄時可能稍微疊到隔壁那朵） */
+.sky .cloud.c1 { animation: sky-drift 47s ease-in-out -12s infinite alternate; }
+.sky .cloud.c2 { animation: sky-drift 33s ease-in-out -25s infinite alternate; }
+.sky .cloud.c3 { animation: sky-drift 61s ease-in-out -40s infinite alternate; }
+@keyframes sky-drift { from { transform: translateX(-18px); } to { transform: translateX(18px); } }
+/* 窗景的雲（floor.ts 的 .drift）：所有窗看的是同一片天，所以一起往左飄；8 分鐘飄完一個全景寬（PANO.w 1440），一朵雲約 15 秒飄過一扇窗 */
+.drift { animation: drift 480s linear infinite; }
+@keyframes drift { to { transform: translateX(-1440px); } }
+/* 盆栽：葉子以莖頂 (0, −26) 為軸左右輕晃 ±2° */
+.sway { transform-origin: 0 -26px; animation: sway 5s ease-in-out var(--delay, 0s) infinite alternate; }
+@keyframes sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
+/* 咖啡煙：一縷往上飄、淡掉；兩縷依 --lag 錯開。減少動態時停在半透明，煙還在 */
+.steam { opacity: .45; animation: steam 2.8s ease-out calc(var(--delay, 0s) - var(--lag, 0s)) infinite; }
+@keyframes steam { 0% { opacity: 0; transform: translateY(2px); } 35% { opacity: .55; } 100% { opacity: 0; transform: translateY(-5px); } }
+/* 減少動態：大樓裡所有環境動畫（天空的雲、窗景的雲、盆栽、咖啡煙、螢幕程式碼）全停；ID 選擇器壓過各自的 class 規則。人物另由 figure.css 停 */
 @media (prefers-reduced-motion: reduce) {
-  .code-scroll { animation: none; }
+  #building * { animation: none; }
 }

@@ -86,11 +86,9 @@ function desk(st: DeskState): string {
     + rect(SCR.x + 4, SCR.y + 4, 21, 4, 1, undefined, fill('var(--screen-waiting)'))
     + rect(SCR.x + 6.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#5cba69')) + rect(SCR.x + 15.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#c9c2b6')));
   if (lit) o += line(`M${SCR.x + 3.5} ${SCR.y + 5} q3.5 -2.5 8.5 -2.5`, 'mk-thin', 'stroke:#fff;stroke-width:1.6;opacity:.55'); // 反光
-  // 桌上：馬克杯、鍵盤
+  // 桌上：馬克杯（輪到你時冒煙，見 DESK_STEAM）、鍵盤
   o += rect(-40, -57, 9, 8.5, 3, 'mk-thin', WHITE) + line('M-31 -55 q3 0 3 2.5 q0 2.5 -3 2.5', 'mk-thin')
     + rect(-15, -51, 30, 2.5, 1, 'mk-thin', fill('#f2f2f2'));
-  if (st === 'idle') o += path('M-38 -59.5 q-2 -3 0 -6 q2 -3 0 -6 M-34 -60 q-2 -2.5 0 -5 q2 -2.5 0 -5', undefined,
-    'fill:none;stroke:var(--fx);stroke-width:1;stroke-linecap:round;opacity:.6'); // 蒸氣
   // 桌子本體：圓角桌身、右側抽屜的硬影、白色桌面、兩顆鉚釘
   o += rect(-56, -48.5, 112, 48.5, 8, 'mk', fill('var(--desk)')) + shade(36, -39, 15, 35, 5, 'var(--desk-shade)')
     + rect(-56, -48.5, 112, 8, 4, 'mk', fill('var(--desk-top)'))
@@ -105,15 +103,25 @@ const chair = () =>
   + rect(-20, -52, 32, 42, 10, 'mk-thin', fill('#82a9ec'))
   + rivet(-21, -53) + rivet(21, -53);
 
-/** 工作中螢幕上捲動的程式碼。Chromium 不會把 CSS 動畫帶進 <use> 的複本，所以不放在桌子 symbol 裡：
- *  floor.ts 把這段疊在每張桌子的 svg 上（外層 viewBox 和 symbol 相同，座標照桌子），只在工作中顯示。
- *  畫兩份接起來，theme.css 的 code-scroll 一行一行往上捲一份的高度後接回開頭 */
+// ── 會動的部件：Chromium 不會把 CSS 動畫帶進 <use> 的複本，所以不放在 symbol 裡，floor.ts 把這些疊在物件的 svg 上。動畫在 theme.css ──
+
+/** 疊在物件上的一張 svg：外框與 viewBox 和 symbol 相同，座標照物件 */
+const overlay = ({ w, h }: ObjectSpec, cls: string, body: string) =>
+  tag('svg', { class: cls, width: w, height: h, viewBox: `${-w / 2} ${-h} ${w} ${h}`, style: 'overflow:visible' }, body);
+/** 從杯口 (x, y) 往上的兩縷煙，第二縷落後半拍（--lag） */
+const steam = (x: number, y: number) => [0, 1].map((i) =>
+  path(`M${x + i * 4} ${y - i * 0.5} q-2 -3 0 -6 q2 -3 0 -6`, 'steam', `fill:none;stroke:var(--fx);stroke-width:1;stroke-linecap:round;--lag:${i * 1.4}s`)).join('');
+
+/** 輪到你的桌上，馬克杯冒煙（building.css 只在 data-st="idle" 顯示） */
+export const DESK_STEAM = overlay(DESK, 'desk-steam', steam(-38, -59.5));
+
+/** 工作中螢幕上捲動的程式碼，只在工作中顯示。畫兩份接起來，theme.css 的 code-scroll 一行一行往上捲一份的高度後接回開頭 */
 const CODE_LINES = [[3, 12], [6, 14], [6, 8], [3, 17], [6, 11], [3, 6]];
 const CODE_DY = 4; // 行距
 /** 一份程式碼的高度：theme.css 的 code-scroll 一輪往上捲這麼多 */
 export const CODE_SCROLL = CODE_LINES.length * CODE_DY;
 const code = (dy: number) => CODE_LINES.map(([x, w], i) => `M${SCR.x + x!} ${SCR.y + 4 + i * CODE_DY + dy} h${w}`).join(' ');
-export const DESK_CODE = tag('svg', { class: 'desk-code', width: DESK.w, height: DESK.h, viewBox: `${-DESK.w / 2} ${-DESK.h} ${DESK.w} ${DESK.h}`, style: 'overflow:visible' },
+export const DESK_CODE = overlay(DESK, 'desk-code',
   tag('svg', { x: SCR.x, y: SCR.y, width: SCR.w, height: SCR.h, viewBox: `${SCR.x} ${SCR.y} ${SCR.w} ${SCR.h}` }, // 內層 svg 切在畫面範圍
     line(`${code(0)} ${code(CODE_SCROLL)}`, 'mk-thin code-scroll', 'stroke:var(--monitor);opacity:.45')));
 
@@ -160,7 +168,8 @@ function lots(r: () => number, w: [number, number], gap: [number, number]): [num
   }
 }
 
-function panorama(): string {
+/** 全景與白天的雲（雲另成一張圖，窗裡讓它飄；一起產生，亂數順序不變，城市長相才不變） */
+function panorama(): { view: string; clouds: string } {
   const r = rng(7);
   const sky = rect(0, 0, PANO.w, PANO.h, 0, undefined, fill('var(--window-sky)'));
   let clouds = '';
@@ -196,7 +205,7 @@ function panorama(): string {
   const street = rect(0, STREET_Y, PANO.w, PANO.h - STREET_Y, 0, undefined, fill('var(--ground)'))
     + line(`M0 ${STREET_Y} H${PANO.w}`, 'mk-thin')
     + line(`M4 ${STREET_Y + 9} H${PANO.w}`, 'mk-thin', 'stroke:var(--paper);stroke-dasharray:10 8;opacity:.7');
-  return sky + day(clouds) + night(stars) + g('opacity:.5', far) + night(farLit) + near + street;
+  return { view: sky + night(stars) + g('opacity:.5', far) + night(farLit) + near + street, clouds: day(clouds) };
 }
 
 // ── 右端家具（尺寸沿用原本的版本，layoutSet 排出來的位置不變）：都是圓角，右側一塊硬影 ──
@@ -226,11 +235,11 @@ function vending(): string {
     + rivet(-22.5, -106.5) + rivet(22.5, -106.5) + rivet(-22.5, -4.5) + rivet(22.5, -4.5);
 }
 
-/** 盆栽 34×74：三團圓葉（深淺綠）、藍色圓盆加盆緣 */
+/** 盆栽 34×74：藍色圓盆加盆緣；三團圓葉（深淺綠）會晃，在 FURN_ANIM.plant（葉子底 y −30 在盆緣 −28 之上，疊在上面也不蓋到盆） */
+const PLANT_LEAVES = circle(-8, -40, 10, 'mk', fill('#4aa35a')) + circle(9, -42, 10, 'mk', fill('#3d8f4d')) + circle(0, -58, 13, 'mk', fill('#5cba69'))
+  + line('M-6 -63 q4 -5 10 -3', 'mk-thin', 'stroke:#9be0a4;stroke-width:2');
 const plant = () =>
-  circle(-8, -40, 10, 'mk', fill('#4aa35a')) + circle(9, -42, 10, 'mk', fill('#3d8f4d')) + circle(0, -58, 13, 'mk', fill('#5cba69'))
-  + line('M-6 -63 q4 -5 10 -3', 'mk-thin', 'stroke:#9be0a4;stroke-width:2')
-  + path('M-12 -24 Q-12 0 0 0 Q12 0 12 -24Z', 'mk', fill('#5a8fd8')) + path('M5 -24 Q11 -24 11 -14 Q10 -4 4 -1.5Z', undefined, fill('#4673b8'))
+  path('M-12 -24 Q-12 0 0 0 Q12 0 12 -24Z', 'mk', fill('#5a8fd8')) + path('M5 -24 Q11 -24 11 -14 Q10 -4 4 -1.5Z', undefined, fill('#4673b8'))
   + rect(-14, -28, 28, 7, 3.5, 'mk', fill('#7aa8e8'));
 
 /** 書櫃 60×104：圓角木框、四層、書背（淺色）、右側內壁硬影、頂端兩顆鉚釘 */
@@ -292,6 +301,12 @@ const sideTable = () =>
   + rect(-11, -33, 11, 3, 1, 'mk-thin', fill('#5a8fd8'))
   + rect(3, -37, 7, 7, 2.5, 'mk-thin', WHITE) + line('M10 -35 q2.5 0 2.5 2 q0 2 -2.5 2', 'mk-thin');
 
+/** 家具上會動的部件（floor.ts 疊在那件家具上）：盆栽的葉子晃、邊桌的咖啡冒煙 */
+export const FURN_ANIM: Partial<Record<FurnitureId, string>> = {
+  plant: overlay(OBJECTS.plant, 'anim', tag('g', { class: 'sway' }, PLANT_LEAVES)),
+  sideTable: overlay(OBJECTS.sideTable, 'anim', steam(5, -38.5)),
+};
+
 const DRAW: Record<ObjectId, () => string> = {
   'desk-empty': () => desk('empty'),
   'desk-working': () => desk('working'),
@@ -302,13 +317,14 @@ const DRAW: Record<ObjectId, () => string> = {
   waterCooler, vending, plant, bookshelf, copier, sofa, floorLamp, sideTable,
 };
 
-/** 隱藏的 <svg>：<defs> 裡有每個 ObjectId 的 <symbol id> 與窗景全景。
+/** 隱藏的 <svg>：<defs> 裡有每個 ObjectId 的 <symbol id>、窗景全景與窗景的雲。
  *  symbol 設 overflow:visible：外緣的墨線不被切掉一半，暖光可以超出物件範圍 */
 export function defsSvg(): string {
+  const pano = panorama(), box = `0 0 ${PANO.w} ${PANO.h}`;
   const symbols = (Object.keys(OBJECTS) as ObjectId[]).map((id) => {
     const { w, h } = OBJECTS[id];
     return tag('symbol', { id, viewBox: `${-w / 2} ${-h} ${w} ${h}`, style: 'overflow:visible' }, DRAW[id]());
-  }).join('') + tag('symbol', { id: 'panorama', viewBox: `0 0 ${PANO.w} ${PANO.h}` }, panorama());
+  }).join('') + tag('symbol', { id: 'panorama', viewBox: box }, pano.view) + tag('symbol', { id: 'pano-clouds', viewBox: box }, pano.clouds);
   return tag('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 0, height: 0, 'aria-hidden': 'true', style: 'position:absolute' },
     tag('defs', {}, symbols));
 }
