@@ -10,19 +10,21 @@
   --ui-ink: #1b1716;
   --ui-border: 2px solid var(--ui-ink);
   --ui-shadow: 0 0 0 2.5px #fff, 2px 3px 0 2.5px rgb(27 23 22 / .35);
+  /* 桌子、家具、屋頂往右下的半透明硬投影（設計稿的 feDropShadow）。設計稿用暖褐 #5a3418，色相太接近琥珀，改用墨色 */
+  --drop: drop-shadow(3px 3px 0 rgb(27 23 22 / .18));
 }
 
 :root[data-time="day"] {
   color-scheme: light;
   --day: 1;
   --night: 0;
-  --page-bg: #cfe1ee;
+  --sky-bg: linear-gradient(#5fb6f5, #bfe6ff) fixed; /* 天空漸層固定在視窗上（html 與頂端狀態列共用才接得起來） */
   --paper: #faf5ea;
   --text: #2d2a26;
   --text-sub: #6b5f4f;
-  --ink: #2d2a26;
-  --fig-ink: #1a1a1a;
-  --fx: #1a1a1a;
+  --ink: #1b1716;
+  --fig-ink: #1b1716;
+  --fx: #1b1716;
   --wall: #fbf1dc;
   --ceiling: #e6d2ab;
   --side-wall: #efdcb8;
@@ -30,14 +32,14 @@
   --wainscot: #9ccfc3;
   --wainscot-top: #7db5a8;
   --floor-wood: #e3d3b0;
-  --floor-seam: #c4ad80;
-  --slab: #c9b99a;
-  --window-sky: #a9c6de;
+  --floor-back: #d2c098;
+  --slab: #cdb894;
+  --window-sky: #8fcefa; /* 天空漸層兩端的中間值：設計稿的圓窗裡畫的就是同一片漸層 */
   --city: #8aa3b8;
   --city-lit: #f6e7b0;
-  --desk: #f4eedf;
-  --desk-top: #fffaf0;
-  --desk-shade: #ddd3bd;
+  --desk: #e9edf2;
+  --desk-top: #fff;
+  --desk-shade: #c3cdd8;
   --wood: #c79a6a;
   --wood-shade: #a87e52;
   --monitor: #2a2a2a;
@@ -49,7 +51,7 @@
   --button: #e8dbc2;
   --plate: #fbf6ea;
   --ground: #d9d2c2;
-  --roof: #b9a98a;
+  --roof: #e6d2ab;
   --lamp-glow: transparent; /* 白天不顯示 */
 }
 
@@ -57,7 +59,7 @@
   color-scheme: dark;
   --day: 0;
   --night: 1;
-  --page-bg: #1b2140;
+  --sky-bg: #1b2140;
   --paper: #2a3152;
   --text: #f1e9d8;
   --text-sub: #b7b0c8;
@@ -71,7 +73,7 @@
   --wainscot: #2f5a63;
   --wainscot-top: #26494f;
   --floor-wood: #3a3f5c;
-  --floor-seam: #2a2e48;
+  --floor-back: #33375a;
   --slab: #1d2640;
   --window-sky: #141c36;
   --city: #26304f;

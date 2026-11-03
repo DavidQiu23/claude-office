@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { CODE_SCROLL, DESK_CODE, DESK_STEAM, FURN_ANIM, OBJECTS, PANO, ROOM_SIDE, defsSvg, type ObjectId } from '../web/src/objects.js';
+import { CODE_SCROLL, DESK_CODE, DESK_STEAM, FURN_ANIM, OBJECTS, PANO, ROOM_SIDE, defsSvg, floorSeams, type ObjectId } from '../web/src/objects.js';
 
 const IDS = Object.keys(OBJECTS) as ObjectId[];
 const DESKS: ObjectId[] = ['desk-empty', 'desk-working', 'desk-waiting', 'desk-idle'];
@@ -55,7 +55,7 @@ test('四種桌子都存在且彼此不同', () => {
 });
 
 test('顏色不寫在屬性上', () => {
-  for (const s of [defsSvg(), ROOM_SIDE]) expect(s).not.toMatch(/\s(fill|stroke)="(?!none")/);
+  for (const s of [defsSvg(), ROOM_SIDE, floorSeams(800)]) expect(s).not.toMatch(/\s(fill|stroke)="(?!none")/);
 });
 
 test('房間側牆（含天花板和地板的斜角）用主題變數上色，日夜才切得過去', () => {

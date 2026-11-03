@@ -2,7 +2,7 @@
 import type { Employee } from '../../src/state/types.js';
 import { GEO, plateText, seatCenter, type Floor } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
-import { DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, OBJECTS, PANO, ROOM_SIDE, type DeskState, type ObjectId } from './objects.js';
+import { DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, OBJECTS, PANO, ROOM_SIDE, floorSeams, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
 import { motionDelay } from './view.js';
 
@@ -79,12 +79,14 @@ export class FloorView {
   private windows = div('windows');
   private furniture = div('furniture'); // 離右緣 GEO.sideGap、寬 GEO.furnitureW
   private furnKey: string | null = null; // 目前擺的是哪個 roomKey 的那組
+  private seams = div('seams'); // 木地板的透視板縫，依樓層寬畫
+  private seamsW = 0;
   private f: Floor | null = null;
 
   constructor(hooks: { hover(e: Employee, at: DOMRect): void; unhover(): void }) {
     this.sign.style.left = `${SIGN_X}px`;
     this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
-    this.inner.append(...shell(), this.windows, this.sign, this.furniture, this.chairs, this.people, this.deskRow);
+    this.inner.append(...shell(), this.seams, this.windows, this.sign, this.furniture, this.chairs, this.people, this.deskRow);
     this.el.append(this.inner); // 內容座標與 seatCenter 同一套
     // 滑過人物：依 data-key 找這層目前的佔用者
     const personOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>('.person') : null);
@@ -105,6 +107,10 @@ export class FloorView {
     this.f = f;
     this.el.dataset.key = f.key;
     this.inner.style.width = `${width}px`;
+    if (this.seamsW !== width) {
+      this.seamsW = width;
+      this.seams.innerHTML = floorSeams(width); // objects.ts 產生、不含使用者資料
+    }
     this.placeWindows(width, f.level);
     if (this.furnKey !== f.key) this.placeFurniture(f.key);
     this.sign.textContent = `${f.level}F ${f.title}`;

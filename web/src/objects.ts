@@ -1,4 +1,4 @@
-// 圓滾滾機械風物件：桌子、椅子、圓窗、右端家具、房間的兩側斜牆。純函式產生 SVG 字串（不碰 DOM），defsSvg() 放進頁面共用的隱藏 <svg>，再用 <use href="#id"> 擺上去。
+// 圓滾滾機械風物件：桌子、椅子、圓窗、右端家具、房間的兩側斜牆、木地板的透視板縫。純函式產生 SVG 字串（不碰 DOM），defsSvg() 放進頁面共用的隱藏 <svg>，再用 <use href="#id"> 擺上去。
 // 畫風和人物一樣：黑色線稿（mk 粗、mk-thin 細）、一階硬影（右側一塊加深的實色，不用網點）、圓角、鉚釘。
 // 座標：原點 = 底邊中點，x 往右、y 往上是負的；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}`。
 // 顏色規則：一律寫在 style 或 class，不用 fill="色"／stroke="色" 屬性。
@@ -53,13 +53,26 @@ const BOOKS = ['#9cd3ff', '#5cba69', '#f2f2f2', '#9b7fd8', '#43b0c8', '#5a8fd8',
 //    同一張圖也畫天花板（0–10）和木地板（156–192）的斜角，中段由 building.css 的 .ceil、.wall、.boards 接上 ──
 
 const SIDE = 16, CEIL = 10, BACK = 156, FLOOR = 192;
+/** 木地板靠後牆那條較深的帶子高度（building.css 的 .boards 畫中段，這裡畫斜角） */
+const FLOOR_BAND = 9;
 export const ROOM_SIDE = tag('svg', { xmlns: 'http://www.w3.org/2000/svg', width: SIDE, height: FLOOR, viewBox: `0 0 ${SIDE} ${FLOOR}`, 'aria-hidden': 'true', style: 'overflow:visible' },
   path(`M0 0 H${SIDE} V${CEIL}Z`, undefined, fill('var(--ceiling)'))
   + path(`M0 0 L${SIDE} ${CEIL} V${BACK} L0 ${FLOOR}Z`, undefined, fill('var(--side-wall)'))
   + path(`M${SIDE} ${BACK} V${FLOOR} H0Z`, undefined, fill('var(--floor-wood)'))
+  + path(`M${SIDE} ${BACK} V${BACK + FLOOR_BAND} H${SIDE * (1 - FLOOR_BAND / (FLOOR - BACK))}Z`, undefined, fill('var(--floor-back)'))
   + line(`M0 0 L${SIDE} ${CEIL} V${BACK} L0 ${FLOOR}`, 'mk'));
 
-// ── 桌子 112×88：奶油白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54（外殼不放大，畫面放大、邊框變窄）；正面 y −42 到 −23 留白給 HTML 名牌 ──
+/** 木地板的透視板縫（設計稿）：後緣每約 42 一條，往前散開，前緣對到樓層兩端，像兩側斜牆一樣往外收。
+ *  width 是樓層寬，座標從樓層左緣、後牆底（樓層 y 156）起算；floor.ts 依樓層寬重畫 */
+export function floorSeams(width: number): string {
+  const n = Math.max(1, Math.round((width - 2 * SIDE) / 42)), round1 = (v: number) => Math.round(v * 10) / 10;
+  let d = '';
+  for (let i = 1; i < n; i++) d += `M${round1(SIDE + (i / n) * (width - 2 * SIDE))} 0 L${round1((i / n) * width)} ${FLOOR - BACK}`;
+  return tag('svg', { xmlns: 'http://www.w3.org/2000/svg', width, height: FLOOR - BACK, 'aria-hidden': 'true' },
+    line(d, 'mk-thin', 'stroke-width:.9;stroke-opacity:.35'));
+}
+
+// ── 桌子 112×88：冷白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54（外殼不放大，畫面放大、邊框變窄）；正面 y −42 到 −23 留白給 HTML 名牌 ──
 
 const SCREEN: Record<DeskState, string> = {
   empty: 'var(--screen-off)',
