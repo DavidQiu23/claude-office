@@ -42,7 +42,7 @@ export const appearance = (sessionId: string): Look => {
 export const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
 export const nameplate = (e: Employee): string => oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt);
 
-/** 工作中的助理數：名牌旁的「↳N」與資訊卡的「N 位工作中」共用 */
+/** 工作中的助理數：資訊卡的「N 位工作中」 */
 export const workingCount = (list: readonly Assistant[]): number => list.filter((a) => a.status === 'working').length;
 
 /** 資訊卡的助理清單：工作中排前（同組維持原順序），前 max 位成列，其餘歸入 extra */

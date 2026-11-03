@@ -1,5 +1,5 @@
-import type { Employee } from '../../src/state/types.js';
-import { nameplate, platePrefix, projectColor, roomKey, shortPath, workingCount } from './view.js';
+import type { Assistant, Employee } from '../../src/state/types.js';
+import { nameplate, oneLine, platePrefix, projectColor, roomKey, shortPath } from './view.js';
 
 // ---- 剖面大樓的尺寸（CSS px）----
 export const GEO = { floorH: 200, slab: 8, seatW: 120, furnitureW: 200, groundH: 72, panelW: 40, gutter: 56, rightMargin: 16, sideGap: 24 } as const; // sideGap：桌子、招牌、家具區離樓層左右緣的距離（兩側斜牆寬 16）
@@ -7,8 +7,9 @@ export const GEO = { floorH: 200, slab: 8, seatW: 120, furnitureW: 200, groundH:
 /** 第 i 個座位的中心 x（樓層內座標） */
 export const seatCenter = (i: number): number => GEO.sideGap + i * GEO.seatW + GEO.seatW / 2;
 
-/** 座位只坐真員工；助理只是主人名牌旁的小標 */
-export interface Seat { index: number; occ: Employee | null }
+/** 座位上的人：員工，或工作中的助理（assistant 是助理本人、owner 是主人；sessionId 換成助理 id，人物外觀、資訊卡和退場都靠它） */
+export type Occupant = Employee & { owner?: Employee; assistant?: Assistant };
+export interface Seat { index: number; occ: Occupant | null }
 export interface Floor { key: string; level: number; title: string; color: string; desks: number; seats: Seat[] }
 export type Alert = 'waiting' | 'idle' | null;
 
@@ -16,8 +17,8 @@ export type Alert = 'waiting' | 'idle' | null;
  * 一個專案（cwd）一層樓，1F 在 index 0。minDesks：該層至少要留的桌數（人走了桌子不收，由呼叫端記）。
  * prevOrder：上一次的樓層 key（1F 在前）。還在的樓層維持原本的相對順序（只有整層走光時上面才往下遞補），新樓層蓋在最上面；沒有 prevOrder（第一次、重新連線）就全部算新樓層
  */
-export function floorPlan(employees: Employee[], minDesks: ReadonlyMap<string, number>, prevOrder: readonly string[] = []): Floor[] {
-  const groups = new Map<string, Employee[]>();
+export function floorPlan(employees: Occupant[], minDesks: ReadonlyMap<string, number>, prevOrder: readonly string[] = []): Floor[] {
+  const groups = new Map<string, Occupant[]>();
   for (const e of employees) {
     const k = roomKey(e);
     groups.set(k, [...(groups.get(k) ?? []), e]);
@@ -48,9 +49,14 @@ export function floorAlert(f: Floor): Alert {
 export const buildingWidth = (plan: Floor[], avail: number): number =>
   plan.length ? Math.max(avail, Math.max(...plan.map((f) => f.desks)) * GEO.seatW + GEO.furnitureW + 2 * GEO.sideGap) : avail;
 
-/** 桌上名牌：標題加狀態前綴（底色直接依 e.status）；helpers 是工作中的助理數（名牌旁的「↳N」，0 不顯示） */
-export function plateText(e: Employee): { text: string; helpers: number } {
-  return { text: platePrefix(e) + nameplate(e), helpers: workingCount(e.assistants) };
+/** 主人的工作中助理，坐在主人那層自己的座位（座位由 src/state 分配）；完成的不在座位上 */
+export const helpersOf = (e: Employee): Occupant[] =>
+  e.assistants.filter((a) => a.status === 'working').map((a) => ({ ...e, sessionId: a.id, status: 'working', activity: null, seat: a.seat, arrivedAt: a.startedAt, assistants: [], owner: e, assistant: a }));
+
+/** 桌上名牌：員工是標題加狀態前綴（底色直接依 e.status）；助理是「↳ 類型 · 描述」 */
+export function plateText(e: Occupant): string {
+  if (e.assistant) return '↳ ' + ([e.assistant.kind, oneLine(e.assistant.description)].filter(Boolean).join(' · ') || '助理');
+  return platePrefix(e) + nameplate(e);
 }
 
 /** 電梯面板的框：看得到的樓層按鈕（flags 依面板上到下）從第一顆到最後一顆；一顆都沒有回 null */
@@ -63,18 +69,18 @@ export function visibleSpan(flags: readonly boolean[]): { from: number; to: numb
 export const atBottom = (scrollY: number, scrollHeight: number, viewH: number): boolean => scrollY >= scrollHeight - viewH - 1;
 
 /** 正在退場的人也放進 floorPlan（那層才不會先拆）；排在前面，同座位的新人才會蓋過他；同一人又回來了只算一次 */
-export const withLeaving = (employees: Employee[], leaving: Employee[]): Employee[] => {
+export const withLeaving = (employees: Occupant[], leaving: Occupant[]): Occupant[] => {
   const here = new Set(employees.map((e) => e.sessionId));
   return [...leaving.filter((l) => !here.has(l.sessionId)), ...employees];
 };
 
 /**
- * Building 每次 render 的樓層配置。going：正在退場、store 已經沒有的人，樓層留著但座位空出來。
+ * Building 每次 render 的樓層配置。employees 的工作中助理也坐上座位；going：正在退場、store 已經沒有的人（含助理），樓層留著但座位空出來。
  * prevOrder 是上次 plan 的樓層 key。回傳的 minDesks 是下一次的輸入（拆掉的樓層從 minDesks 刪掉）
  */
-export function buildingPlan(employees: Employee[], going: Employee[], minDesks: ReadonlyMap<string, number>, prevOrder: readonly string[] = []):
+export function buildingPlan(employees: Employee[], going: Occupant[], minDesks: ReadonlyMap<string, number>, prevOrder: readonly string[] = []):
   { plan: Floor[]; minDesks: Map<string, number> } {
-  const plan = vacate(floorPlan(withLeaving(employees, going), minDesks, prevOrder), new Set(going.map((e) => e.sessionId)));
+  const plan = vacate(floorPlan(withLeaving(employees.flatMap((e) => [e, ...helpersOf(e)]), going), minDesks, prevOrder), new Set(going.map((e) => e.sessionId)));
   return { plan, minDesks: new Map(plan.map((f) => [f.key, f.desks])) };
 }
 

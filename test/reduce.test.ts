@@ -94,6 +94,27 @@ test('座位釋出後被重用', () => {
   expect(state.employees.s3.seat).toBe(0);
   expect(state.employees.s2.seat).toBe(1);
 });
+test('助理坐那層號碼最小的空位，和員工共用座位號碼', () => {
+  const { state } = run([
+    ev('SessionStart'),
+    ev('SessionStart', { session_id: 's2' }),
+    ev('SessionEnd'), // 座位 0 空出來
+    ev('PreToolUse', { session_id: 's2', tool_name: 'Agent', tool_use_id: 'a' }),
+    ev('PreToolUse', { session_id: 's2', tool_name: 'Agent', tool_use_id: 'b' }),
+  ]);
+  expect(state.employees.s2.assistants.map((a) => a.seat)).toEqual([0, 2]);
+});
+test('新員工避開工作中助理的座位；助理完成後座位讓出來', () => {
+  const { state } = run([
+    ev('SessionStart'),
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a' }),
+    ev('SessionStart', { session_id: 's2' }),
+    ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 'a' }),
+    ev('SessionStart', { session_id: 's3' }),
+  ]);
+  expect(state.employees.s2.seat).toBe(2);
+  expect(state.employees.s3.seat).toBe(1);
+});
 test('較舊的事件不改變狀態', () => {
   const { state } = run([
     ev('Stop', { sentAt: 10 }),

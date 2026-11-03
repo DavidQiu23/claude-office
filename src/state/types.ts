@@ -21,6 +21,7 @@ export interface Assistant {
   description: string;
   status: 'working' | 'done';
   startedAt: number;
+  seat: number;                // 和員工共用主人那層的座位號碼；完成後就不佔了
   agentId?: string;            // 背景助理：async_launched 後記下，SubagentStop 用它配對
   kind?: string;               // subagent_type，例如 Explore、Plan；沒給就不記
   background?: boolean;        // run_in_background：PostToolUse 與 Stop 都不代表完成

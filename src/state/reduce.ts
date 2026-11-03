@@ -16,11 +16,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   if (existing) {
     emp = { ...existing };
   } else {
-    // 座位以資料夾（cwd）為單位：每個資料夾自己一間辦公室，各自從 0 開始排
-    const cwd = e.cwd ?? '';
-    const taken = new Set(Object.values(state.employees).filter((x) => x.cwd === cwd).map((x) => x.seat));
-    let seat = 0;
-    while (taken.has(seat)) seat++;
+    const seat = freeSeat(Object.values(state.employees), e.cwd ?? '');
     emp = {
       sessionId: id,
       folder: e.cwd ? folderName(e.cwd) : '(未知)',
@@ -91,13 +87,15 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
     }
   }
 
-  // 助理配對不受事件先後影響
+  // 助理配對不受事件先後影響；新助理的座位要連主人這次的變動一起算
+  const nextSeat = () => freeSeat([...Object.values(state.employees).filter((x) => x.sessionId !== id), { ...emp, assistants }], emp.cwd);
   if (e.hook_event_name === 'PreToolUse' && isSubagentTool(e.tool_name) && e.tool_use_id) {
     assistants.push({
       id: e.tool_use_id,
       description: String(e.tool_input?.description ?? ''),
       status: 'working',
       startedAt: e.sentAt,
+      seat: nextSeat(),
       ...(typeof e.tool_input?.subagent_type === 'string' && e.tool_input.subagent_type ? { kind: e.tool_input.subagent_type } : {}),
       ...(e.tool_input?.run_in_background === true ? { background: true } : {}),
     });
@@ -108,6 +106,7 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       description: String(e.tool_input?.summary ?? ''),
       status: 'working',
       startedAt: e.sentAt,
+      seat: nextSeat(),
       agentId: e.tool_response.resumedAgentId,
       background: true,
     });
@@ -126,4 +125,17 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
     state: { ...state, employees: { ...state.employees, [id]: emp } },
     changes: [{ type: 'upsert', employee: emp }],
   };
+}
+
+/** 座位以資料夾（cwd）為單位，各自從 0 開始：員工和工作中的助理都佔一個，新來的拿號碼最小的空位 */
+function freeSeat(employees: Employee[], cwd: string): number {
+  const taken = new Set<number>();
+  for (const x of employees) {
+    if (x.cwd !== cwd) continue;
+    taken.add(x.seat);
+    for (const a of x.assistants) if (a.status === 'working') taken.add(a.seat);
+  }
+  let seat = 0;
+  while (taken.has(seat)) seat++;
+  return seat;
 }

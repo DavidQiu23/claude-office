@@ -55,7 +55,7 @@ test('nameplate 不截字（寬度交給 CSS）', () => {
   expect(nameplate(emp('abcd', 'idle', { title: 'x'.repeat(40) }))).toBe('x'.repeat(40));
 });
 
-const asst = (id: string, status: Assistant['status']): Assistant => ({ id, description: id, status, startedAt: 0 });
+const asst = (id: string, status: Assistant['status']): Assistant => ({ id, description: id, status, startedAt: 0, seat: 0 });
 
 test('assistantList：空清單', () => {
   expect(assistantList([])).toEqual({ rows: [], extra: 0, extraWorking: 0, extraDone: 0, working: 0 });

@@ -1,4 +1,4 @@
-// 模擬幾個 session 對本機伺服器送事件，一段一段演出畫面上的情境（最多 3 層、5 個人）；一輪約 28 秒，每段開頭在終端機印出情境標題。用法：npx tsx scripts/simulate.ts [--loop]
+// 模擬幾個 session 對本機伺服器送事件，一段一段演出畫面上的情境（最多 3 層、5 位員工和 2 位助理）；一輪約 28 秒，每段開頭在終端機印出情境標題。用法：npx tsx scripts/simulate.ts [--loop]
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,7 +47,7 @@ const script: (string | number | object)[] = [
   ev('api0', 'PostToolUse', { tool_name: 'Bash' }), 800,
   ev('api0', 'Stop'), 1200,
 
-  '助理：web0 派出兩位（名牌旁 ↳2），陸續完成',
+  '助理：web0 派出兩位，坐 web 那層的空桌打字，陸續完成退場',
   prompt('web0', '把首頁拆成元件'),
   spawn('web0', 'sim-a1', '盤點首頁用到的元件', 'Explore'),
   spawn('web0', 'sim-a2', ''), 2500,

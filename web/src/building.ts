@@ -4,16 +4,16 @@ import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div } from './dom.js';
 import { FloorView, lobby } from './floor.js';
-import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor } from './floors.js';
+import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor, type Occupant } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
 
 const ACT: Record<Employee['status'], Act> = { working: 'work', waiting: 'up', idle: 'idle' };
 
-/** 坐在座位上的人。emp = 上次套用的資料 */
-interface Rec { p: Person; floor: string; emp: Employee }
+/** 坐在座位上的人（員工或助理）。emp = 上次套用的資料 */
+interface Rec { p: Person; floor: string; emp: Occupant }
 /** 正在退場的人：座位已空，等瞬移消失才移除人物（那層最後一人時才拆樓） */
-interface Leaving { emp: Employee; p: Person; floor: string }
+interface Leaving { emp: Occupant; p: Person; floor: string }
 
 /** 天空：空的，只露出頁面的天空漸層，撐出屋頂上方的空間 */
 function sky(): HTMLElement {
@@ -165,6 +165,11 @@ export class Building {
     }
     for (const [id, rec] of this.people) {
       if (seen.has(id)) continue;
+      // 助理沒有 leave 事件：完成或主人離開時從座位上消失，這時才播退場
+      if (rec.emp.assistant) {
+        this.leave(id);
+        continue;
+      }
       rec.p.destroy();
       this.people.delete(id);
       if (this.card.id === id) this.card.hide();

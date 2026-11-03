@@ -2,13 +2,12 @@ import { expect, test } from 'vitest';
 import { buildingPlan, floorAlert, floorPlan, plateText, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
-import type { Assistant, Employee } from '../src/state/types.js';
+import type { Employee } from '../src/state/types.js';
 
 const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Employee> = {}): Employee => ({
   sessionId: id, folder: 'proj', cwd: '/x/proj', lastPrompt: 'hi', firstPrompt: '', title: '', transcriptPath: '', status, activity: null,
   seat: 0, arrivedAt: 0, lastEventAt: 0, assistants: [], ...over,
 });
-const asst = (over: Partial<Assistant> = {}): Assistant => ({ id: 't1', description: '搜尋\n程式碼', status: 'working', startedAt: 0, ...over });
 const none = new Map<string, number>();
 
 test('floorPlan：依專案最早到班從 1F 往上排，同時間依路徑', () => {
@@ -102,11 +101,9 @@ test('floorAlert：等你處理 > 輪到你 > null', () => {
   expect(floorAlert(floorOf(null, ee('working')))).toBe(null);
 });
 
-test('plateText：狀態前綴，helpers 只算工作中的助理', () => {
-  expect(plateText(emp('a', 'waiting', { title: '結帳' }))).toEqual({ text: '! 結帳', helpers: 0 });
-  expect(plateText(emp('a', 'idle', { title: '結帳' }))).toEqual({ text: '✓ 結帳', helpers: 0 });
-  const three = [asst({ id: 't1' }), asst({ id: 't2' }), asst({ id: 't3', status: 'done' })];
-  expect(plateText(emp('a', 'working', { title: '結帳', assistants: three }))).toEqual({ text: '結帳', helpers: 2 });
+test('plateText：狀態前綴', () => {
+  expect(plateText(emp('a', 'waiting', { title: '結帳' }))).toBe('! 結帳');
+  expect(plateText(emp('a', 'idle', { title: '結帳' }))).toBe('✓ 結帳');
 });
 
 

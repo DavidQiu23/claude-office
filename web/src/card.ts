@@ -1,6 +1,7 @@
 // 資訊卡（HTML 浮層）。內容一律用 textContent / DOM 建立，避免 prompt 內容被當成 HTML；樣式在 styles/ui.css。
-import type { Employee } from '../../src/state/types.js';
+import type { Assistant, Employee } from '../../src/state/types.js';
 import { el } from './dom.js';
+import type { Occupant } from './floors.js';
 import { avatarSvg } from './figure.js';
 import { appearance, assistantList, formatTime, nameplate, oneLine, projectColor, roomKey } from './view.js';
 
@@ -25,7 +26,7 @@ export class InfoCard {
   private box = el('div', 'card');
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   private err = '';
-  id: string | null = null; // 目前顯示的員工 session id
+  id: string | null = null; // 目前顯示的員工 session id 或助理 id
 
   constructor() {
     this.box.onmouseenter = () => clearTimeout(this.hideTimer);
@@ -33,7 +34,7 @@ export class InfoCard {
     document.body.append(this.box);
   }
 
-  show(e: Employee, left: number, top: number): void {
+  show(e: Occupant, left: number, top: number): void {
     clearTimeout(this.hideTimer);
     if (this.id !== e.sessionId) this.err = '';
     this.id = e.sessionId;
@@ -48,12 +49,12 @@ export class InfoCard {
     this.box.style.top = `${Math.max(AVATAR_RISE + 4, Math.min(top, window.innerHeight - this.box.offsetHeight - 8))}px`;
   }
 
-  /** 卡片外框：頂端專案色帶上寫標題（最多兩行），頭像突出色帶上緣，狀態標籤騎在色帶右上緣 */
-  private frame(color: string, key: string, st: Chip, title: string, body: HTMLElement): void {
+  /** 卡片外框：頂端專案色帶上寫標題（最多兩行），頭像突出色帶上緣，狀態標籤騎在色帶右上緣（助理沒有） */
+  private frame(color: string, key: string, st: Chip | null, title: string, body: HTMLElement): void {
     this.box.style.setProperty('--pc', color); // 專案色：色帶、頭像底、資料夾小方塊都用它
     const bar = el('div', 'card-bar');
     bar.append(el('div', 'card-title clamp clamp-2', title));
-    this.box.replaceChildren(bar, avatar(key), el('span', `chip ${st.cls}`, st.text), body);
+    this.box.replaceChildren(bar, avatar(key), ...(st ? [el('span', `chip ${st.cls}`, st.text)] : []), body);
   }
 
   /** 一段「標題 + 文字」（文字最多 lines 行） */
@@ -67,7 +68,8 @@ export class InfoCard {
     return el('div', 'section-label', text);
   }
 
-  fill(e: Employee): void {
+  fill(e: Occupant): void {
+    if (e.assistant && e.owner) return this.fillHelper(e.owner, e.assistant);
     const color = projectColor(roomKey(e));
     const body = el('div', 'card-body');
     const title = nameplate(e) || '（無標題）';
@@ -137,6 +139,18 @@ export class InfoCard {
     body.append(foot);
 
     this.frame(color, e.sessionId, STATUS[e.status], title, body);
+  }
+
+  /** 助理：類型、描述、主人的標題、開始時間。在座位上一定是工作中，所以不貼狀態標籤，也不能請他下班 */
+  private fillHelper(owner: Employee, a: Assistant): void {
+    const body = el('div', 'card-body');
+    body.append(el('div', 'folder', owner.folder));
+    if (a.kind) body.append(this.section('類型', a.kind, false, 1));
+    body.append(this.section('主人', nameplate(owner) || '（無標題）', false, 2));
+    const foot = el('div', 'card-foot');
+    foot.append(el('span', 'card-foot-text', `開始 ${formatTime(a.startedAt)}`));
+    body.append(foot);
+    this.frame(projectColor(roomKey(owner)), a.id, null, oneLine(a.description) || '（無描述）', body);
   }
 
   scheduleHide(): void {

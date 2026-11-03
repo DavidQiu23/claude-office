@@ -1,6 +1,5 @@
 // 一層樓：淺盒房間（天花板、後牆、木地板、兩側斜牆）、樓板、招牌「NF 專案名」、圓窗、一排椅子（在人後面）、正面桌與名牌、右端一組家具。人物由 building.ts 放進 people 圖層
-import type { Employee } from '../../src/state/types.js';
-import { GEO, plateText, seatCenter, type Floor } from './floors.js';
+import { GEO, plateText, seatCenter, type Floor, type Occupant } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, windowView, windowXs } from './furniture.js';
 import { DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, OBJECTS, PANO, ROOM_SIDE, floorSeams, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
@@ -65,9 +64,9 @@ function shell(): HTMLElement[] {
   return [div('ceil'), div('wall'), div('boards'), side('side-l'), side('side-r'), div('slab')];
 }
 
-const deskState = (e: Employee | null): DeskState => (e ? e.status : 'empty');
+const deskState = (e: Occupant | null): DeskState => (e ? e.status : 'empty');
 
-interface DeskEl { el: HTMLElement; chair: SVGSVGElement; use: SVGUseElement; plate: HTMLElement; text: HTMLElement; helpers: HTMLElement }
+interface DeskEl { el: HTMLElement; chair: SVGSVGElement; use: SVGUseElement; plate: HTMLElement; text: HTMLElement }
 
 export class FloorView {
   /** 寬度由 building.ts 統一給（各層同寬），不自己捲動 */
@@ -85,7 +84,7 @@ export class FloorView {
   private seamsW = 0;
   private f: Floor | null = null;
 
-  constructor(hooks: { hover(e: Employee, at: DOMRect): void; unhover(): void }) {
+  constructor(hooks: { hover(e: Occupant, at: DOMRect): void; unhover(): void }) {
     this.sign.style.left = `${SIGN_X}px`;
     this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
     this.inner.append(...shell(), this.seams, this.windows, this.sign, this.furniture, this.chairs, this.people, this.deskRow);
@@ -124,30 +123,26 @@ export class FloorView {
       d.chair.remove();
     }
     while (this.desks.length < f.desks) {
-      const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = el('span'), helpers = el('b', 'helpers');
+      const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = el('span');
       pic.insertAdjacentHTML('beforeend', DESK_CODE + DESK_STEAM); // 捲動的程式碼、馬克杯的煙疊在桌上（CSS 動畫在 symbol 裡不會動），依狀態顯示
       desk.style.setProperty('--delay', `-${motionDelay(`${f.key}#${this.desks.length}`)}s`); // 各層各座位的煙不同步
-      helpers.title = '工作中的助理';
-      plate.append(text, helpers);
+      plate.append(text);
       desk.append(pic, div('glow'), plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上；glow 是夜晚的桌燈與螢幕光（building.css）
       const x = seatCenter(this.desks.length), chair = useObj('chair', x, CHAIR_Y);
       desk.style.left = `${x - GEO.seatW / 2}px`; // 一格寬 120
       this.chairs.append(chair);
       this.deskRow.append(desk);
-      this.desks.push({ el: desk, chair, use: pic.firstElementChild as SVGUseElement, plate, text, helpers });
+      this.desks.push({ el: desk, chair, use: pic.firstElementChild as SVGUseElement, plate, text });
     }
     f.seats.forEach((s, i) => {
       const d = this.desks[i]!;
       const st = deskState(s.occ);
       d.use.setAttribute('href', `#desk-${st}`); // 狀態變了就換 symbol
       d.el.dataset.st = st; // building.css 依此顯示螢幕上的程式碼
-      // 名牌永遠等於這個座位目前的員工；空桌連字與底色一起清掉。「↳N」是工作中的助理數，0 不顯示
-      const p = s.occ ? plateText(s.occ) : null;
-      d.plate.hidden = !p;
+      // 名牌永遠等於這個座位目前的人；空桌連字與底色一起清掉
+      d.plate.hidden = !s.occ;
       d.plate.className = s.occ ? `plate ${s.occ.status}` : 'plate';
-      d.text.textContent = p ? p.text : '';
-      d.helpers.hidden = !p?.helpers;
-      d.helpers.textContent = p?.helpers ? `↳${p.helpers}` : '';
+      d.text.textContent = s.occ ? plateText(s.occ) : '';
     });
   }
 
