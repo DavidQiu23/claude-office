@@ -2,15 +2,15 @@
 
 > 在本機網頁上，把你的 Claude Code session 畫成一棟剖面大樓：一個工作資料夾（cwd）一層樓，一個 session 一位員工。
 
-同時開好幾個 session 時，你不用逐一切過去看，就知道哪個還在跑、哪個在等你批准、哪個已經做完輪到你。
+同時開好幾個 session 時，你不用逐一切過去看，就知道哪個還在跑、哪個在等你處理、哪個已經做完輪到你。
 
 ![白天的辦公室](docs/images/office-day.png)
 
-*白天（`?time=day`）：三個專案三層樓，有人工作中、等你批准、輪到你，2F 名牌以「↳」開頭的兩位是工作中的助理；滑鼠停在右邊那位助理身上，打開它的資訊卡。*
+*白天（`?time=day`）：三個專案三層樓，有人工作中、等你處理、輪到你，2F 名牌以「↳」開頭的兩位是工作中的助理；滑鼠停在右邊那位助理身上，打開它的資訊卡。*
 
 ![夜晚的辦公室](docs/images/office-night.png)
 
-*夜晚（`?time=night`），同一個畫面，打開的是 2F 等你批准那個人的資訊卡。*
+*夜晚（`?time=night`），同一個畫面，打開的是 2F 等你處理那個人的資訊卡。*
 
 ## 快速開始
 
@@ -69,22 +69,6 @@ npm run install-hooks
 npm run uninstall-hooks
 ```
 
-## 更新
-
-```bash
-git pull
-npm install
-npm run build
-```
-
-然後重新啟動伺服器。新版若多了 hook 事件，再跑一次 `install-hooks`（不會重複新增）。
-
-## 完全移除
-
-1. 先執行 `npm run uninstall-hooks`（`dist/` 不在時先 `npm run build`）。直接刪資料夾的話，`settings.json` 裡的 hook 會指向不存在的檔案。
-2. 刪掉這個資料夾。
-3. 視需要刪掉 `~/.claude-office/` 與 `~/.claude/settings.json.claude-office.bak`（最初的原始檔）。
-
 ## 設定
 
 設定檔只有 `port` 一個選項，預設 `47823`。資料夾與檔案預設不存在，要自己建立：
@@ -106,7 +90,7 @@ npm run build
 npm start
 ```
 
-跑一輪（約 28 秒，最多 3 層、5 位員工和 2 位助理；終端機會印出目前在演哪個情境：三種狀態、狀態切換、助理、加蓋與拆樓、退場中又回來、交班）：
+跑一輪（約 28 秒，最多 3 層、5 位員工和 2 位助理；終端機會印出目前在演哪個情境：三種狀態、狀態切換、助理、加蓋與拆樓、退場中又回來、交班、全部下班）：
 
 ```bash
 npm run simulate
@@ -124,61 +108,84 @@ npm run simulate -- --loop
 
 - 本機時間 6:00（含）到 18:00（不含）是白天，其餘是夜晚；頁面開著時會自動切換。
 - 網址加 `?time=day` 或 `?time=night` 可以固定。系統的深色模式不影響。
-- 夜晚的房間蓋一層深藍色。桌燈、螢幕、窗外夜空、立燈和販賣機亮著，名牌、招牌、狀態列、電梯面板和資訊卡和白天一樣清楚。
+- 夜晚的房間蓋一層深藍色。有人的桌子桌燈和螢幕亮著（輪到你的螢幕發琥珀光，空桌不亮），窗外夜空、立燈和販賣機也亮著；名牌、招牌、狀態列、電梯面板和資訊卡和白天一樣清楚。
 
 ## 三種狀態
 
-每個狀態只有一個動作；紅、琥珀、綠三種狀態色日夜相同。
+每個狀態只有一個動作。名牌和電梯燈的紅、琥珀兩色日夜相同；工作中的綠色只出現在狀態列和資訊卡，名牌是米白色。
 
 | 狀態 | 動作 | 名牌 | 觸發事件 |
 | --- | --- | --- | --- |
 | 工作中 | 坐著飛快打字，手後面拖著兩層半透明殘影；螢幕上的程式碼在捲動 | 米白色 | UserPromptSubmit、PreToolUse（AskUserQuestion 除外）、PostToolUse、PostToolUseFailure、ElicitationResult |
 | 等你處理 | 站起來爆氣：握拳大喊、頭髮豎起、全身發抖，背後冒半透明白色的火焰氣場（白天外圍多一圈藍色光暈，夜晚周圍映出紅光），桌子兩側有小石子往上飄；螢幕顯示權限對話框 | 紅色，以「!」開頭 | PermissionRequest、PreToolUse 的 AskUserQuestion、Elicitation、權限或輸入類的 Notification |
-| 輪到你 | 坐著抱胸、閉眼冥想，偶爾睜開一隻眼睛、挑起眉毛瞄你一下 | 琥珀色，以「✓」開頭 | Stop、StopFailure；剛出現、還沒有其他事件的新 session |
+| 輪到你 | 坐著抱胸、閉眼冥想，偶爾睜開一隻眼睛、挑起眉毛瞄你一下；螢幕變琥珀色，桌上的馬克杯冒煙 | 琥珀色，以「✓」開頭 | Stop、StopFailure；剛出現、還沒有其他事件的新 session |
 
-左側電梯面板上，有人等你處理的那層亮紅燈，有人輪到你的亮琥珀燈。
-
-新的 session 一出現，人就在座位上瞬移登場：先閃兩下光痕，人從一條線變寬出現（打開頁面時已在的人直接坐好）。員工在這些時候下班（站起來雙指點額，再閃爍、壓成一條光痕消失）：SessionEnd、你按「請他下班」，或 12 小時沒有任何事件。
+- **登場**：新的 session 一出現，人就在座位上瞬移登場：先閃兩下光痕，人從一條線變寬出現。打開頁面時已在的人直接坐好。
+- **下班**：站起來雙指點額，再閃爍、壓成一條光痕消失。發生在 SessionEnd、你按「請他下班」，或 12 小時沒有任何事件時。
+- **接續的 session**：Claude Code 把對話接到新的 session（新的 session_id）時，仍是同一位員工，長相和座位都不變，不會多出一個人。
 
 ## 助理（subagent）
 
 - 工作中的助理坐在主人那層的空桌打字（沒有空桌就加一張），名牌是「↳ 類型 · 描述」，沒有類型時只有描述，兩個都沒有時是「↳ 助理」。
-- 一開始工作就瞬移登場，完成就退場；主人下班時一起退場。
+- 一開始工作就瞬移登場，完成就退場；主人下班時一起退場。用 SendMessage 叫回已停下的助理時，它會再登場一次，描述換成這次叫回的摘要。
 - 滑鼠移到助理身上，看類型、描述、主人的標題和開始時間。主人的資訊卡也列出他的助理，包含剛完成的。
 - 不影響電梯面板的燈色，也不算進狀態列與分頁標題的人數。主人被請下班後又回來時，助理不會跟著回來。
 
 ## 畫面上的其他東西
 
-- **樓層**：一個工作資料夾（cwd）一層，先到的在 1F，新的蓋在最上面；同名資料夾的招牌顯示路徑最後兩層。整層沒人才拆掉，上面的樓層往下補。各層同寬；一層桌子放不下時整棟樓變寬，整頁可以左右捲。打開頁面時停在 1F。
+- **樓層**：一個工作資料夾（cwd）一層，先到的在 1F，新的蓋在最上面；同名資料夾的招牌顯示路徑最後兩層，滑鼠停在招牌上看完整路徑。整層沒人才拆掉，上面的樓層往下補。人走了（包括助理做完）桌子留著，整層拆掉才收。各層同寬；一層桌子放不下時整棟樓變寬，整頁可以左右捲。打開頁面時停在 1F。
+- **沒人上班**：畫面是一層空大廳，中間的紙條寫「目前沒有人上班」。
+- **名牌**：顯示 session 的標題（Claude Code 自動取的 ai-title）；還沒有標題時用第一個 prompt。標題在第一輪回應結束後才讀得到，所以新 session 的名牌會從 prompt 換成標題。
 - **環境**：盆栽會輕輕晃、咖啡會冒煙，都比等你處理的人安靜。系統開了「減少動態」時，所有動畫和瞬移都停住，姿勢、表情和名牌顏色照樣顯示。
-- **電梯面板**：固定在左側，一層一顆鈕。紅燈＝有人等你處理，琥珀燈＝有人輪到你。點了捲到那層。
+- **電梯面板**：固定在左側，一層一顆鈕，滑鼠停在鈕上看樓層名稱。紅燈＝有人等你處理，琥珀燈＝有人輪到你。虛線框圈出目前畫面上看得到的樓層。點了捲到那層。
 - **狀態列**：黏在頂端，列出三種狀態的人數與比例條；有人等你時外框變紅，有人輪到你時變琥珀。
 - **分頁標題**：例如 `(!1 ✓2) Claude 辦公室`，分頁在背景也看得到。
-- **資訊卡**：滑鼠移到人身上，顯示標題、狀態標籤、資料夾、目前動作、最近與第一個 prompt（相同時只顯示一個）、助理清單與到班時間。
-- **請他下班**：資訊卡上的按鈕，按下立即讓員工離開，沒有確認步驟。只從畫面移走；那個 session 還在用的話，下一個事件會讓他重新登場。
+- **資訊卡**：滑鼠移到人身上，顯示標題、狀態標籤、資料夾、目前動作、最近與第一個 prompt（相同時只顯示一個）、助理清單與到班時間。捲動頁面時資訊卡會收起來。
+- **請他下班**：資訊卡上的按鈕，按下立即讓員工離開，沒有確認步驟。只從畫面移走；那個 session 還在用的話，下一個事件會讓他重新登場。失敗時卡片底部顯示「操作失敗，請稍後再試」。
 
 ## 疑難排解
 
-- **畫面一直是空的**：確認 `npm start` 還在跑，網址的 port 與設定一致；已開著的 session 要等下一個事件。
+- **畫面一直是空的**：看到「目前沒有人上班」的紙條，代表頁面正常，只是還沒收到任何 session 的事件：已開著的 session 要等下一個事件；新 session 也不出現的話，看下面「裝了 hook 卻沒反應」。連紙條都沒有的話，確認 `npm start` 還在跑，網址的 port 與設定一致。
 - **`port 47823 已被占用，請在 … 修改 port`**：伺服器會結束。訊息裡會寫出這台機器上設定檔的完整路徑，在那裡換一個 port。
 - **改了 port 沒反應**：重新啟動伺服器。
 - **重啟伺服器後畫面清空**：狀態只存在記憶體，各 session 要等下一個事件才會回來。
-- **`npm start` 出現 `Cannot find module`，指向 `dist/server/main.js`**：還沒 build，先執行 `npm run build`。
+- **`Cannot find module`，指向 `dist/...`**（`npm start`、`install-hooks`、`uninstall-hooks` 都可能出現）：還沒 build，先執行 `npm run build`。
 - **`settings.json 不是合法的 JSON，已中止，未做任何修改`**：先修好 `~/.claude/settings.json` 的格式，再執行一次 `install-hooks`。
 - **`settings.json 的 hooks 欄位不是物件，已中止，未做任何修改`**：`hooks` 要是物件（`{}`），修好後再執行一次。
 - **裝了 hook 卻沒反應**：確認 `~/.claude/settings.json` 裡有帶 `--tag=claude-office` 的指令，且 Claude Code 的環境找得到 `node`。
 - **`送不出事件。伺服器沒開？請先 npm start`**：`simulate` 找不到伺服器，先啟動 `npm start`。
 - **Windows 上所有 hook 一起逾時**：用 PowerShell 跑 `& "C:\Program Files\Git\bin\bash.exe" -c "echo ok"`，正常約 0.2 秒。
   若約 15 秒後崩潰（`add_item ... failed, errno 1`），是 Git for Windows 的 MSYS 共用記憶體鎖卡住，不是本專案 hook 的問題（見 git-for-windows/git#6368）。
-  結束所有 `C:\Program Files\Git` 底下的 bash／sh 行程後再試；開著的 Git Bash 視窗會被中斷。
+  要把 `C:\Program Files\Git` 底下的 MSYS 行程全部結束才會恢復。其他開著的 Claude Code session 會馬上再開新的 bash，所以只結束一次通常沒用，要連續清到一個都不剩。在 PowerShell 執行下面這段，清完再量一次 `echo ok`：
+
+  ```powershell
+  function Get-Msys { Get-Process | Where-Object { $_.Path -like 'C:\Program Files\Git\usr\bin\*' -or (($_.Name -in 'bash','sh') -and $_.Path -like 'C:\Program Files\Git\*') } }
+  $z=0; for ($i=0; $i -lt 60 -and $z -lt 3; $i++) { $p=Get-Msys; if ($p) { $p | Stop-Process -Force -ErrorAction SilentlyContinue; $z=0 } else { $z++ }; Start-Sleep -Milliseconds 100 }
+  ```
+
+  其他 session 正在跑的 Bash 指令和開著的 Git Bash 視窗會被中斷。
+
+## 更新
+
+```bash
+git pull
+npm install
+npm run build
+```
+
+然後重新啟動伺服器。新版若多了 hook 事件，再跑一次 `install-hooks`（不會重複新增）。
+
+## 完全移除
+
+1. 先執行 `npm run uninstall-hooks`（`dist/` 不在時先 `npm run build`）。直接刪資料夾的話，`settings.json` 裡的 hook 會指向不存在的檔案。
+2. 刪掉這個資料夾。
+3. 視需要刪掉 `~/.claude-office/` 與 `~/.claude/settings.json.claude-office.bak`（最初的原始檔）。
 
 ## 已知限制
 
 - 強制結束 Claude Code 時收不到 Stop／SessionEnd，員工會停在原狀態，直到下一個事件、你按「請他下班」或 12 小時後離開。按 Esc 中斷或直接關終端機是否一樣，還沒確認。
 - 背景執行（`run_in_background`）的助理要等 SubagentStop 才算完成。
 - Notification 權限提示、AskUserQuestion、MCP Elicitation 依官方 hooks 文件實作，還沒在互動式 session 實測。
-
-細節見 [docs/findings.md](docs/findings.md)。
 
 ## 開發
 
@@ -198,7 +205,7 @@ npm run build
 | --- | --- |
 | `src/hook/send.ts` | hook 腳本，把事件 POST 給伺服器 |
 | `src/server/main.ts`、`app.ts` | 啟動入口；本機伺服器（收事件、狀態只存在記憶體、以 SSE 推給頁面） |
-| `src/server/title.ts` | 從 transcript 讀 ai-title 當名牌標題 |
+| `src/server/title.ts` | 從 transcript 讀 ai-title 當名牌標題，讀 `continued-in` 把接續的 session 認成同一位員工 |
 | `src/state` | 由事件整理出員工與助理狀態 |
 | `src/installer` | 安裝／移除 hooks |
 | `src/config.ts` | 讀設定檔 |
@@ -216,6 +223,12 @@ npm run build
 | `web/src/styles/*.css` | 大樓、人物、資訊卡與狀態列等樣式 |
 | `test/` | vitest 測試 |
 
-錄製真實事件：hook 指令後加 `--record=<資料夾>`，事件會存成 JSON 檔、不送伺服器。`test/fixtures/` 是用暫存的 settings 檔搭配 `claude --settings <檔>` 錄的（見 findings.md），不必改 `~/.claude/settings.json`；改了的話，再跑一次 `install-hooks` 會蓋回一般模式。
+錄製真實事件：在 hook 指令後加 `--record=<資料夾>`，事件會存成 JSON 檔、不送伺服器：
+
+```bash
+node "<這個資料夾>/dist/hook/send.js" --tag=claude-office --record=<資料夾>
+```
+
+`--tag=claude-office` 要留著，`install-hooks`／`uninstall-hooks` 靠它認出自己的項目。`test/fixtures/` 是用暫存的 settings 檔搭配 `claude --settings <檔>` 錄的，不必改 `~/.claude/settings.json`；改了的話，再跑一次 `install-hooks` 會蓋回一般模式。
 
 設計理由與規則見 [docs/design.md](docs/design.md)。

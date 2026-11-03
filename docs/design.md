@@ -4,7 +4,7 @@
 
 - 使用者看得到的行為（狀態、觸發事件、畫面元素、指令）：`README.md`
 - 尺寸、顏色、時間等數值：程式碼（`web/src/floors.ts` 的 `GEO`、`web/src/styles/theme.css`、`person.ts` 的 `ENTER_MS`／`EXIT_MS`）
-- hook 事件的實測結果：`docs/findings.md`
+- hook 事件的真實樣本：`test/fixtures/`
 
 大改設計時直接修改這份文件，不另開 spec 疊加；舊版本可以從 git 歷史找回。
 
@@ -39,18 +39,18 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
 - **伺服器只對本機開放**：只監聽 127.0.0.1，POST 要檢查 Origin。
 - **`src/state` 是純函式**：`reduce(state, event) → { state, changes }`，不碰網路、檔案或時間，測試都放在這一層。
 - **前端只畫畫面**：畫面改版不需要動 `src/`。如果要動，代表這次改的是資料模型，要另外說明理由。助理坐桌子時動過一次：座位一律由 `src/state` 分配，助理的座位放在前端算的話，新員工會被分到助理正坐著的桌子。
-- **`src/hook/send.ts --record=<資料夾>`**：錄製模式，用來錄真實事件存進 `test/fixtures/`。`findings.md` 還有沒驗證完的項目，所以先保留。
+- **`src/hook/send.ts --record=<資料夾>`**：錄製模式，用來錄真實事件存進 `test/fixtures/`。README「已知限制」還有沒在互動式 session 驗證的事件，所以先保留。
 
 ## 狀態規則背後的理由
 
 完整的事件與狀態對應見 README「三種狀態」。下面這些不是直覺能想到的：
 
-- **等你處理以 `PermissionRequest` 為準，不是 `PreToolUse`**：`PreToolUse` 在權限判斷之前就會觸發，`Notification` 又要晚約 6 秒才到（findings §2、§5）。
+- **等你處理以 `PermissionRequest` 為準，不是 `PreToolUse`**：`PreToolUse` 在權限判斷之前就會觸發，`Notification` 又要晚約 6 秒才到。
 - **只有三種狀態，沒有「閒置」**：`idle` 在畫面上顯示成「輪到你」，意思是 Claude 做完這一輪，等你下一個指示。它會一直亮著，直到你送出 prompt，不會隨時間退回安靜狀態。紅色只給等你處理，輪到你用比較安靜的琥珀色，而且不脈動。
 - **subagent 內部的事件（帶 `agent_id`）不改 `activity`**，也不清助理。主 session 已經 Stop 的話，這類事件也不會把狀態改回工作中。
 - **背景助理（`run_in_background`）**：`PostToolUse` 和 `Stop` 都不算它完成，要等 `SubagentStop`。
 - **事件先後以 hook 附上的 `sentAt` 判斷**：比較舊的事件不改狀態，但仍然可以用來補登記和配對助理。
-- **幽靈員工**：強制結束 session 時收不到 `SessionEnd`（findings §4），所以要有「請他下班」和 12 小時逾時。被請下班的 session 如果還有事件進來，會重新登場。
+- **幽靈員工**：強制結束 session 時收不到 `SessionEnd`，所以要有「請他下班」和 12 小時逾時。被請下班的 session 如果還有事件進來，會重新登場。
 
 ## 畫面的決定
 
@@ -78,13 +78,13 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
 
 ## 前端寫法規則
 
-- **會畫錯的計算都寫成不碰 DOM 的純函式**（`floors.ts`、`view.ts`、`figure.ts`、`objects.ts`、`theme.ts`），在 vitest 的 node 環境測試。DOM 模組（`building.ts`、`floor.ts`、`person.ts`、`card.ts`、`elevator.ts`）沒有自動測試，靠 `npm run simulate` 在瀏覽器裡看。
-- **前端只測邏輯和規則，不測長相**：樓層排序、名牌、日夜這類算錯了看不出來的邏輯，以及顏色、狀態色、CSS 和 SVG class 對得上這類規則，才寫測試。部件位置、外框、尺寸、畫法細節不寫測試，那只是把目前的長相釘死，改畫風時還得跟著改；這些在瀏覽器裡看白天和夜晚。
-- **SVG 顏色只能寫在 `style` 或 class**，不能寫成 `fill="…"`／`stroke="…"` 屬性，因為呈現屬性不接受 `var()`，日夜切換會失效。測試會檢查這件事。
-- **紅色和琥珀色只給狀態用**：環境、招牌專案色、髮色、衣服色都不能用，掃一眼才不會誤判誰在等你。狀態色只能寫在 `theme.css` 的狀態變數（`--waiting`、`--turn`、`--screen-waiting`、`--screen-turn`），大樓外殼的 CSS 只有名牌和輪到你的螢幕光（夜晚 `.desk[data-st="idle"] .glow`）能引用；人物的 CSS 只有夜晚爆氣的紅光引用 `--waiting`。光暈的顏色寫成 `rgb()`，不在 hex 掃描範圍內，新增時要自己確認不落進狀態色。`test/state-colors.test.ts` 會抽出所有 hex 色，色相離這兩色 20° 內、HSV 彩度 ≥ 0.55 就算違規。
+- **會算錯的邏輯寫成不碰 DOM 的純函式**（`floors.ts`、`view.ts`、`theme.ts`），在 vitest 的 node 環境測試。畫圖的模組（`figure.ts`、`objects.ts`、`furniture.ts`）和 DOM 模組（`building.ts`、`floor.ts`、`person.ts`、`card.ts`、`elevator.ts`）沒有自動測試，靠 `npm run simulate` 在瀏覽器裡看。
+- **前端只測邏輯，不測畫面**：樓層排序、名牌、日夜這類算錯了看不出來的邏輯才寫測試。CSS 規則、SVG 結構、部件位置、尺寸、色票都不寫測試，那只是把目前的長相釘死，改畫風時還得跟著改；這些在瀏覽器裡看白天和夜晚。下面的畫面規則因此沒有測試把關，改的人要自己守。
+- **SVG 顏色只能寫在 `style` 或 class**，不能寫成 `fill="…"`／`stroke="…"` 屬性，因為呈現屬性不接受 `var()`，日夜切換會失效。
+- **紅色和琥珀色只給狀態用**：環境、招牌專案色、髮色、衣服色都不能用，掃一眼才不會誤判誰在等你。狀態色只能寫在 `theme.css` 的狀態變數（`--waiting`、`--turn`、`--screen-waiting`、`--screen-turn`），大樓外殼的 CSS 只有名牌和輪到你的螢幕光（夜晚 `.desk[data-st="idle"] .glow`）能引用；人物的 CSS 只有夜晚爆氣的紅光引用 `--waiting`。光暈的顏色寫成 `rgb()`，不在 hex 掃描範圍內，新增時要自己確認不落進狀態色。判斷標準：色相離這兩色 20° 內、HSV 彩度 ≥ 0.55 就算撞色。
 - **人物的姿勢、表情、氣場和瞬移都交給 CSS**，依 `data-act`（work／up／idle）與 `data-fx`（in／out）切換，SVG 裡每個部件是一個可以單獨切換的群組。`person.ts` 只負責設屬性和計時。退場時一律換成工作中的臉和普通頭髮、藏起其他臉和手勢（`figure.css` 的 `[data-fx="out"]` 清單）；氣場和小石子在登場、退場時都藏（`[data-fx]`）。新增狀態部件時要加進這兩條。
 - **狀態不用符號表現**：只靠名牌顏色和角色演出，不畫漫符（「噠噠」、zZ、「！」框、集中線、汗滴、打勾泡泡、「到！」、「辛苦了～」）。符號多了畫面雜，人物本身反而沒表情。
-- **進出動畫放在 `.figure`，不放 `.fig`**，因為 `.fig` 的 `transform` 已經用在站起來。動畫要放在 `.person` 的子元素上，減少動態的規則才停得掉。`ENTER_MS`／`EXIT_MS` 要和 figure.css 的 keyframes 時間一致，測試直接匯入這兩個常數比對。瞬移的光痕和殘影放在人物 SVG 外面的 `.warp`（`figure.ts` 的 `WARP_SVG`），人被壓成一條線時光痕才還看得到；平常透明，減少動態時就一直看不到。
+- **進出動畫放在 `.figure`，不放 `.fig`**，因為 `.fig` 的 `transform` 已經用在站起來。動畫要放在 `.person` 的子元素上，減少動態的規則才停得掉。`ENTER_MS`／`EXIT_MS` 要和 figure.css 的 keyframes 時間一致，改其中一邊時另一邊要跟著改。瞬移的光痕和殘影放在人物 SVG 外面的 `.warp`（`figure.ts` 的 `WARP_SVG`），人被壓成一條線時光痕才還看得到；平常透明，減少動態時就一直看不到。
 - **點額的手排在頭和頭髮後面**：SVG 後畫的蓋在前面，不這樣排手指會被頭髮蓋住。手指畫得比真的大，100px 的人物也認得出是兩根。指腹壓在眉心，前臂從手幾乎垂直往下擋在鼻子和嘴前面、手肘收在胸前；不從臉頰斜出去，才不會蓋住右眼。
 - **會動的部件不放在共用的 symbol 裡**：Chromium 不會把 CSS 動畫帶進 `<use>` 的複本，畫面上看起來是不動的。所以會動的部件直接放進 DOM：`objects.ts` 把它們畫成和 symbol 同外框、同座標的疊圖（`overlay`），`floor.ts` 疊在物件的 svg 上。螢幕上捲動的程式碼（`DESK_CODE`）和馬克杯的煙（`DESK_STEAM`）疊在每張桌子上，依桌子的 `data-st` 顯示；盆栽的葉子和邊桌的煙在 `FURN_ANIM`。
 - **圓窗的窗景還是方的**：窗景是一個露出全景一塊的方形 svg，圓窗的圖先用牆色（`--wall`）蓋住圓外的四個角，再畫窗框。所以圓窗只能開在素面的後牆上，後牆上段改成圖樣的話，四個角會露出來。

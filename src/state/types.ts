@@ -7,10 +7,10 @@ export interface HookEvent {
   tool_name?: string;
   tool_input?: Record<string, unknown>;
   tool_use_id?: string;
-  tool_response?: Record<string, unknown>; // 背景 Agent 的 PostToolUse：status 'async_launched'、agentId（docs/findings.md §6）
+  tool_response?: Record<string, unknown>; // 背景 Agent 的 PostToolUse：status 'async_launched'、agentId
   notification_type?: string;
   message?: string;
-  agent_id?: string;           // subagent 內部事件才有（docs/findings.md §1）
+  agent_id?: string;           // subagent 內部事件才有
   sentAt: number;              // hook 腳本附上的 Date.now()
 }
 
