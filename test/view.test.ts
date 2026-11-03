@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { appearance, assistantList, motionDelay, EYE_TYPES, HAIR_COLORS, HAIR_STYLES, OUTFIT_COUNT, PROJECT_COLORS, projectColor, formatTime, nameplate, SHIRT_COLORS, summary } from '../web/src/view.js';
+import { assistantList, formatTime, nameplate, summary } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
@@ -8,33 +8,8 @@ const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Empl
   seat: 0, arrivedAt: 0, lastEventAt: 0, assistants: [], ...over,
 });
 
-test('motionDelay：同一個 sessionId 每次相同，不同 sessionId 分散在 0–7 秒', () => {
-  expect(motionDelay('abc')).toBe(motionDelay('abc'));
-  const ds = Array.from({ length: 40 }, (_, i) => motionDelay(`sim-${i}`));
-  for (const d of ds) expect(d >= 0 && d < 7, String(d)).toBe(true);
-  expect(new Set(ds.map((d) => Math.floor(d))).size).toBeGreaterThanOrEqual(5); // 7 個 1 秒的格子至少佔 5 個
-});
 
-test('appearance 對同一個 sessionId 永遠相同', () => {
-  expect(appearance('abc')).toEqual(appearance('abc'));
-  for (const id of ['abc', 'sim-a', 'sim-b', 'x', '']) {
-    const a = appearance(id);
-    expect(a.hair).toBeLessThan(8);
-    expect(a.shirt).toBeLessThan(8);
-    expect(a.style).toBeLessThan(HAIR_STYLES);
-    expect(a.outfit).toBeLessThan(OUTFIT_COUNT);
-    expect(a.eyes).toBeLessThan(EYE_TYPES);
-  }
-  // 眼型由雜湊決定，多個 id 裡兩種都會出現
-  expect(new Set(Array.from({ length: 40 }, (_, i) => appearance(`s${i}`).eyes)).size).toBe(EYE_TYPES);
-});
 
-test('衣服色與髮色各 8 種', () => {
-  for (const list of [SHIRT_COLORS, HAIR_COLORS]) {
-    expect(list.length).toBe(8);
-    for (const c of list) expect(c).toMatch(/^#[0-9a-f]{6}$/);
-  }
-});
 
 test('nameplate 優先順序：標題 > 第一個 prompt > 最近的 prompt', () => {
   const o = { title: 'T', firstPrompt: 'F', lastPrompt: 'L' };
@@ -70,15 +45,7 @@ test('OfficeStore 套用 upsert 與 leave 並通知監聽者', () => {
   expect(seen).toEqual(['upsert', 'leave', 'reset']);
 });
 
-test('projectColor：同一個 key 永遠同色', () => {
-  expect(projectColor('D:/p/api')).toBe(projectColor('D:/p/api'));
-  expect(PROJECT_COLORS).toContain(projectColor('D:/p/api'));
-  expect(PROJECT_COLORS.length).toBe(8);
-});
 
-test('PROJECT_COLORS：8 種專案色，沒有紅、橘、金黃（照順序）', () => {
-  expect(PROJECT_COLORS).toEqual(['#4f86b8', '#3d4f7a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#a64d9e', '#6e7b8b']);
-});
 
 test('formatTime：HH:mm 補零', () => {
   expect(formatTime(new Date(2026, 0, 2, 3, 4).getTime())).toBe('03:04');

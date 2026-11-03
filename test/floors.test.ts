@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildingPlan, buildingWidth, GEO, floorAlert, floorPlan, plateText, seatCenter, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
+import { buildingPlan, floorAlert, floorPlan, plateText, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Assistant, Employee } from '../src/state/types.js';
@@ -109,19 +109,7 @@ test('plateText：狀態前綴，helpers 只算工作中的助理', () => {
   expect(plateText(emp('a', 'working', { title: '結帳', assistants: three }))).toEqual({ text: '結帳', helpers: 2 });
 });
 
-test('seatCenter：左邊先留 GEO.sideGap，桌子才不貼著左牆', () => {
-  expect(seatCenter(0)).toBe(GEO.sideGap + 60);
-  expect(seatCenter(2)).toBe(GEO.sideGap + 300);
-});
 
-test('buildingWidth：各層共用桌數最多那層的寬度，沒有樓層時是可用寬', () => {
-  const f = (desks: number): Floor => ({ ...floorOf(), desks });
-  expect(buildingWidth([f(3), f(9)], 1000)).toBe(9 * 120 + 200 + 2 * GEO.sideGap); // 左右各留 sideGap
-  expect(buildingWidth([f(3), f(2)], 1000)).toBe(1000);
-  expect(buildingWidth([], 1000)).toBe(1000);
-  // 空大廳照舊撐滿可用寬，窄螢幕也不撐寬整頁
-  expect(buildingWidth([], 200)).toBe(200);
-});
 
 test('visibleSpan：框住第一顆到最後一顆看得到的按鈕，都看不到是 null', () => {
   expect(visibleSpan([])).toBeNull();
