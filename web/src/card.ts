@@ -4,6 +4,9 @@ import { el } from './dom.js';
 import { avatarSvg } from './figure.js';
 import { appearance, assistantList, formatTime, nameplate, oneLine, projectColor, roomKey } from './view.js';
 
+/** 頭像突出卡片上緣的高度，和 ui.css 的 .card-avatar top 對應 */
+const AVATAR_RISE = 26;
+
 interface Chip { text: string; cls: string }
 const STATUS: Record<Employee['status'], Chip> = {
   working: { text: '工作中', cls: 'chip-working' },
@@ -16,17 +19,6 @@ function avatar(key: string): HTMLElement {
   const box = el('div', 'card-avatar');
   box.innerHTML = avatarSvg(appearance(key));
   return box;
-}
-
-/** 卡片頂部：頭像 + 標題（最多兩行）+ 狀態標籤 + 專案資料夾 */
-function cardHead(key: string, title: string, st: Chip, folderName: string): HTMLElement {
-  const row = el('div', 'card-meta');
-  row.append(el('span', `chip ${st.cls}`, st.text), el('span', 'folder', folderName));
-  const text = el('div', 'card-text');
-  text.append(el('div', 'card-title clamp clamp-2', title), row);
-  const head = el('div', 'card-head');
-  head.append(avatar(key), text);
-  return head;
 }
 
 export class InfoCard {
@@ -52,13 +44,16 @@ export class InfoCard {
   private place(left: number, top: number): void {
     this.box.style.display = 'block';
     this.box.style.left = `${Math.max(0, Math.min(left, window.innerWidth - 320))}px`;
-    this.box.style.top = `${Math.max(0, Math.min(top, window.innerHeight - this.box.offsetHeight - 8))}px`;
+    // 頭像突出卡片頂端 AVATAR_RISE，連同白外圈都要留在視窗內
+    this.box.style.top = `${Math.max(AVATAR_RISE + 4, Math.min(top, window.innerHeight - this.box.offsetHeight - 8))}px`;
   }
 
-  /** 卡片外框：頂端一條專案色 */
-  private frame(color: string, body: HTMLElement): void {
-    this.box.style.setProperty('--pc', color); // 專案色：頂條、頭像底、資料夾小方塊都用它
-    this.box.replaceChildren(el('div', 'card-bar'), body);
+  /** 卡片外框：頂端專案色帶上寫標題（最多兩行），頭像突出色帶上緣，狀態標籤騎在色帶右上緣 */
+  private frame(color: string, key: string, st: Chip, title: string, body: HTMLElement): void {
+    this.box.style.setProperty('--pc', color); // 專案色：色帶、頭像底、資料夾小方塊都用它
+    const bar = el('div', 'card-bar');
+    bar.append(el('div', 'card-title clamp clamp-2', title));
+    this.box.replaceChildren(bar, avatar(key), el('span', `chip ${st.cls}`, st.text), body);
   }
 
   /** 一段「標題 + 文字」（文字最多 lines 行） */
@@ -76,7 +71,7 @@ export class InfoCard {
     const color = projectColor(roomKey(e));
     const body = el('div', 'card-body');
     const title = nameplate(e) || '（無標題）';
-    body.append(cardHead(e.sessionId, title, STATUS[e.status], e.folder));
+    body.append(el('div', 'folder', e.folder));
 
     // 目前在做什麼；等你批准時整塊變紅
     if (e.activity) {
@@ -141,7 +136,7 @@ export class InfoCard {
     foot.append(left, btn);
     body.append(foot);
 
-    this.frame(color, body);
+    this.frame(color, e.sessionId, STATUS[e.status], title, body);
   }
 
   scheduleHide(): void {

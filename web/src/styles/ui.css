@@ -32,25 +32,33 @@
 .elev-in button.idle { background: var(--turn); color: #4a3000; }
 .elev-frame { position: absolute; left: 1px; right: 1px; box-sizing: border-box; border: 1.2px dashed var(--text); border-radius: 17px; background: transparent; pointer-events: none; }
 
-/* 資訊卡：白卡、共用的介面樣式、頂端一條專案色（--pc 由 card.ts 依專案設定）；顏色只用主題變數（日夜固定的值在本檔第一條規則） */
+/* 資訊卡：白卡、共用的介面樣式，裡面照場景的一階硬影上色（光從左上來，右下一塊硬邊暗面；設計稿「資訊卡 B」）。
+   --pc 由 card.ts 依專案設定；顏色只用主題變數（日夜固定的值在本檔第一條規則） */
 .card { position: fixed; display: none; z-index: 30; width: 300px; box-sizing: border-box; background: var(--paper); color: var(--text); border: var(--ui-border); box-shadow: var(--ui-shadow);
-  border-radius: 12px; overflow: hidden; font: 13px/1.5 system-ui, "Microsoft JhengHei", sans-serif; }
-.card-bar { height: 5px; background: var(--pc); }
-.card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
-.card-head { display: flex; gap: 12px; align-items: center; }
-.card-avatar { width: 56px; height: 56px; flex: none; overflow: hidden; border-radius: 14px; border: 1.4px solid var(--ink);
-  background: color-mix(in srgb, var(--pc) 28%, var(--paper)); }
-.card-avatar svg { display: block; width: 56px; height: 56px; }
-.card-text { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.card-title { font-size: 16px; font-weight: 700; line-height: 1.35; }
+  border-radius: 14px; font: 13px/1.5 system-ui, "Microsoft JhengHei", sans-serif; }
+/* 卡片內側右下的暗面：z-index -1 畫在卡片底色之上、內容之下（.card 有 z-index，自成一層）；不動共用的 box-shadow */
+.card::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 12px; box-shadow: inset -7px -7px 0 color-mix(in srgb, var(--button) 55%, var(--paper)); pointer-events: none; }
+/* 色帶：頭像右邊寫標題；高度跟著標題（一或兩行），至少蓋住頭像下緣 */
+.card-bar { display: flex; align-items: center; min-height: 50px; box-sizing: border-box; padding: 12px 16px 10px 98px; border-radius: 12px 12px 0 0; border-bottom: 2px solid var(--ink);
+  background: linear-gradient(105deg, var(--pc) 0 70%, color-mix(in srgb, var(--pc) 78%, var(--ink)) 70%); }
+/* 白字加墨線描邊：專案色多半是中明度，白字直接放上去對比不夠 */
+.card-title { min-width: 0; font-size: 16px; font-weight: 800; line-height: 1.35; color: #fff; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; }
+/* 頭像：圓形，突出色帶上緣 26（card.ts 的 AVATAR_RISE） */
+.card-avatar { position: absolute; left: 14px; top: -26px; width: 72px; height: 72px; box-sizing: border-box; overflow: hidden; border-radius: 50%; border: 2.2px solid var(--ink);
+  background: linear-gradient(105deg, color-mix(in srgb, var(--pc) 18%, var(--paper)) 0 64%, color-mix(in srgb, var(--pc) 34%, var(--paper)) 64%);
+  box-shadow: 0 0 0 3px var(--paper), 3px 4px 0 3px rgb(27 23 22 / .3); }
+.card-avatar svg { display: block; width: 100%; height: 100%; }
+.card-body { padding: 12px 18px 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+.card-body > .folder { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; }
 .clamp-1 { -webkit-line-clamp: 1; }
 .clamp-2 { -webkit-line-clamp: 2; }
 .clamp-3 { -webkit-line-clamp: 3; }
-.card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border: 1.2px solid var(--ink); border-radius: 999px; font-size: 12px; font-weight: 700;
-  background: color-mix(in srgb, var(--chip) 30%, var(--paper)); color: var(--text); }
-.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--chip); border: 1px solid var(--ink); box-sizing: border-box; }
+/* 狀態標籤：騎在色帶右上緣、斜貼的貼紙，上亮下暗（色帶裡讓給標題） */
+.chip { position: absolute; right: 14px; top: -13px; display: inline-flex; align-items: center; gap: 6px; padding: 2px 11px 3px 9px; border: 1.6px solid var(--ink); border-radius: 999px;
+  font-size: 12px; font-weight: 800; color: var(--text); transform: rotate(3deg); box-shadow: 0 0 0 2px var(--paper), 2px 3px 0 2px rgb(27 23 22 / .3);
+  background: linear-gradient(color-mix(in srgb, var(--chip) 40%, var(--paper)) 0 55%, color-mix(in srgb, var(--chip) 62%, var(--paper)) 55%); }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--chip); border: 1px solid var(--ink); box-sizing: border-box; }
 .chip-working { --chip: var(--working); }
 .chip-waiting { --chip: var(--waiting); }
 .chip-idle { --chip: var(--turn); }
@@ -60,13 +68,16 @@
 .section-label .count-working { margin-left: 8px; letter-spacing: 0; color: var(--text); }
 .section-text { line-height: 1.55; color: var(--text); }
 .section-text.sub { color: var(--text-sub); }
-.activity { padding: 8px 10px; border: 1.2px solid var(--ink); border-radius: 10px; background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--text); }
-.activity-waiting { border-color: var(--waiting); background: color-mix(in srgb, var(--waiting) 18%, transparent); }
+.activity { padding: 8px 12px 9px; border: 1.6px solid var(--ink); border-radius: 10px; color: var(--text); box-shadow: 2px 3px 0 rgb(27 23 22 / .22);
+  background: linear-gradient(105deg, color-mix(in srgb, var(--button) 40%, var(--paper)) 0 78%, var(--button) 78%); }
+.activity-waiting { border-color: var(--waiting);
+  background: linear-gradient(105deg, color-mix(in srgb, var(--waiting) 16%, var(--paper)) 0 78%, color-mix(in srgb, var(--waiting) 30%, var(--paper)) 78%); }
 .helper-list { border-top: 1.2px dashed var(--text-sub); }
 .helper-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
 .helper-row.done { opacity: .55; }
-.helper-dot { width: 8px; height: 8px; flex: none; border: 1px solid var(--ink); border-radius: 50%; box-sizing: border-box; background: var(--working); }
-.helper-row.done .helper-dot { background: var(--turn); }
+.helper-dot { --dot: var(--working); width: 9px; height: 9px; flex: none; border: 1.2px solid var(--ink); border-radius: 50%; box-sizing: border-box;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--dot) 70%, #fff) 0 50%, var(--dot) 50%); }
+.helper-row.done .helper-dot { --dot: var(--turn); }
 .helper-kind { max-width: 76px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 5px; border-radius: 4px;
   font: 11px ui-monospace, Consolas, monospace; color: var(--text); background: color-mix(in srgb, var(--ink) 12%, transparent); }
 .helper-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
@@ -77,5 +88,6 @@
 .card-foot { border-top: 1.2px dashed var(--text-sub); padding-top: 12px; display: flex; align-items: center; gap: 8px; }
 .card-foot-text { flex: 1; font-size: 12px; color: var(--text-sub); }
 .card-foot-text.error { color: color-mix(in srgb, var(--waiting) 65%, var(--text)); }
-.dismiss { cursor: pointer; padding: 6px 12px; border-radius: 8px; font: inherit; color: var(--text); background: transparent; border: 1.4px solid var(--ink); }
+.dismiss { cursor: pointer; padding: 6px 14px; border-radius: 9px; font: inherit; font-weight: 800; color: var(--text); border: 1.7px solid var(--ink); box-shadow: 2px 3px 0 rgb(27 23 22 / .3);
+  background: linear-gradient(var(--paper) 0 55%, var(--button) 55%); }
 .dismiss:hover { color: var(--waiting); border-color: var(--waiting); }
