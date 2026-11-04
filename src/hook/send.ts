@@ -17,9 +17,10 @@ try {
   } else {
     const event = JSON.parse(raw.toString('utf8'));
     if (event && typeof event === 'object') {
+      const host = process.env.CLAUDE_CODE_HOST_SESSION_ID; // Desktop 的 session id，rewind 換 session_id 時也不變
       await fetch(`http://127.0.0.1:${loadConfig().port}/events`, {
         method: 'POST',
-        body: JSON.stringify({ ...event, sentAt: Date.now() }),
+        body: JSON.stringify({ ...event, sentAt: Date.now(), ...(host ? { host_session_id: host } : {}) }),
         signal: AbortSignal.timeout(300),
       });
     }

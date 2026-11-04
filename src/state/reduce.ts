@@ -8,6 +8,12 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
 
   if (e.hook_event_name === 'SessionEnd') {
     if (!existing) return { state, changes: [] };
+    if (existing.hostSessionId) {
+      // Desktop 在 rewind、暫停閒置 session 時也會停掉 CLI，session 其實還開著，所以不下班；比目前狀態舊的事件不算
+      if (e.sentAt < existing.lastEventAt) return { state, changes: [] };
+      const employee: Employee = { ...existing, status: 'idle', activity: null, assistants: [], cliEnded: true, lastEventAt: e.sentAt };
+      return { state: { ...state, employees: { ...state.employees, [id]: employee } }, changes: [{ type: 'upsert', employee }] };
+    }
     const { [id]: _gone, ...rest } = state.employees;
     return { state: { ...state, employees: rest }, changes: [{ type: 'leave', sessionId: id }] };
   }
@@ -35,6 +41,10 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   }
 
   if (e.transcript_path && !e.agent_id) emp.transcriptPath = e.transcript_path;
+  if (e.host_session_id) {
+    emp.hostSessionId = e.host_session_id;
+    emp.cliEnded = false;
+  }
 
   // 已完成的助理在下一個事件時移除；複製一份，避免改到傳入的 state
   let assistants: Assistant[] = emp.assistants.filter((a) => a.status !== 'done');

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import http from 'node:http';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -20,9 +21,9 @@ function homeWithPort(port: number): string {
   return home;
 }
 // 必須用非同步 spawn：同步版會卡住同一行程內的測試伺服器
-const run = (home: string, input: string, args: string[] = []) =>
+const run = (home: string, input: string, args: string[] = [], host?: string) =>
   new Promise<{ status: number | null; stdout: string; stderr: string }>((res) => {
-    const p = spawn(process.execPath, [script, ...args], { env: { ...process.env, USERPROFILE: home, HOME: home } });
+    const p = spawn(process.execPath, [script, ...args], { env: { ...process.env, USERPROFILE: home, HOME: home, CLAUDE_CODE_HOST_SESSION_ID: host ?? '' } });
     let stdout = '', stderr = '';
     p.stdout.on('data', (d) => (stdout += d));
     p.stderr.on('data', (d) => (stderr += d));
@@ -90,6 +91,30 @@ test('伺服器開著時事件送達並帶有 sentAt', async () => {
   } finally {
     app.server.closeAllConnections();
     await new Promise((r) => app.server.close(r));
+  }
+});
+
+test('Desktop 的 session id 有設才送，純 CLI 的事件不帶這個欄位', async () => {
+  const bodies: any[] = [];
+  const srv = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      bodies.push(JSON.parse(raw));
+      res.writeHead(204).end();
+    });
+  });
+  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+  try {
+    const home = homeWithPort((srv.address() as AddressInfo).port);
+    const input = JSON.stringify({ hook_event_name: 'Stop', session_id: 's' });
+    await run(home, input);
+    await run(home, input, [], 'local_abc');
+    expect(bodies[0]).not.toHaveProperty('host_session_id');
+    expect(bodies[1].host_session_id).toBe('local_abc');
+  } finally {
+    srv.closeAllConnections();
+    await new Promise((r) => srv.close(r));
   }
 });
 

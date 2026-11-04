@@ -51,6 +51,9 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
 - **背景助理（`run_in_background`）**：`PostToolUse` 和 `Stop` 都不算它完成，要等 `SubagentStop`。
 - **事件先後以 hook 附上的 `sentAt` 判斷**：比較舊的事件不改狀態，但仍然可以用來補登記和配對助理。
 - **幽靈員工**：強制結束 session 時收不到 `SessionEnd`，所以要有「請他下班」和 12 小時逾時。被請下班的 session 如果還有事件進來，會重新登場。
+- **Claude Desktop 的員工只在 session 真的結束時下班**：Desktop 在 rewind 和記憶體吃緊暫停閒置 session 時都會停掉 CLI，`SessionEnd` 的 `reason` 和真的下班一樣是 `other`；rewind 還會 fork 出新的 `session_id`，transcript 沒有 `continued-in`，`SessionStart` 的 `source` 也靠不住。所以改認 Desktop 自己的 id：hook 把環境變數 `CLAUDE_CODE_HOST_SESSION_ID`（`local_…`）當成 `host_session_id` 送出，有這個欄位的員工（`hostSessionId`）收到 `SessionEnd` 只變成輪到你、清掉助理。真的結束靠 `src/server/desktop.ts` 讀 Desktop 的紀錄（`claude-code-sessions/<帳號>/<組織>/local_<id>.json` 的 `isArchived`，刪除後留 `deleted_<id>`），60 秒巡檢一次；紀錄說還開著就不套用 12 小時逾時。標題也來自這份紀錄，因為 Desktop 的 transcript 只有 `custom-title`、沒有 `ai-title`。這不是公開格式，讀不到一律回 `null`，當成判斷不了而不是結束，退回 12 小時逾時。
+- **環境變數會繼承，所以新 `session_id` 不能直接併給主人**：Desktop session 裡開的 `claude -p` 也帶同一個 `local_` id。fork 一定在舊 CLI 停掉之後才出現，所以新 id 要符合「主人的 CLI 已送過 `SessionEnd`、且這個 id 第一次出現」或「Desktop 紀錄的 `cliSessionId`／`priorCliSessionIds` 列著它」才算同一位（沿用 `aliases`）；否則拿掉 `host_session_id`，當成一般 CLI 的員工。紀錄比 fork 的第一個事件晚幾秒才更新，所以 `SessionEnd` 沒送到時會先多一個人，下一個事件就併回來。
+- **純 CLI 不走這些路徑**：終端機和 Desktop 的 Terminal 面板都沒有 `CLAUDE_CODE_HOST_SESSION_ID`，事件不帶這個欄位，也不會去讀 Desktop 的紀錄。
 
 ## 畫面的決定
 

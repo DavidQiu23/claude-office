@@ -121,7 +121,8 @@ npm run simulate -- --loop
 | 輪到你 | 坐著抱胸、閉眼冥想，偶爾睜開一隻眼睛、挑起眉毛瞄你一下；螢幕變琥珀色，桌上的馬克杯冒煙 | 琥珀色，以「✓」開頭 | Stop、StopFailure；剛出現、還沒有其他事件的新 session |
 
 - **登場**：新的 session 一出現，人就在座位上瞬移登場：先閃兩下光痕，人從一條線變寬出現。打開頁面時已在的人直接坐好。
-- **下班**：站起來雙指點額，再閃爍、壓成一條光痕消失。發生在 SessionEnd、你按「請他下班」，或 12 小時沒有任何事件時。
+- **下班**：站起來雙指點額，再閃爍、壓成一條光痕消失。CLI 的 session 發生在 SessionEnd、你按「請他下班」，或 12 小時沒有任何事件時；Claude Desktop 的 session 見下一條。
+- **Claude Desktop 的 session**：在 Desktop 裡封存或刪除 session（最多晚 1 分鐘）、或你按「請他下班」時才下班，閒置多久都不會離開。rewind 或 Desktop 暫停閒置 session 只會讓員工變成「輪到你」，長相、座位、標題和 prompt 都不變。名牌標題用 Desktop 顯示的標題。在 Desktop session 裡用指令開的 `claude` 算另一位員工，規則和 CLI 相同。
 - **接續的 session**：Claude Code 把對話接到新的 session（新的 session_id）時，仍是同一位員工，長相和座位都不變，不會多出一個人。
 
 ## 助理（subagent）
@@ -184,6 +185,7 @@ npm run build
 ## 已知限制
 
 - 強制結束 Claude Code 時收不到 Stop／SessionEnd，員工會停在原狀態，直到下一個事件、你按「請他下班」或 12 小時後離開。按 Esc 中斷或直接關終端機是否一樣，還沒確認。
+- Claude Desktop 的 session 是否結束，是讀 Desktop 自己的 session 紀錄判斷的，這不是公開格式，目前只在 Windows 商店版驗證過。讀不到時退回 12 小時沒有事件就下班。
 - 背景執行（`run_in_background`）的助理要等 SubagentStop 才算完成。
 - Notification 權限提示、AskUserQuestion、MCP Elicitation 依官方 hooks 文件實作，還沒在互動式 session 實測。
 
@@ -206,6 +208,7 @@ npm run build
 | `src/hook/send.ts` | hook 腳本，把事件 POST 給伺服器 |
 | `src/server/main.ts`、`app.ts` | 啟動入口；本機伺服器（收事件、狀態只存在記憶體、以 SSE 推給頁面） |
 | `src/server/title.ts` | 從 transcript 讀 ai-title 當名牌標題，讀 `continued-in` 把接續的 session 認成同一位員工 |
+| `src/server/desktop.ts` | 讀 Claude Desktop 的 session 紀錄：是否已封存或刪除、標題、用過的 session_id |
 | `src/state` | 由事件整理出員工與助理狀態 |
 | `src/installer` | 安裝／移除 hooks |
 | `src/config.ts` | 讀設定檔 |

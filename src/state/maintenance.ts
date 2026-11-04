@@ -12,11 +12,12 @@ const remove = (state: OfficeState, ids: string[]): { state: OfficeState; change
   };
 };
 
-export const sweep = (state: OfficeState, now: number) =>
+/** keep：確定還活著、不套用逾時的員工（Desktop 的紀錄說 session 還開著） */
+export const sweep = (state: OfficeState, now: number, keep: ReadonlySet<string> = new Set()) =>
   remove(
     state,
     Object.values(state.employees)
-      .filter((e) => now - e.lastEventAt > IDLE_TIMEOUT_MS)
+      .filter((e) => now - e.lastEventAt > IDLE_TIMEOUT_MS && !keep.has(e.sessionId))
       .map((e) => e.sessionId),
   );
 

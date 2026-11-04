@@ -4,6 +4,7 @@ import { extname, join, resolve, sep } from 'node:path';
 import { CONFIG_FILE } from '../config.js';
 import { dismiss, setTitle, sweep } from '../state/maintenance.js';
 import { reduce } from '../state/reduce.js';
+import { readDesktopSession, type DesktopSession } from './desktop.js';
 import { readAiTitle, readContinuedIn } from './title.js';
 import { emptyState, type Change, type HookEvent } from '../state/types.js';
 
@@ -21,8 +22,9 @@ const TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
 };
 
-export function createApp(opts: { staticDir: string; now?: () => number }) {
+export function createApp(opts: { staticDir: string; now?: () => number; desktopSession?: (hostId: string) => DesktopSession | null }) {
   const now = opts.now ?? Date.now;
+  const desktopSession = opts.desktopSession ?? readDesktopSession;
   const root = resolve(opts.staticDir);
   let state = emptyState();
   const clients = new Set<http.ServerResponse>();
@@ -39,14 +41,32 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
 
   // 接續的新 session_id → 原本那位員工的 id；同一段對話換了 id 仍是同一位員工（外觀、座位都不變）
   const aliases = new Map<string, string>();
-  const continuedFrom = (id: string, cwd: unknown): string => {
+  const desktopOwner = (host: string) => Object.values(state.employees).find((e) => e.hostSessionId === host);
+  const continuedFrom = (id: string, cwd: unknown, host: string | undefined): string => {
     const known = aliases.get(id);
     if (known) return known;
+    const owner = host ? desktopOwner(host) : undefined;
+    if (owner && owner.sessionId !== id) {
+      // 帶同一個 Desktop id 的新 session_id 可能是 rewind fork 出來的，也可能是 session 裡開的 CLI 子行程（環境變數會繼承）。
+      // fork 一定在舊 CLI 停掉之後才出現；SessionEnd 沒送到時，等 Desktop 的紀錄列出它再併回來。
+      const seen = Object.hasOwn(state.employees, id);
+      if ((owner.cliEnded && !seen) || desktopSession(host!)?.cliIds.includes(id)) {
+        if (seen) apply(dismiss(state, id));
+        aliases.set(id, owner.sessionId);
+        return owner.sessionId;
+      }
+    }
     if (Object.hasOwn(state.employees, id) || typeof cwd !== 'string') return id;
     const prev = Object.values(state.employees).find((e) => e.cwd === cwd && e.transcriptPath && readContinuedIn(e.transcriptPath) === id);
     if (!prev) return id;
     aliases.set(id, prev.sessionId);
     return prev.sessionId;
+  };
+
+  // Desktop 的 transcript 沒有 ai-title，標題要看 Desktop 自己的紀錄
+  const refreshDesktopTitle = (id: string, host: string) => {
+    const title = desktopSession(host)?.title;
+    if (title) apply(setTitle(state, id, title));
   };
 
   const readBody = (req: http.IncomingMessage) =>
@@ -105,17 +125,22 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
       const ev = body as Record<string, any>;
       if (typeof ev.session_id !== 'string' || !ev.session_id) return void res.writeHead(400).end();
       // 型別不符的欄位視為不存在，避免 reduce 內部丟錯
-      for (const k of ['cwd', 'transcript_path', 'prompt', 'tool_name', 'tool_use_id', 'notification_type', 'message', 'agent_id'])
+      for (const k of ['cwd', 'transcript_path', 'prompt', 'tool_name', 'tool_use_id', 'notification_type', 'message', 'agent_id', 'host_session_id'])
         if (typeof ev[k] !== 'string') delete ev[k];
+      if (!/^local_[0-9a-zA-Z-]+$/.test(ev.host_session_id ?? '')) delete ev.host_session_id;
       if (typeof ev.hook_event_name !== 'string') ev.hook_event_name = '';
       if (typeof ev.tool_input !== 'object' || ev.tool_input === null || Array.isArray(ev.tool_input)) delete ev.tool_input;
       if (!Number.isFinite(ev.sentAt)) ev.sentAt = now();
-      ev.session_id = continuedFrom(ev.session_id, ev.cwd);
+      ev.session_id = continuedFrom(ev.session_id, ev.cwd, ev.host_session_id);
+      const owner = ev.host_session_id ? desktopOwner(ev.host_session_id) : undefined;
+      // CLI 子行程：當成一般 CLI 的員工。shortcut: 伺服器剛重啟、子行程比主人先送事件時會被當成主人，真的碰到再查紀錄的 cliSessionId
+      if (owner && owner.sessionId !== ev.session_id) delete ev.host_session_id;
       const r = reduce(state, ev as HookEvent);
       apply(r);
       // 標題在第一輪回應後才會寫進 transcript；回合結束時背景讀取，不拖慢 hook 回應
       const emp = ev.hook_event_name === 'Stop' && !ev.agent_id ? r.state.employees[ev.session_id] : undefined;
-      if (emp?.transcriptPath)
+      if (emp?.hostSessionId) refreshDesktopTitle(emp.sessionId, emp.hostSessionId);
+      else if (emp?.transcriptPath)
         void readAiTitle(emp.transcriptPath, !!emp.title).then((t) => {
           if (t) apply(setTitle(state, emp.sessionId, t));
         });
@@ -156,7 +181,21 @@ export function createApp(opts: { staticDir: string; now?: () => number }) {
 
   return {
     server,
-    sweepNow: () => apply(sweep(state, now())),
+    sweepNow: () => {
+      const alive = new Set<string>();
+      for (const e of Object.values(state.employees)) {
+        if (!e.hostSessionId) continue;
+        const record = desktopSession(e.hostSessionId);
+        if (!record) continue; // 判斷不了就交給 12 小時逾時
+        if (record.ended) {
+          apply(dismiss(state, e.sessionId));
+          continue;
+        }
+        alive.add(e.sessionId);
+        if (record.title) apply(setTitle(state, e.sessionId, record.title));
+      }
+      apply(sweep(state, now(), alive));
+    },
     clientCount: () => clients.size,
   };
 }

@@ -11,6 +11,7 @@ export interface HookEvent {
   notification_type?: string;
   message?: string;
   agent_id?: string;           // subagent 內部事件才有
+  host_session_id?: string;    // Claude Desktop 的 session 才有，純 CLI 沒有
   sentAt: number;              // hook 腳本附上的 Date.now()
 }
 
@@ -41,6 +42,8 @@ export interface Employee {
   arrivedAt: number;
   lastEventAt: number;
   assistants: Assistant[];
+  hostSessionId?: string;      // Desktop 的員工才有：CLI 停掉不算下班，封存或刪除才算
+  cliEnded?: boolean;          // Desktop 的員工：CLI 已停（SessionEnd），下一個新 session_id 就是 fork 出來的
 }
 
 export interface OfficeState {
