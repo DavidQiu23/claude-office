@@ -59,6 +59,11 @@ export function plateText(e: Occupant): string {
   return platePrefix(e) + nameplate(e);
 }
 
+const STATUS_LABEL: Record<Employee['status'], string> = { working: '工作中', waiting: '等你處理', idle: '輪到你' };
+/** 人物給螢幕閱讀器念的名字：誰加狀態（前綴的 !、✓、↳ 不念） */
+export const personLabel = (e: Occupant): string =>
+  e.assistant ? `助理 ${plateText(e).slice(2)}，工作中` : `${nameplate(e) || '無標題'}，${STATUS_LABEL[e.status]}`;
+
 /** 電梯面板的框：看得到的樓層按鈕（flags 依面板上到下）從第一顆到最後一顆；一顆都沒有回 null */
 export function visibleSpan(flags: readonly boolean[]): { from: number; to: number } | null {
   const from = flags.indexOf(true);

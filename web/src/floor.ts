@@ -84,7 +84,7 @@ export class FloorView {
   private seamsW = 0;
   private f: Floor | null = null;
 
-  constructor(hooks: { hover(e: Occupant, at: DOMRect): void; unhover(): void }) {
+  constructor(hooks: { hover(e: Occupant, at: DOMRect): void; unhover(): void; enter(): void }) {
     this.sign.style.left = `${SIGN_X}px`;
     this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
     this.inner.append(...shell(), this.seams, this.windows, this.sign, this.furniture, this.chairs, this.people, this.deskRow);
@@ -101,6 +101,36 @@ export class FloorView {
       const p = personOf(ev.target);
       if (!p || p.contains(ev.relatedTarget as Node | null)) return;
       hooks.unhover();
+    });
+    // 鍵盤：Tab 選到人就開卡片，Enter／空白鍵進到卡片裡的按鈕。進出卡片之間不開關
+    const fromCard = (t: EventTarget | null) => t instanceof Element && t.closest('.card');
+    this.people.addEventListener('focusin', (ev) => {
+      const p = personOf(ev.target);
+      if (!p || fromCard(ev.relatedTarget)) return;
+      // 等 focus 造成的捲動結束再開：捲動事件會關卡片，位置也要用捲動後的（捲動事件排在 rAF 之前）
+      requestAnimationFrame(() => {
+        const e = this.f?.seats.find((s) => s.occ?.sessionId === p.dataset.key)?.occ;
+        if (e && document.activeElement === p) hooks.hover(e, p.getBoundingClientRect());
+      });
+    });
+    this.people.addEventListener('focusout', (ev) => {
+      if (personOf(ev.target) && !fromCard(ev.relatedTarget)) hooks.unhover();
+    });
+    const openCard = (p: HTMLElement) => {
+      const e = this.f?.seats.find((s) => s.occ?.sessionId === p.dataset.key)?.occ;
+      if (e) hooks.hover(e, p.getBoundingClientRect()); // 卡片可能被 Esc 關掉了，先打開
+      hooks.enter();
+    };
+    this.people.addEventListener('keydown', (ev) => {
+      const p = personOf(ev.target);
+      if (!p || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+      ev.preventDefault(); // 空白鍵不捲頁面；Enter 不要接著按到卡片的按鈕
+      if (ev.key === 'Enter') openCard(p);
+    });
+    // 空白鍵等放開才進卡片：按著進去的話，放開時可能按到「請他下班」，那顆沒有確認步驟
+    this.people.addEventListener('keyup', (ev) => {
+      const p = personOf(ev.target);
+      if (p && ev.key === ' ') openCard(p);
     });
   }
 

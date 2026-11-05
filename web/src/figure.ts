@@ -100,10 +100,9 @@ function face(look: Look, m: Mood): string {
     wait: () => both(angryEye) + inkStroke('M18 16 L27 20.5 M33 20.5 L42 16', 2.8) // 大喊：上下排牙齒
       + path('M24 31.5 Q30 30 36 31.5 Q35 42 30 42 Q25 42 24 31.5Z', 'mk-thin', MOUTH_IN)
       + path('M24.8 32.3 L35.2 32.3 L34.8 33.7 L25.2 33.7Z', undefined, WHITE) + path('M26 40.5 L34 40.5 L33.4 39.3 L26.6 39.3Z', undefined, WHITE),
-    // 冥想：閉眼、眉毛放鬆；右眼那組可以單獨換成睜眼加挑眉（瞄觀看者，figure.css 的 fig-wink）
+    // 冥想：閉眼、眉毛放鬆
     turn: () => shutEye(23) + inkStroke('M19 20 L27 20.4', 1.8)
-      + g('wink-shut', shutEye(37) + inkStroke('M33 20.4 L41 20', 1.8))
-      + g('wink-open', openEye(round)(37, 1) + inkStroke('M33 19.6 Q37 16.6 41 18.2', 1.8))
+      + shutEye(37) + inkStroke('M33 20.4 L41 20', 1.8)
       + inkStroke('M27.4 34 L32.6 34', 1.4),
   };
   return g(`face-${m}`, parts[m]());

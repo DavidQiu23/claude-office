@@ -4,7 +4,7 @@ import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div } from './dom.js';
 import { FloorView, lobby } from './floor.js';
-import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, seatCenter, type Floor, type Occupant } from './floors.js';
+import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, personLabel, seatCenter, type Floor, type Occupant } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
 
@@ -65,7 +65,7 @@ export class Building {
       this.render();
     }).observe(document.documentElement);
     // 頁面捲動時，卡片的位置就不對了，先藏起來
-    document.addEventListener('scroll', () => this.card.hide(), true);
+    document.addEventListener('scroll', () => this.card.close(), true);
     this.render();
   }
 
@@ -117,8 +117,9 @@ export class Building {
       let v = this.floors.get(f.key);
       if (!v) {
         v = new FloorView({
-          hover: (e, r) => this.card.show(e, r.right + 4, r.top - 40),
+          hover: (e, r) => this.card.show(e, r.right + 12, r.top - 40), // 12：不蓋到鍵盤焦點框（外擴 5、白外圈和投影 4.5，加卡片白外圈 2.5）
           unhover: () => this.card.scheduleHide(),
+          enter: () => this.card.enter(),
         });
         this.floors.set(f.key, v);
       }
@@ -161,6 +162,7 @@ export class Building {
         if (this.card.id === id && before !== e) this.card.fill(e);
         rec.emp = e;
         rec.p.setAct(ACT[e.status]);
+        rec.p.label(personLabel(e));
       }
     }
     for (const [id, rec] of this.people) {

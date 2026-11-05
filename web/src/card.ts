@@ -5,6 +5,7 @@ import type { Occupant } from './floors.js';
 import { avatarSvg } from './figure.js';
 import { appearance, assistantList, formatTime, nameplate, oneLine, projectColor, roomKey } from './view.js';
 
+export const CARD_ID = 'info-card';
 /** 頭像突出卡片上緣的高度，和 ui.css 的 .card-avatar top 對應 */
 const AVATAR_RISE = 26;
 
@@ -28,10 +29,33 @@ export class InfoCard {
   private err = '';
   id: string | null = null; // 目前顯示的員工 session id 或助理 id
 
+  private origin: HTMLElement | null = null; // 鍵盤進到卡片前的人物，離開時焦點還給他
+
   constructor() {
+    this.box.id = CARD_ID;
     this.box.onmouseenter = () => clearTimeout(this.hideTimer);
     this.box.onmouseleave = () => this.scheduleHide();
     document.body.append(this.box);
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') this.close();
+      // 卡片排在 DOM 最後，Tab 繼續走會離開頁面；回到人物，下一個 Tab 接著走隔壁
+      else if (ev.key === 'Tab' && this.box.contains(ev.target as Node)) {
+        ev.preventDefault();
+        this.close();
+      }
+    });
+  }
+
+  /** 焦點移進卡片裡的按鈕（助理的卡片沒有按鈕，就留在人物上） */
+  enter(): void {
+    this.origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.box.querySelector('button')?.focus({ preventScroll: true });
+  }
+
+  /** 關掉；焦點在卡片裡就還給人物。要先還再藏，藏了焦點就丟了 */
+  close(): void {
+    if (this.box.contains(document.activeElement)) this.origin?.focus({ preventScroll: true });
+    this.hide();
   }
 
   show(e: Occupant, left: number, top: number): void {
@@ -54,7 +78,9 @@ export class InfoCard {
     this.box.style.setProperty('--pc', color); // 專案色：色帶、頭像底、資料夾小方塊都用它
     const bar = el('div', 'card-bar');
     bar.append(el('div', 'card-title clamp clamp-2', title));
+    const focused = this.box.contains(document.activeElement); // 內容更新會換掉按鈕，焦點要接回去
     this.box.replaceChildren(bar, avatar(key), ...(st ? [el('span', `chip ${st.cls}`, st.text)] : []), body);
+    if (focused) this.box.querySelector('button')?.focus({ preventScroll: true });
   }
 
   /** 一段「標題 + 文字」（文字最多 lines 行） */
@@ -159,6 +185,7 @@ export class InfoCard {
   }
 
   scheduleHide(): void {
+    if (this.box.contains(document.activeElement)) return; // 鍵盤還在卡片裡
     clearTimeout(this.hideTimer);
     this.hideTimer = setTimeout(() => this.hide(), 250);
   }

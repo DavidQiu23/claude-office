@@ -3,6 +3,8 @@ import { div } from './dom.js';
 import { visibleSpan, type Alert } from './floors.js';
 import { reduceMotion } from './motion.js';
 
+const LAMP = { waiting: { mark: '!', text: '有人等你處理' }, idle: { mark: '✓', text: '有人輪到你' } } as const;
+
 export interface ElevatorFloor { level: number; title: string; alert: Alert; el: HTMLElement }
 
 export class ElevatorPanel {
@@ -77,9 +79,10 @@ export class ElevatorPanel {
     this.els = list.map((f) => f.el);
     list.forEach((f, i) => {
       const b = this.btns[i]!;
-      b.textContent = String(f.level);
-      b.title = f.title;
-      b.setAttribute('aria-label', `${f.level}F ${f.title}`);
+      const lamp = f.alert ? LAMP[f.alert] : null;
+      b.textContent = `${f.level}${lamp?.mark ?? ''}`; // 記號和名牌前綴相同，燈色不是唯一的線索
+      b.title = lamp ? `${f.title}（${lamp.text}）` : f.title;
+      b.setAttribute('aria-label', lamp ? `${f.level}F ${f.title}，${lamp.text}` : `${f.level}F ${f.title}`);
       b.className = f.alert ?? '';
     });
     this.drawFrame();

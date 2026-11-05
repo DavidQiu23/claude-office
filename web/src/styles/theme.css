@@ -82,6 +82,8 @@
 /* 咖啡煙：一縷往上飄、淡掉；兩縷依 --lag 錯開。減少動態時停在半透明，煙還在 */
 .steam { opacity: .45; animation: steam 2.8s ease-out calc(var(--delay, 0s) - var(--lag, 0s)) infinite; }
 @keyframes steam { 0% { opacity: 0; transform: translateY(2px); } 35% { opacity: .55; } 100% { opacity: 0; transform: translateY(-5px); } }
+/* 斷線：大家停在當下的動作，看起來就不像還在進行；ID 選擇器壓過各自 animation 簡寫重設的 running */
+#building[data-offline] * { animation-play-state: paused; }
 /* 減少動態：大樓裡所有環境動畫（盆栽、咖啡煙、螢幕程式碼）全停；ID 選擇器壓過各自的 class 規則。人物另由 figure.css 停 */
 @media (prefers-reduced-motion: reduce) {
   #building * { animation: none; }

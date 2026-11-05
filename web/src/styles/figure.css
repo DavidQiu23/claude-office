@@ -2,6 +2,10 @@
    規則一律以 .person 開頭，資訊卡的頭像（avatarSvg，也有 face-work）不受影響 */
 .person { position: absolute; top: 74px; width: 60px; height: 84px; pointer-events: auto; }
 .person .figure { position: absolute; inset: 0; display: block; width: 60px; height: 84px; overflow: visible; }
+/* 鍵盤選到：和名牌同一套框。畫在 z-index 3 的 ::after，疊在夜晚遮罩上面才不會被壓暗（.person 自己不能有 z-index，光暈要留在根的疊層）。scroll-margin 讓人不會停在狀態列和紅條底下 */
+.person { scroll-margin: 140px 80px 40px; }
+.person:focus-visible { outline: none; }
+.person:focus-visible::after { content: ''; position: absolute; inset: -5px; z-index: 3; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 10px; pointer-events: none; }
 
 /* 部件以自己的外框為基準旋轉／縮放：手臂轉肩膀、腿轉髖部 */
 .person .fig, .person .arm, .person .leg,
@@ -91,14 +95,6 @@
 @keyframes fig-flare { from { transform: scale(1) skewX(-2deg); } to { transform: scale(1.03) skewX(2deg); } }
 @keyframes fig-tongue { 0% { opacity: 0; transform: translateY(0) scale(.6); } 20% { opacity: .85; } 100% { opacity: 0; transform: translateY(-46px) scale(1); } }
 @keyframes fig-rock { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(-46px); } }
-
-/* 輪到你：抱胸閉眼冥想。約每 6 秒睜開右眼、挑起右眉瞄一下（約 0.5 秒）再閉上，依 --delay 錯開。
-   平常是閉眼（.wink-open 透明），減少動態時動畫停掉就停在閉眼 */
-.person .wink-open { opacity: 0; }
-.person[data-act="idle"] .wink-open { animation: fig-wink-open 6s step-end var(--delay, 0s) infinite; }
-.person[data-act="idle"] .wink-shut { animation: fig-wink-shut 6s step-end var(--delay, 0s) infinite; }
-@keyframes fig-wink-open { 0% { opacity: 0; } 88% { opacity: 1; } 97% { opacity: 0; } }
-@keyframes fig-wink-shut { 0% { opacity: 1; } 88% { opacity: 0; } 97% { opacity: 1; } }
 
 /* 減少動態：動畫與過場全停，姿勢與表情照樣靜止顯示 */
 @media (prefers-reduced-motion: reduce) {

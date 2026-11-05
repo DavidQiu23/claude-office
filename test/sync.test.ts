@@ -10,6 +10,8 @@ const emp = (id: string): Employee => ({
 class FakeES {
   static all: FakeES[] = [];
   onmessage: ((m: { data: string }) => void) | null = null;
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
   constructor(public url: string) { FakeES.all.push(this); }
 }
 
@@ -36,6 +38,15 @@ test('connect：開 SSE，第一筆 reset 換掉整份狀態，之後的訊息�
   send({ type: 'reset', employees: [emp('c')] });
   expect([...store.employees.keys()]).toEqual(['c']);
   expect(seen).toEqual(['reset', 'upsert', 'reset']);
+});
+
+test('connect 回報連線狀態：斷線 false、連上或重連 true', () => {
+  const seen: boolean[] = [];
+  connect(new OfficeStore(), (online) => seen.push(online));
+  FakeES.all[0].onopen!();
+  FakeES.all[0].onerror!();
+  FakeES.all[0].onopen!();
+  expect(seen).toEqual([true, false, true]);
 });
 
 test('型別錯誤的訊息被忽略；listener 丟錯不被吞掉', () => {

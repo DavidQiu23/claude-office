@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildingPlan, floorAlert, floorPlan, plateText, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
+import { buildingPlan, floorAlert, floorPlan, personLabel, plateText, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Employee } from '../src/state/types.js';
@@ -104,6 +104,12 @@ test('floorAlert：等你處理 > 輪到你 > null', () => {
 test('plateText：狀態前綴', () => {
   expect(plateText(emp('a', 'waiting', { title: '結帳' }))).toBe('! 結帳');
   expect(plateText(emp('a', 'idle', { title: '結帳' }))).toBe('✓ 結帳');
+});
+
+test('personLabel：念誰加狀態，不念前綴；助理念類型和描述', () => {
+  expect(personLabel(emp('a', 'waiting', { title: '結帳' }))).toBe('結帳，等你處理');
+  expect(personLabel(emp('a', 'idle', { title: '', lastPrompt: '' }))).toBe('無標題，輪到你');
+  expect(personLabel({ ...emp('b', 'working'), assistant: { id: 'b', kind: 'Explore', description: '找檔案', status: 'working', seat: 1, startedAt: 0, activity: null } })).toBe('助理 Explore · 找檔案，工作中');
 });
 
 

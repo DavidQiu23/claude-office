@@ -27,8 +27,12 @@ export class OfficeStore {
 }
 
 // 每次連上（含 EventSource 斷線後的自動重連）server 第一筆都是 reset 快照，所以不另外取 /state，也不會漏掉兩者之間的變化
-export function connect(store: OfficeStore, base = ''): void {
-  new EventSource(`${base}/stream`).onmessage = (m) => {
+// shortcut: 伺服器回非 200 時 EventSource 會永久關閉、不再重連，畫面一直顯示斷線直到重新整理；這個伺服器只有自己這支程式，真的發生再補重建連線
+export function connect(store: OfficeStore, onLink: (online: boolean) => void = () => {}, base = ''): void {
+  const es = new EventSource(`${base}/stream`);
+  es.onopen = () => onLink(true);
+  es.onerror = () => onLink(false);
+  es.onmessage = (m) => {
     let c: Change | { type: 'reset'; employees: Employee[] };
     try {
       c = JSON.parse(m.data);
