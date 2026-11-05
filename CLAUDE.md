@@ -5,6 +5,7 @@
 ## 改設計
 
 - 動手前先讀 `docs/design.md`。改完直接更新這份文件，讓它描述改完後的現況。
+- `DESIGN.md` 是從程式碼萃取的視覺摘要。改了顏色、字級、間距或元件外觀，同一個 commit 要一起更新。理由和新規則寫進 `docs/design.md`，`DESIGN.md` 最多留一句摘要。
 - superpowers skill（例如 brainstorming、writing-plans）：討論用的 spec、plan、mockup 放在 `docs/superpowers/` 底下，做完、結論併進 `design.md` 後就刪掉，git 歷史找得回來。
 - mattpocock skill（例如 `/to-spec`、`/to-tickets`）：規格和票放在 `.scratch/<功能>/`，規則見下方「Agent skills」。這個資料夾在 `.gitignore` 裡，只留在本機，做完、結論併進 `design.md` 後就刪掉。
 - `README.md` 是使用者看得到的行為的唯一說明。行為改了，同一個 commit 要一起改 README。畫面改了，要重拍 `docs/images/office-day.png`、`office-night.png`。
