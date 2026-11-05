@@ -1,5 +1,6 @@
 import { open, stat } from 'node:fs/promises';
-import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
+import { join } from 'node:path';
 
 const TAIL = 512 * 1024;
 const MARK = '"type":"ai-title"';
@@ -37,6 +38,18 @@ export async function readAiTitle(path: string, tailOnly = false): Promise<strin
     }
   } catch {} // 檔案不存在或讀不到：沒有標題而已
   return '';
+}
+
+// 前景助理的內部事件只帶 agent_id，要靠 Claude Code 在 <transcript>/subagents/ 寫的 meta 檔才對得回 tool_use_id。
+// 這不是公開格式，讀不到一律回空字串：那位助理只是沒有目前動作。
+export function readSubagentToolUseId(transcriptPath: string, agentId: string): string {
+  if (!transcriptPath.endsWith('.jsonl') || !/^[\w-]+$/.test(agentId)) return '';
+  try {
+    const id = JSON.parse(readFileSync(join(transcriptPath.slice(0, -'.jsonl'.length), 'subagents', `agent-${agentId}.meta.json`), 'utf8')).toolUseId;
+    return typeof id === 'string' ? id : '';
+  } catch {
+    return '';
+  }
 }
 
 // Claude Code 閒置一陣子後會把對話接到新的 session_id，並在舊 transcript 最後寫一筆 continued-in。

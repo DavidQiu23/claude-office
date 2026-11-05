@@ -1,4 +1,4 @@
-import { describeTool, folderName, isWaitingNotification, isSubagentTool } from './describe.js';
+import { describeTool, folderName, isSystemPrompt, isWaitingNotification, isSubagentTool } from './describe.js';
 import type { Assistant, Change, Employee, HookEvent, OfficeState } from './types.js';
 
 export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; changes: Change[] } {
@@ -56,6 +56,11 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   if (fresh) {
     switch (e.hook_event_name) {
       case 'UserPromptSubmit':
+        // 系統通知不是你下的指示，也可能發生在回合中間：Claude 被叫醒才算工作中，其他都不動
+        if (isSystemPrompt(e.prompt)) {
+          if (emp.status === 'idle') emp.status = 'working';
+          break;
+        }
         emp.status = 'working';
         emp.lastPrompt = e.prompt ?? '';
         if (!emp.firstPrompt) emp.firstPrompt = emp.lastPrompt;
@@ -126,7 +131,14 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       a.id !== e.tool_use_id ? a : launched ? { ...a, background: true, agentId: String(e.tool_response?.agentId ?? '') } : { ...a, status: 'done' },
     );
   } else if (e.hook_event_name === 'SubagentStop' && e.agent_id) {
-    assistants = assistants.map((a) => (a.agentId === e.agent_id ? { ...a, status: 'done' } : a));
+    // 前景助理等 PostToolUse：它緊接在後，這裡先完成的話，下一個事件就把剛完成的清掉了
+    assistants = assistants.map((a) => (a.background && a.agentId === e.agent_id ? { ...a, status: 'done' } : a));
+  }
+
+  // 助理的目前動作。不看 fresh：平行助理的事件常常交錯，別人較新的事件不代表這位的動作過期
+  if (e.agent_id && e.hook_event_name === 'PreToolUse') {
+    const activity = describeTool(e.tool_name ?? '', e.tool_input);
+    assistants = assistants.map((a) => (a.status === 'working' && a.agentId === e.agent_id ? { ...a, activity } : a));
   }
 
   emp.assistants = assistants;

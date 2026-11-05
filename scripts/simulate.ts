@@ -47,12 +47,14 @@ const script: (string | number | object)[] = [
   ev('api0', 'PostToolUse', { tool_name: 'Bash' }), 800,
   ev('api0', 'Stop'), 1200,
 
-  '助理：web0 派出兩位，坐 web 那層的空桌打字，陸續完成退場',
+  '助理：web0 派出兩位，坐 web 那層的空桌打字（Explore 那位的資訊卡看得到目前動作），陸續完成退場',
   prompt('web0', '把首頁拆成元件'),
   spawn('web0', 'sim-a1', '盤點首頁用到的元件', 'Explore'),
-  spawn('web0', 'sim-a2', ''), 2500,
+  spawn('web0', 'sim-a2', ''),
+  ev('web0', 'PostToolUse', { tool_name: 'Agent', tool_use_id: 'sim-a1', tool_response: { status: 'async_launched', agentId: 'sim-ag1' } }),
+  ev('web0', 'PreToolUse', { tool_name: 'Read', tool_input: { file_path: 'src/pages/Home.tsx' }, tool_use_id: 'sim-r1', agent_id: 'sim-ag1' }), 700,
   done('web0', 'sim-a2'), 800,
-  done('web0', 'sim-a1'), 800,
+  ev('web0', 'SubagentStop', { agent_id: 'sim-ag1' }), 800,
 
   '加蓋與拆樓：docs0 上班（最上面多一層），之後下班（退場完那層拆掉）',
   prompt('docs0', '改寫安裝說明'), 2000,

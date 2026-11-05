@@ -12,6 +12,11 @@ export const folderName = (cwd: string): string => base(cwd);
 export const isSubagentTool = (toolName: string | undefined): boolean =>
   toolName === 'Task' || toolName === 'Agent';
 
+// 助理完成、session 之間傳訊等系統通知也走 UserPromptSubmit，hook 沒有欄位能分辨，只能看開頭的標籤。
+// 只認這幾個標籤，使用者自己貼的 HTML 不算。
+export const isSystemPrompt = (prompt: string | undefined): boolean =>
+  /^\s*<(task-notification|agent-message|cross-session-message|side-sessions-event|ci-monitor-event)[\s>]/.test(prompt ?? '');
+
 export function describeTool(toolName: string, input: Record<string, unknown> | undefined): string {
   switch (toolName) {
     case 'Read':

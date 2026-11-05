@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { bindAgent } from '../src/state/maintenance.js';
 import { reduce } from '../src/state/reduce.js';
 import { emptyState } from '../src/state/types.js';
 import type { Change, HookEvent, OfficeState } from '../src/state/types.js';
@@ -311,6 +312,75 @@ test('工作中的助理數：派三個 3、前景完成一個 2、背景啟動�
   expect(working()).toBe(1);
   ({ state } = run([ev('SubagentStop', { agent_id: 'ag1' })], state));
   expect(working()).toBe(0);
+});
+
+const NOTIFY = '<task-notification>\n<task-id>x</task-id>\n</task-notification>';
+
+test('系統通知走 UserPromptSubmit：不蓋掉 prompt、不清動作、不結束前景助理，只把輪到你叫醒', () => {
+  let { state } = run([
+    ev('UserPromptSubmit', { prompt: '第一句' }),
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'f1', tool_input: { description: 'fg' } }),
+    ev('UserPromptSubmit', { prompt: '<agent-message from="a1">\n報告' }),
+    ev('UserPromptSubmit', { prompt: NOTIFY }),
+  ]);
+  const e = state.employees.s1;
+  expect([e.firstPrompt, e.lastPrompt, e.activity, e.status]).toEqual(['第一句', '第一句', '派出助理', 'working']);
+  expect(helper(state, 'f1')?.status).toBe('working');
+  ({ state } = run([ev('Stop'), ev('UserPromptSubmit', { prompt: NOTIFY })], state));
+  expect(state.employees.s1.status).toBe('working');
+});
+
+test('系統通知不把等你處理改回工作中；開頭像標籤的真 prompt 照常記下', () => {
+  const { state } = run([ev('UserPromptSubmit', { prompt: 'a' }), ev('PermissionRequest', { tool_name: 'Bash' }), ev('UserPromptSubmit', { prompt: NOTIFY })]);
+  expect(state.employees.s1.status).toBe('waiting');
+  const real = run([ev('UserPromptSubmit', { prompt: '<div> 為什麼跑版' })], state).state.employees.s1;
+  expect(real.lastPrompt).toBe('<div> 為什麼跑版');
+});
+
+const launched = (id: string, agentId: string) => [
+  ev('PreToolUse', { tool_name: 'Agent', tool_use_id: id, tool_input: { description: id } }),
+  ev('PostToolUse', { tool_name: 'Agent', tool_use_id: id, tool_response: { status: 'async_launched', agentId } }),
+];
+const helper = (state: OfficeState, id: string) => state.employees.s1.assistants.find((a) => a.id === id);
+
+test('內部工具事件更新對應助理的目前動作，同時工作的其他助理和主人的 activity 不變', () => {
+  const start = run([ev('UserPromptSubmit'), ...launched('t1', 'ag1'), ...launched('t2', 'ag2')]);
+  const owner = start.state.employees.s1.activity;
+  const { state } = run([ev('PreToolUse', { tool_name: 'Read', tool_input: { file_path: 'a.ts' }, agent_id: 'ag1' })], start.state);
+  expect(helper(state, 't1')?.activity).toContain('a.ts');
+  expect(helper(state, 't2')?.activity).toBeUndefined();
+  expect(state.employees.s1.activity).toBe(owner);
+});
+
+test('助理的動作不顯示等你批准：hook 分不出真的在等，還是不能問、馬上拒絕', () => {
+  const start = run([ev('UserPromptSubmit'), ...launched('t1', 'ag1'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'ls' }, agent_id: 'ag1' })]);
+  const { state } = run([ev('PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'ls' }, agent_id: 'ag1' })], start.state);
+  expect(helper(state, 't1')?.activity).toBe('執行 ls');
+});
+
+test('平行助理的事件先後交錯時，較舊的事件仍更新它自己的動作', () => {
+  const start = run([ev('UserPromptSubmit'), ...launched('t1', 'ag1'), ...launched('t2', 'ag2')]);
+  const late = ev('PreToolUse', { tool_name: 'Read', tool_input: { file_path: 'old.ts' }, agent_id: 'ag1' });
+  const { state } = run([ev('PreToolUse', { tool_name: 'Read', tool_input: { file_path: 'new.ts' }, agent_id: 'ag2' }), late], start.state);
+  const raced = run([{ ...late, sentAt: start.state.employees.s1.lastEventAt - 1 }], start.state).state;
+  expect(helper(state, 't1')?.activity).toContain('old.ts');
+  expect(helper(raced, 't1')?.activity).toContain('old.ts');
+});
+
+test('配對到 agentId 的前景助理：SubagentStop 不算完成，PostToolUse 才算', () => {
+  let { state } = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'f1', tool_input: { description: 'fg' } })]);
+  state = bindAgent(state, 's1', 'f1', 'ag1').state;
+  ({ state } = run([ev('SubagentStop', { agent_id: 'ag1' })], state));
+  expect(helper(state, 'f1')?.status).toBe('working');
+  ({ state } = run([ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 'f1' })], state));
+  expect(helper(state, 'f1')?.status).toBe('done'); // 主人的資訊卡還列得到剛完成的
+});
+
+test('bindAgent：找不到員工或助理時不動 state，也不用 __proto__ 當 key', () => {
+  const { state } = run([ev('UserPromptSubmit')]);
+  for (const [sid, tool] of [['nobody', 'f1'], ['s1', 'nope'], ['__proto__', 'f1']]) {
+    expect(bindAgent(state, sid, tool, 'ag1')).toEqual({ state, changes: [] });
+  }
 });
 
 test('主 session Stop 後，背景助理內部的工具事件不把輪到你改回工作中；它要提問仍算等你處理', () => {

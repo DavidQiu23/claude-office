@@ -2,10 +2,10 @@ import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
 import { CONFIG_FILE } from '../config.js';
-import { dismiss, setTitle, sweep } from '../state/maintenance.js';
+import { bindAgent, dismiss, setTitle, sweep } from '../state/maintenance.js';
 import { reduce } from '../state/reduce.js';
 import { readDesktopSession, type DesktopSession } from './desktop.js';
-import { readAiTitle, readContinuedIn } from './title.js';
+import { readAiTitle, readContinuedIn, readSubagentToolUseId } from './title.js';
 import { emptyState, type Change, type HookEvent } from '../state/types.js';
 
 /** file 預設是這台機器上設定檔的完整路徑（macOS／Linux 是 ~/.claude-office/config.json，Windows 是 %USERPROFILE%\.claude-office\config.json） */
@@ -67,6 +67,15 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
   const refreshDesktopTitle = (id: string, host: string) => {
     const title = desktopSession(host)?.title;
     if (title) apply(setTitle(state, id, title));
+  };
+
+  // 前景助理的第一個內部事件才查 agentId；背景助理在 async_launched 就有了，都配對好的 session 不讀檔
+  const bindForeground = (id: string, transcript: string | undefined, agentId: string | undefined) => {
+    if (!transcript || !agentId || !Object.hasOwn(state.employees, id)) return;
+    const list = state.employees[id].assistants;
+    if (list.some((a) => a.agentId === agentId) || !list.some((a) => a.status === 'working' && !a.agentId)) return;
+    const toolUseId = readSubagentToolUseId(transcript, agentId);
+    if (toolUseId) apply(bindAgent(state, id, toolUseId, agentId));
   };
 
   const readBody = (req: http.IncomingMessage) =>
@@ -135,6 +144,7 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
       const owner = ev.host_session_id ? desktopOwner(ev.host_session_id) : undefined;
       // CLI 子行程：當成一般 CLI 的員工。shortcut: 伺服器剛重啟、子行程比主人先送事件時會被當成主人，真的碰到再查紀錄的 cliSessionId
       if (owner && owner.sessionId !== ev.session_id) delete ev.host_session_id;
+      bindForeground(ev.session_id, ev.transcript_path, ev.agent_id);
       const r = reduce(state, ev as HookEvent);
       apply(r);
       // 標題在第一輪回應後才會寫進 transcript；回合結束時背景讀取，不拖慢 hook 回應

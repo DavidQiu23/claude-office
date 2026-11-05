@@ -23,8 +23,9 @@ export interface Assistant {
   status: 'working' | 'done';
   startedAt: number;
   seat: number;                // 和員工共用主人那層的座位號碼；完成後就不佔了
-  agentId?: string;            // 背景助理：async_launched 後記下，SubagentStop 用它配對
+  agentId?: string;            // 背景助理：async_launched 時記下；前景助理：伺服器從 meta 檔補上。用來配對內部事件
   kind?: string;               // subagent_type，例如 Explore、Plan；沒給就不記
+  activity?: string;           // 目前動作，第一個內部工具事件之後才有
   background?: boolean;        // run_in_background：PostToolUse 與 Stop 都不代表完成
 }
 

@@ -25,7 +25,7 @@
 - 狀態存檔：伺服器重啟後清空，等各 session 的下一個事件再補回來。
 - 開機自動啟動與隱藏的背景程式：`office.bat` 把伺服器放在看得到的視窗，關掉就停，出錯也看得到；代價是點之前的事件收不到。
 - 聲音與系統通知。
-- 讀取對話內容。transcript 只讀 `ai-title` 那一行，拿來當名牌標題。
+- 讀取對話內容。transcript 只讀 `ai-title` 那一行，拿來當名牌標題；助理的 meta 檔只讀 `toolUseId`。
 
 ## 架構與界線
 
@@ -48,8 +48,11 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
 
 - **等你處理以 `PermissionRequest` 為準，不是 `PreToolUse`**：`PreToolUse` 在權限判斷之前就會觸發，`Notification` 又要晚約 6 秒才到。
 - **只有三種狀態，沒有「閒置」**：`idle` 在畫面上顯示成「輪到你」，意思是 Claude 做完這一輪，等你下一個指示。它會一直亮著，直到你送出 prompt，不會隨時間退回安靜狀態。紅色只給等你處理，輪到你用比較安靜的琥珀色，而且不脈動。
-- **subagent 內部的事件（帶 `agent_id`）不改 `activity`**，也不清助理。主 session 已經 Stop 的話，這類事件也不會把狀態改回工作中。
-- **背景助理（`run_in_background`）**：`PostToolUse` 和 `Stop` 都不算它完成，要等 `SubagentStop`。
+- **subagent 內部的事件（帶 `agent_id`）不改主人的 `activity`**，也不清助理，只更新那位助理自己的 `activity`。主 session 已經 Stop 的話，這類事件也不會把狀態改回工作中。助理的動作不看 `sentAt`：平行助理的事件常常交錯，別人的事件比較新不代表這位的動作過期。
+- **背景助理（`run_in_background`）**：`PostToolUse` 和 `Stop` 都不算它完成，要等 `SubagentStop`。沒指定時預設就是背景（`async_launched`），前景要明確傳 `run_in_background: false`。
+- **系統通知不算 prompt**：助理完成（`<task-notification>`）、session 之間傳訊（`<agent-message>` 等）也走 `UserPromptSubmit`，hook 沒有欄位能分辨，只能比對開頭的標籤（`describe.ts` 的 `isSystemPrompt`，只認列出來的標籤，使用者貼的 HTML 不算）。它不是你下的指示，也可能發生在回合中間，所以不改 prompt、不清 `activity`、不結束前景助理；只把輪到你改成工作中，等你處理維持不變。
+- **助理的目前動作只看 `PreToolUse`，不顯示「等你批准」**：實測 auto mode 放行的指令不會觸發 `PermissionRequest`；headless 下它照樣觸發，但沒有人被問，馬上就拒絕（官方文件：不能詢問時 hook 仍會跑）。文件說手動模式才會真的問，而 hook 分不出這兩種，所以助理卡片和主人的紅條都不寫助理在等什麼。助理的工具也沒有 `AskUserQuestion`，不會有「提問中」。
+- **內部事件怎麼對回助理**：助理的 `id` 是 `tool_use_id`，內部事件只有 `agent_id`，`agent_type` 在平行、同類型時全部一樣，不能用來分辨。背景助理的 `async_launched` 同時帶兩者；前景助理的 `agentId` 要到做完的 `PostToolUse` 才有，所以由伺服器（不是 `src/state`）在第一個內部事件時讀 `<transcript 去掉 .jsonl>/subagents/agent-<agent_id>.meta.json` 的 `toolUseId`，用 `bindAgent` 補上。實測第一個內部工具事件時這個檔已經在了，`SubagentStart` 時還沒有。這不是公開格式，讀不到只會少顯示前景助理的動作。前景助理配對到 `agentId` 後，`SubagentStop` 仍不算完成，不然緊接的 `PostToolUse` 會把剛完成的清掉，主人的資訊卡就看不到了。
 - **事件先後以 hook 附上的 `sentAt` 判斷**：比較舊的事件不改狀態，但仍然可以用來補登記和配對助理。
 - **幽靈員工**：強制結束 session 時收不到 `SessionEnd`，所以要有「請他下班」和 12 小時逾時。被請下班的 session 如果還有事件進來，會重新登場。
 - **Claude Desktop 的員工只在 session 真的結束時下班**：Desktop 在 rewind 和記憶體吃緊暫停閒置 session 時都會停掉 CLI，`SessionEnd` 的 `reason` 和真的下班一樣是 `other`；rewind 還會 fork 出新的 `session_id`，transcript 沒有 `continued-in`，`SessionStart` 的 `source` 也靠不住。所以改認 Desktop 自己的 id：hook 把環境變數 `CLAUDE_CODE_HOST_SESSION_ID`（`local_…`）當成 `host_session_id` 送出，有這個欄位的員工（`hostSessionId`）收到 `SessionEnd` 只變成輪到你、清掉助理。真的結束靠 `src/server/desktop.ts` 讀 Desktop 的紀錄（`claude-code-sessions/<帳號>/<組織>/local_<id>.json` 的 `isArchived`，刪除後留 `deleted_<id>`），60 秒巡檢一次；紀錄說還開著就不套用 12 小時逾時。標題也來自這份紀錄，因為 Desktop 的 transcript 只有 `custom-title`、沒有 `ai-title`。這不是公開格式，讀不到一律回 `null`，當成判斷不了而不是結束，退回 12 小時逾時。

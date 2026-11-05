@@ -64,6 +64,13 @@ export class InfoCard {
     return s;
   }
 
+  /** 目前動作。clamp 放內層：和 padding 同一層的話，被截掉的下一行會露在 padding 裡 */
+  private activity(text: string, red: boolean): HTMLElement {
+    const box = el('div', `activity${red ? ' activity-waiting' : ''}`);
+    box.append(el('div', 'clamp clamp-2', text));
+    return box;
+  }
+
   private label(text: string): HTMLElement {
     return el('div', 'section-label', text);
   }
@@ -76,10 +83,7 @@ export class InfoCard {
     body.append(el('div', 'folder', e.folder));
 
     // 目前在做什麼；等你批准時整塊變紅
-    if (e.activity) {
-      const red = e.status === 'waiting';
-      body.append(el('div', `activity clamp clamp-2${red ? ' activity-waiting' : ''}`, e.activity));
-    }
+    if (e.activity) body.append(this.activity(e.activity, e.status === 'waiting'));
 
     // prompt：第一個只在和最近的不同時才顯示
     body.append(this.section('最近的 PROMPT', oneLine(e.lastPrompt) || '（無）', false, 3));
@@ -141,10 +145,11 @@ export class InfoCard {
     this.frame(color, e.sessionId, STATUS[e.status], title, body);
   }
 
-  /** 助理：類型、描述、主人的標題、開始時間。在座位上一定是工作中，所以不貼狀態標籤，也不能請他下班 */
+  /** 助理：描述、目前動作、類型、主人的標題、開始時間。在座位上一定是工作中，所以不貼狀態標籤，也不能請他下班 */
   private fillHelper(owner: Employee, a: Assistant): void {
     const body = el('div', 'card-body');
     body.append(el('div', 'folder', owner.folder));
+    if (a.activity) body.append(this.activity(a.activity, false));
     if (a.kind) body.append(this.section('類型', a.kind, false, 1));
     body.append(this.section('主人', nameplate(owner) || '（無標題）', false, 2));
     const foot = el('div', 'card-foot');

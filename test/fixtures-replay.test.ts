@@ -92,3 +92,13 @@ test('真實 fixtures：背景 Agent 在 async_launched 與 Stop 後仍進行中
   }
   expect(checks).toEqual(['post', 'stop', 'subStop']);
 });
+
+test('真實 fixtures：背景 Agent 完成的 task-notification 不蓋掉最近的 prompt', () => {
+  let state: OfficeState = emptyState();
+  const events = load('0ab96839');
+  expect(events.some((e) => e.prompt?.startsWith('<task-notification>'))).toBe(true);
+  for (const e of events.filter((x) => x.hook_event_name !== 'SessionEnd')) state = reduce(state, e).state;
+  const emp = Object.values(state.employees)[0];
+  expect(emp.lastPrompt).not.toContain('task-notification');
+  expect(emp.firstPrompt).not.toContain('task-notification');
+});

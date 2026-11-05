@@ -1,10 +1,11 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, afterEach, beforeEach, expect, test } from 'vitest';
 import { createApp, portInUseMessage } from '../src/server/app.js';
+import { readSubagentToolUseId } from '../src/server/title.js';
 import { CONFIG_FILE } from '../src/config.js';
 
 let app: ReturnType<typeof createApp>;
@@ -227,6 +228,39 @@ test('Stop 之後從 transcript 讀到標題並更新員工', async () => {
     await new Promise((r) => setTimeout(r, 20));
   }
   expect((await employees())[0].title).toBe('修登入');
+});
+test('平行、同類型的前景助理：從 meta 檔的 toolUseId 配對，各自顯示自己的動作', async () => {
+  const tp = join(dir, 'fg.jsonl');
+  const subs = join(dir, 'fg', 'subagents');
+  mkdirSync(subs, { recursive: true });
+  const meta = (agent: string, toolUseId: string) => writeFileSync(join(subs, `agent-${agent}.meta.json`), JSON.stringify({ agentType: 'general-purpose', toolUseId }));
+  const sub = (agent_id: string, file_path: string, at: number) =>
+    post('/events', { hook_event_name: 'PreToolUse', session_id: 's1', transcript_path: tp, tool_name: 'Read', tool_input: { file_path }, tool_use_id: `r-${at}`, agent_id, sentAt: at });
+  await post('/events', { hook_event_name: 'UserPromptSubmit', session_id: 's1', cwd: 'D:\\p\\api', transcript_path: tp, sentAt: clock });
+  for (const id of ['t1', 't2']) await post('/events', { hook_event_name: 'PreToolUse', session_id: 's1', tool_name: 'Agent', tool_use_id: id, tool_input: { description: id, subagent_type: 'general-purpose' }, sentAt: clock + 1 });
+  const activity = async (id: string) => (await employees())[0].assistants.find((a: any) => a.id === id)?.activity;
+
+  await sub('ag2', 'no-meta-yet.ts', clock + 2); // meta 還沒寫出來：先不顯示，下個事件再查
+  expect(await activity('t2')).toBeUndefined();
+
+  meta('ag1', 't1');
+  meta('ag2', 't2');
+  await sub('ag2', 'b.ts', clock + 3);
+  await sub('ag1', 'a.ts', clock + 4);
+  expect(await activity('t1')).toContain('a.ts');
+  expect(await activity('t2')).toContain('b.ts');
+});
+test('助理的 meta 檔路徑：agent_id 不能跳出 subagents 資料夾', () => {
+  const tp = join(dir, 'esc.jsonl');
+  mkdirSync(join(dir, 'esc', 'subagents'), { recursive: true });
+  writeFileSync(join(dir, 'esc', 'agent-x.meta.json'), JSON.stringify({ toolUseId: 'leak' }));
+  writeFileSync(join(dir, 'esc', 'subagents', 'agent-ok.meta.json'), JSON.stringify({ toolUseId: 't1' }));
+  writeFileSync(join(dir, 'esc', 'subagents', 'agent-num.meta.json'), JSON.stringify({ toolUseId: 7 }));
+  writeFileSync(join(dir, 'esc', 'subagents', 'agent-bad.meta.json'), '{');
+  expect(readSubagentToolUseId(tp, 'ok')).toBe('t1');
+  expect(readSubagentToolUseId(tp, '../agent-x')).toBe('');
+  for (const id of ['num', 'bad', 'missing']) expect(readSubagentToolUseId(tp, id)).toBe('');
+  expect(readSubagentToolUseId(join(dir, 'esc.txt'), 'ok')).toBe('');
 });
 test('閒置後接續到新 session_id 時沿用原本的員工', async () => {
   const tp = join(dir, 'old.jsonl');

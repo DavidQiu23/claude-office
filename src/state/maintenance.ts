@@ -24,6 +24,17 @@ export const sweep = (state: OfficeState, now: number, keep: ReadonlySet<string>
 export const dismiss = (state: OfficeState, sessionId: string) =>
   remove(state, Object.hasOwn(state.employees, sessionId) ? [sessionId] : []);
 
+/** 前景助理開工時 hook 不給 agentId，伺服器查到後用這裡補上 */
+export const bindAgent = (state: OfficeState, sessionId: string, toolUseId: string, agentId: string): { state: OfficeState; changes: Change[] } => {
+  const emp = Object.hasOwn(state.employees, sessionId) ? state.employees[sessionId] : undefined;
+  if (!emp?.assistants.some((a) => a.id === toolUseId)) return { state, changes: [] };
+  const employee = { ...emp, assistants: emp.assistants.map((a) => (a.id === toolUseId ? { ...a, agentId } : a)) };
+  return {
+    state: { ...state, employees: { ...state.employees, [sessionId]: employee } },
+    changes: [{ type: 'upsert', employee }],
+  };
+};
+
 export const setTitle = (state: OfficeState, sessionId: string, title: string): { state: OfficeState; changes: Change[] } => {
   const emp = Object.hasOwn(state.employees, sessionId) ? state.employees[sessionId] : undefined;
   if (!emp || emp.title === title) return { state, changes: [] };
