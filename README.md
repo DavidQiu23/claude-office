@@ -51,6 +51,13 @@ cd claude-office
 
 啟動成功時會顯示 `Claude Office 已啟動：http://127.0.0.1:47823`。用瀏覽器打開這個網址。已經開著的 session 要等下一個事件（例如你送出下一個 prompt）才會出現。
 
+## 一鍵啟動（Windows）
+
+裝好之後，不用再下指令：雙擊資料夾裡的 `office.bat`，伺服器沒開就先開，再用預設瀏覽器打開大樓。想放桌面的話，對它按右鍵建立捷徑，不要複製檔案本身。
+
+- 伺服器跑在縮到工作列的「Claude Office」視窗，關掉視窗就停止。已經開著時再雙擊一次，只會打開頁面。
+- 伺服器啟動後才收得到事件，所以已經開著的 session 一樣要等下一個事件才會出現。
+
 ## 安裝與移除 hooks
 
 ```bash
@@ -148,6 +155,7 @@ npm run simulate -- --loop
 
 - **畫面一直是空的**：看到「目前沒有人上班」的紙條，代表頁面正常，只是還沒收到任何 session 的事件：已開著的 session 要等下一個事件；新 session 也不出現的話，看下面「裝了 hook 卻沒反應」。連紙條都沒有的話，確認 `npm start` 還在跑，網址的 port 與設定一致。
 - **`port 47823 已被占用，請在 … 修改 port`**：伺服器會結束。訊息裡會寫出這台機器上設定檔的完整路徑，在那裡換一個 port。
+- **`office.bat` 顯示「伺服器沒有啟動」**：打開工作列上的 Claude Office 視窗看原因，通常是 port 被占用。看完關掉那個視窗。
 - **改了 port 沒反應**：重新啟動伺服器。
 - **重啟伺服器後畫面清空**：狀態只存在記憶體，各 session 要等下一個事件才會回來。
 - **`Cannot find module`，指向 `dist/...`**（`npm start`、`install-hooks`、`uninstall-hooks` 都可能出現）：還沒 build，先執行 `npm run build`。
@@ -174,7 +182,7 @@ npm install
 npm run build
 ```
 
-然後重新啟動伺服器。新版若多了 hook 事件，再跑一次 `install-hooks`（不會重複新增）。
+然後重新啟動伺服器（用 `office.bat` 的話，關掉 Claude Office 視窗再雙擊一次）。新版若多了 hook 事件，再跑一次 `install-hooks`（不會重複新增）。
 
 ## 完全移除
 
@@ -205,6 +213,7 @@ npm run build
 
 | 位置 | 內容 |
 | --- | --- |
+| `office.bat` | Windows 一鍵啟動：伺服器沒開就開，再打開瀏覽器 |
 | `src/hook/send.ts` | hook 腳本，把事件 POST 給伺服器 |
 | `src/server/main.ts`、`app.ts` | 啟動入口；本機伺服器（收事件、狀態只存在記憶體、以 SSE 推給頁面） |
 | `src/server/title.ts` | 從 transcript 讀 ai-title 當名牌標題，讀 `continued-in` 把接續的 session 認成同一位員工 |
