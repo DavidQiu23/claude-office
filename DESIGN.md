@@ -329,7 +329,7 @@ components:
 
 - **Shape:** 微圓的硬卡（9px）。
 - **請他下班：** 1.7px 墨線框，貼紙白到磨舊按鈕的上下兩段硬色（55% 處切開），小件投影。
-- **Hover / Focus:** Hover 時字和框變警示紅，因為這是唯一的破壞性動作。等待條用 3px 墨線外框當 `:focus-visible`。
+- **Hover / Focus:** Hover 時字和框變警示紅，因為這是唯一的破壞性動作，`:focus-visible` 是 3px 墨線外框。等待條的 `:focus-visible` 是畫在紅底裡面的 2.5px 白框，外面是深藍夜空時墨線看不到。
 
 ### Chips
 

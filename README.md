@@ -227,13 +227,13 @@ npm run build
 | `scripts/simulate.ts` | 模擬事件 |
 | `web/src/floors.ts` | 樓層、座位、電梯燈、各層共用寬度等純計算，尺寸常數 `GEO` |
 | `web/src/building.ts`、`floor.ts`、`person.ts` | 大樓、單層樓、單一人物 |
-| `web/src/figure.ts`、`objects.ts` | 人物的 SVG；桌子、窗、家具和樓層兩側斜牆的 SVG |
+| `web/src/figure.ts`、`objects.ts` | 人物的 SVG；桌子、圓窗與窗景、家具、樓層兩側斜牆和地板板縫的 SVG |
 | `web/src/furniture.ts` | 每層樓的家具組合，窗和招牌的位置 |
 | `web/src/elevator.ts`、`card.ts`、`main.ts` | 電梯面板、資訊卡、狀態列與分頁標題 |
 | `web/index.html` | 頁面入口 |
 | `web/src/theme.ts`、`web/src/styles/theme.css` | 日夜判斷（6:00–18:00 白天）、配色與夜晚遮罩的顏色 |
 | `web/src/view.ts` | 名牌文字、狀態摘要、人物外觀和動作錯開的延遲、專案色 |
-| `web/src/sync.ts` | 連伺服器收事件、前端的員工狀態 |
+| `web/src/sync.ts` | 連伺服器收事件、回報連線狀態、前端的員工狀態 |
 | `web/src/svg.ts`、`dom.ts`、`motion.ts` | SVG 與 DOM 小工具、減少動態判斷 |
 | `web/src/styles/*.css` | 大樓、人物、資訊卡與狀態列等樣式 |
 | `test/` | vitest 測試 |

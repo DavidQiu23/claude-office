@@ -30,7 +30,7 @@ export class Person {
     this.el.setAttribute('aria-label', text);
   }
 
-  /** 只設 data-act；姿勢、表情、漫符與坐下站起的過場由 CSS 接手 */
+  /** 只設 data-act；姿勢、表情與坐下站起的過場由 CSS 接手 */
   setAct(a: Act): void {
     if (a === this.act) return;
     this.act = a;

@@ -40,7 +40,7 @@
 
 /* 瞬移登場與退場（data-fx）：期間氣場和小石子藏起來。人的動畫放在 .figure（整張人物 SVG），不放 .fig：.fig 的 transform 給站起來用。
    光痕和殘影在 .figure 外面的 .warp，人被壓成一條線時光痕還看得到；平常透明，減少動態時動畫停掉就一直看不到。
-   350／800 與 person.ts 的 ENTER_MS／EXIT_MS 同值（測試比對） */
+   350／800 與 person.ts 的 ENTER_MS／EXIT_MS 同值，改一邊時另一邊要跟著改（沒有測試把關） */
 .person .warp { position: absolute; inset: 0; width: 60px; height: 84px; overflow: visible; pointer-events: none; }
 .person .streak, .person .after { opacity: 0; }
 .person .after { fill: #bfe6ff; }
@@ -83,7 +83,7 @@
 @keyframes fig-type { 50% { transform: translateY(-5px); } }
 
 /* 等你處理：爆氣。站起來握拳，只有角色自己抖動（.shake 在 .fig 裡面）；氣場三層各自跳動、火舌往上竄、小石子往上飄。
-   幅度與 figure.ts 的 SHAKE、FLARE／FLARE_SKEW、TONGUE_RISE、ROCK_RISE 同值（外框測試用那邊的數字） */
+   幅度只寫在下面的 keyframes */
 .person[data-act="up"] .shake { animation: fig-shake .09s linear infinite; }
 .person[data-act="up"] .aura-1 { animation: fig-flare .22s steps(2) infinite alternate; }
 .person[data-act="up"] .aura-2 { animation: fig-flare .17s steps(2) infinite alternate; }
