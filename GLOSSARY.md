@@ -5,7 +5,7 @@
 ## Language
 
 **員工**：
-一個 Claude Code session。有自己的狀態（工作中、等你處理、輪到你），算進電梯燈、狀態列和分頁標題。
+一個 Claude Code session。對話接到新的 `session_id`（接續、Claude Desktop 的 rewind）時仍是同一位。有自己的狀態（工作中、等你處理、輪到你），算進電梯燈、狀態列和分頁標題。
 _Avoid_: session 角色、人物（指資料時）
 
 **助理**：

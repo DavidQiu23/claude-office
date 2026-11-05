@@ -1,4 +1,4 @@
-// 電梯面板：固定在視窗左側，一層一顆按鈕（最高樓在上），燈色 = 該層提示；看得到的樓層用半透明框圈起來；點按鈕捲到那層
+// 電梯面板：固定在視窗左側，一層一顆按鈕（最高樓在上），燈色 = 該層提示；看得到的樓層用虛線框圈起來；點按鈕捲到那層
 import { div } from './dom.js';
 import { visibleSpan, type Alert } from './floors.js';
 import { reduceMotion } from './motion.js';
