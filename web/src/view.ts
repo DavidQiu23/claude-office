@@ -38,7 +38,7 @@ export const appearance = (sessionId: string): Look => {
 };
 
 // 名牌：session 標題（沒有就用第一個 prompt），這些在 session 期間不會變，比最近的 prompt 好認。
-// 換行/連續空白壓成一格，避免名牌變多行；太長由 CSS 截成「…」
+// 換行/連續空白壓成一格；名牌最多兩行，太長由 CSS 截掉
 export const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
 export const nameplate = (e: Employee): string => oneLine(e.title) || oneLine(e.firstPrompt) || oneLine(e.lastPrompt);
 
@@ -65,6 +65,13 @@ export function tabTitle(employees: Employee[]): string {
   const n = (s: Employee['status']) => employees.filter((e) => e.status === s).length;
   const badge = [n('waiting') ? `!${n('waiting')}` : '', n('idle') ? `✓${n('idle')}` : ''].filter(Boolean).join(' ');
   return (badge ? `(${badge}) ` : '') + 'Claude 辦公室';
+}
+
+/** 資訊卡的左緣：預設在人的右邊，放不下就翻到左邊，不蓋住那個人；兩邊都放不下才貼著視窗右緣。12：不蓋到鍵盤焦點框 */
+export function cardLeft(person: { left: number; right: number }, viewW: number, cardW = 300): number {
+  const right = person.right + 12, left = person.left - 12 - cardW;
+  if (right + cardW + 20 <= viewW) return right;
+  return left >= 0 ? left : Math.max(0, viewW - cardW - 20);
 }
 
 // 到班時間 HH:mm（本地時區）

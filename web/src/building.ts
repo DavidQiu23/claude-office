@@ -1,6 +1,7 @@
 // 整棟大樓：天空、屋頂、樓層（最高樓在上、1F 在下）、地面人行道；沒人時是空大廳。store 每個事件都重算 floorPlan，差異套到既有的樓層與人物
 import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
+import { cardLeft } from './view.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div, el } from './dom.js';
 import { FloorView, lobby } from './floor.js';
@@ -126,7 +127,7 @@ export class Building {
       let v = this.floors.get(f.key);
       if (!v) {
         v = new FloorView({
-          hover: (e, r) => this.card.show(e, r.right + 12, r.top - 40), // 12：不蓋到鍵盤焦點框（外擴 5、白外圈和投影 4.5，加卡片白外圈 2.5）
+          hover: (e, r) => this.card.show(e, cardLeft(r, window.innerWidth), r.top - 40),
           unhover: () => this.card.scheduleHide(),
           enter: () => this.card.enter(),
         });

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { assistantList, formatTime, nameplate, tabTitle } from '../web/src/view.js';
+import { assistantList, cardLeft, formatTime, nameplate, tabTitle } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
@@ -26,6 +26,12 @@ test('tabTitle：等你處理和輪到你的人數，工作中不算', () => {
   expect(tabTitle([emp('a', 'working'), emp('b', 'working'), emp('c', 'idle')])).toBe('(✓1) Claude 辦公室');
   expect(tabTitle([emp('a', 'waiting'), emp('b', 'idle'), emp('c', 'idle')])).toBe('(!1 ✓2) Claude 辦公室');
   expect(tabTitle([emp('a', 'working')])).toBe('Claude 辦公室');
+});
+
+test('cardLeft：右邊放得下放右邊，放不下翻到左邊，都放不下貼著視窗右緣', () => {
+  expect(cardLeft({ left: 100, right: 160 }, 900)).toBe(172);
+  expect(cardLeft({ left: 770, right: 830 }, 900)).toBe(458);
+  expect(cardLeft({ left: 200, right: 260 }, 400)).toBe(80);
 });
 
 test('OfficeStore 套用 upsert 與 leave 並通知監聽者', () => {
