@@ -1,0 +1,55 @@
+<style>
+/* ── 三個視覺版本共用：只換長相，不加行為 ── */
+/* 外牆柱：畫在每層樓裡、往外伸 12，夜晚遮罩一起蓋住 */
+.floor-in > .pillar { top: 0; width: 12px; height: 200px; box-sizing: border-box; border: 1.6px solid var(--ink); border-width: 0 1.6px; background: var(--pillar-bg); }
+.floor-in > .pillar-l { left: -12px; }
+.floor-in > .pillar-r { right: -12px; }
+.floor-in > .pillar::after { content: ""; position: absolute; left: -1.6px; right: -1.6px; top: 191px; height: 9px; border-block: 1.6px solid var(--ink); background: var(--slab); box-sizing: border-box; }
+.floor-in::after { left: -12px !important; right: -12px !important; }
+.floors { padding-left: 56px !important; }
+#building .roof { margin-left: 42px; margin-right: 2px; }
+/* 天際線：屋頂後面的遠景，只有平塗的樓形，沒有雲、太陽、月亮、星星 */
+#building .sky { position: relative; }
+.skyline { position: absolute; left: 0; bottom: -12px; display: block; pointer-events: none; }
+.skyline .far { fill: var(--sk-far); }
+.skyline .near { fill: var(--sk-near); }
+.skyline .win { fill: var(--sk-win); opacity: var(--night); }
+:root[data-time="day"] { --sk-far: #a9d4f3; --sk-near: #93c2e6; --sk-win: #fff; }
+:root[data-time="night"] { --sk-far: #1d2358; --sk-near: #252c66; --sk-win: #b9c8ff; }
+/* 街道：人行道磚、路緣、柏油路和車道線 */
+#building .ground { background:
+    linear-gradient(var(--ink), var(--ink)) 0 25px / 100% 1.4px no-repeat,
+    linear-gradient(var(--curb), var(--curb)) 0 26.4px / 100% 5px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) 0 31.4px / 100% 1.4px no-repeat,
+    linear-gradient(90deg, #f4f1ea 0 26px, transparent 26px) 20px 50px / 64px 3px repeat-x,
+    linear-gradient(var(--road), var(--road)) 0 32.8px / 100% 100% no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--tile-seam) 39px 40px) 0 0 / 100% 25px no-repeat,
+    var(--walk) !important; }
+/* 招牌：樓號和資料夾名分開，樓號放在白色小牌上 */
+.sign .fl { display: inline-block; margin: 0 7px 0 -8px; padding: 0 6px; border-radius: 4px; background: #fff; color: var(--pc); font-weight: 900; line-height: 18px; }
+</style>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  // 示意：快照裡 api 和 web 的專案色雜湊到同一色，這裡把 api 換成青瓷色
+  const api = $('.floor[data-key="/work/api"] .sign'); if (api) api.style.backgroundColor = '#4a9a94';
+  for (const f of $$('.floor')) {
+    const inner = $('.floor-in', f), sign = $('.sign', f);
+    const pc = sign.style.backgroundColor; inner.style.setProperty('--pc', pc); f.style.setProperty('--pc', pc);
+    const [num, ...rest] = sign.textContent.split(' ');
+    sign.innerHTML = `<span class="fl">${num}</span>${rest.join(' ')}`;
+    sign.style.removeProperty('max-width');
+    for (const side of ['l', 'r']) { const d = document.createElement('div'); d.className = `pillar pillar-${side}`; inner.insertBefore(d, inner.firstChild); }
+  }
+  // 天際線：固定種子，每次長得一樣
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const W = Math.max(1600, document.body.scrollWidth), H = 120; let far = '', near = '', win = '';
+  for (let x = -10; x < W; ) { const w = 34 + rnd() * 60, h = 40 + rnd() * 70; far += `<rect class="far" x="${x}" y="${H - h}" width="${w}" height="${h}" rx="3"/>`; x += w + 4 + rnd() * 10; }
+  for (let x = 0; x < W; ) {
+    const w = 26 + rnd() * 46, h = 22 + rnd() * 48; near += `<rect class="near" x="${x}" y="${H - h}" width="${w}" height="${h}" rx="2"/>`;
+    for (let wy = H - h + 7; wy < H - 6; wy += 9) for (let wx = x + 5; wx < x + w - 6; wx += 8) if (rnd() < .16) win += `<rect class="win" x="${wx}" y="${wy}" width="3" height="4"/>`;
+    x += w + 8 + rnd() * 26;
+  }
+  $('#building .sky').insertAdjacentHTML('beforeend', `<svg class="skyline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${far}${near}${win}</svg>`);
+})();
+</script>

@@ -1,0 +1,40 @@
+<style>
+/* ── V1 精修：顏色不換，加材質與厚度 ── */
+:root { --pillar-bg: linear-gradient(90deg, #f1e5cc 0 58%, #dccaa5 58%); --curb: #cfc8b8; --road: #9a9790; --walk: #e4dccb; --tile-seam: rgb(27 23 22 / .14); }
+/* 屋簷：女兒牆加厚，下緣一排齒飾 */
+.roof .parapet { height: 16px; background:
+  linear-gradient(var(--ink), var(--ink)) 0 6px / 100% 1.3px no-repeat,
+  repeating-linear-gradient(90deg, transparent 0 9px, #cbb68a 9px 13px) 0 8px / 100% 6px no-repeat,
+  linear-gradient(90deg, var(--roof) 0 82%, #d6c196 82%) !important; }
+/* 天花板：每個座位上方一盞嵌燈 */
+.ceil { background: radial-gradient(15px 3.5px at 68px 100%, #fffdf3 0 88%, transparent 92%) 0 0 / 120px 10px repeat-x,
+  linear-gradient(var(--ceiling), var(--ceiling)) !important; }
+/* 後牆：上段淡淡的直紋壁紙，下段護牆板做成一格一格的鑲板 */
+.wall { background:
+  linear-gradient(var(--fig-ink), var(--fig-ink)) 0 111px / 100% 1.5px no-repeat,
+  linear-gradient(var(--wainscot-top), var(--wainscot-top)) 0 112.5px / 100% 5px no-repeat,
+  linear-gradient(var(--wainscot-top), var(--wainscot-top)) 0 141px / 100% 1.4px no-repeat,
+  repeating-linear-gradient(90deg, transparent 0 6px, #8cc2b6 6px 54px, transparent 54px 60px) 0 121.5px / 100% 17px no-repeat,
+  repeating-linear-gradient(90deg, transparent 0 58px, var(--wainscot-top) 58px 60px) 0 117.5px / 100% 29px no-repeat,
+  linear-gradient(var(--wainscot), var(--wainscot)) 0 112px / 100% 34px no-repeat,
+  repeating-linear-gradient(90deg, transparent 0 22px, rgb(160 130 80 / .07) 22px 24px) 0 0 / 100% 111px no-repeat,
+  var(--wall) !important; }
+/* 木地板：一條條木紋 */
+.boards { background:
+  linear-gradient(var(--floor-back), var(--floor-back)) 0 0 / 100% 7.5px no-repeat,
+  repeating-linear-gradient(transparent 0 8px, rgb(150 120 70 / .1) 8px 9.2px) 0 8px / 100% 28px no-repeat,
+  var(--floor-wood) !important; }
+/* 招牌：壓克力牌，下緣一階硬影、兩端各一顆鉚釘 */
+.sign { box-shadow: var(--ui-shadow), inset 0 -4px 0 rgb(0 0 0 / .2) !important; padding: 0 16px 0 12px !important;
+  background-image: radial-gradient(circle 2px at 7px 50%, rgb(255 255 255 / .8) 0 90%, transparent), radial-gradient(circle 2px at calc(100% - 7px) 50%, rgb(255 255 255 / .8) 0 90%, transparent); }
+.sign .fl { margin-left: 0; }
+/* 名牌：同一套顏色，下緣一階硬影，看起來有厚度 */
+.plate > span { box-shadow: var(--ui-shadow), inset 0 -3px 0 rgb(0 0 0 / .13) !important; }
+/* 狀態列：白色琺瑯牌，右下一階硬影；圖例小方塊做成凸起的燈 */
+#summary { box-shadow: var(--ui-shadow), inset -6px -5px 0 #f1ebdf !important; }
+#summary i { box-shadow: inset -2px -2px 0 rgb(0 0 0 / .18); }
+#summary .waits button { box-shadow: var(--ui-shadow), inset -6px -5px 0 rgb(0 0 0 / .14) !important; }
+/* 電梯面板：不鏽鋼面板，按鈕是有外圈的實體按鈕 */
+#elevator { background: linear-gradient(90deg, #eef1f3 0 62%, #d9dee3 62%) !important; }
+.elev-in button { box-shadow: 0 0 0 2px #fff, 0 0 0 3.4px #9aa4ad, inset -2px -3px 0 rgb(0 0 0 / .16); }
+</style>

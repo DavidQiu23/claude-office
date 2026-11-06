@@ -1,0 +1,10 @@
+<script>
+// 空桌：假設 2F 的 Explore 助理做完退場，桌子留著（人走了桌子留著，整層拆掉才收）
+(() => {
+  const web = document.querySelector('.floor[data-key="/work/web"] .floor-in');
+  const p = web.querySelector('.person[data-key="sim-a1"]'); if (p) p.parentNode.removeChild(p);
+  const d = web.querySelectorAll('.desks .desk')[2];
+  d.dataset.st = 'empty'; d.querySelector('use').setAttribute('href', '#desk-empty');
+  const pl = d.querySelector('.plate'); if (pl) pl.parentNode.removeChild(pl);
+})();
+</script>

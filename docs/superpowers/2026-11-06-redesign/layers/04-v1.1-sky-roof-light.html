@@ -1,0 +1,78 @@
+<style>
+/* ── V1.1 精修第二輪 ── */
+/* 天際線：補上墨線、一階硬影和窗格，和大樓同一套畫法；遠的一層更淡、線更細 */
+.skyline .far { stroke: var(--sk-far-ink); stroke-width: 1.2; }
+.skyline .near { stroke: var(--ink); stroke-width: 1.4; }
+.skyline .shade-far { fill: var(--sk-far-shade); }
+.skyline .shade-near { fill: var(--sk-near-shade); }
+.skyline .pane { fill: var(--sk-pane); }
+.skyline .win { opacity: var(--night); }
+:root[data-time="day"] { --sk-far: #b8dcf6; --sk-far-shade: #a6cfee; --sk-far-ink: #6f93b3; --sk-near: #9fc8e8; --sk-near-shade: #8bb8db; --sk-pane: #d5ecfb; }
+:root[data-time="night"] { --sk-far: #1d2358; --sk-far-shade: #191e4e; --sk-far-ink: #11163d; --sk-near: #262d68; --sk-near-shade: #20265c; --sk-pane: #2e3672; }
+
+/* 屋頂招牌：大樓的名字，立在女兒牆上。夜晚燈箱亮起冷白光（不用琥珀） */
+.roof .rsign { left: 64px; bottom: 14px; display: flex; flex-direction: column; align-items: center; }
+.rsign .box { padding: 3px 14px 4px; border: 1.8px solid var(--ink); border-radius: 7px; background: linear-gradient(90deg, #fffdf6 0 84%, #eadfc8 84%);
+  font: 900 15px/1.2 system-ui, "Microsoft JhengHei", sans-serif; letter-spacing: .12em; color: var(--ink); white-space: nowrap; }
+.rsign .box b { color: #3d6fa8; letter-spacing: .02em; margin-right: .35em; }
+.rsign .legs { width: 70%; height: 8px; display: flex; justify-content: space-between; }
+.rsign .legs i { width: 3px; height: 8px; background: var(--ink); }
+:root[data-time="night"] .rsign .box { background: #1f2a55; color: #eef4ff; border-color: #0b1026;
+  text-shadow: 0 0 6px rgb(190 215 255 / .9), 0 0 14px rgb(150 190 255 / .6); box-shadow: 0 0 18px 2px rgb(140 180 255 / .35); }
+:root[data-time="night"] .rsign .box b { color: #bcd6ff; }
+
+/* 白天的陽光：圓窗灑在地板上的光斑，往右下斜（光從左上來），硬邊、不模糊 */
+.floor-in > .sun { top: 156px; height: 36px; width: 46px; margin-left: 6px; background: rgb(255 253 240 / .55); clip-path: polygon(10% 0, 62% 0, 100% 100%, 42% 100%); pointer-events: none; }
+:root[data-time="night"] .floor-in > .sun { display: none; }
+
+/* 人行道：一排矮花台，墨線框、圓圓的灌木、右側一階硬影 */
+#building .ground { position: relative; }
+.planter { position: absolute; bottom: calc(72px - 25px); width: 46px; height: 22px; pointer-events: none; }
+.planter .bush { position: absolute; left: 3px; right: 3px; bottom: 9px; height: 15px; border: 1.6px solid var(--ink); border-radius: 12px 12px 4px 4px;
+  background: linear-gradient(90deg, #7fbf7a 0 62%, #67a866 62%); }
+.planter .pot { position: absolute; left: 0; right: 0; bottom: 0; height: 11px; border: 1.6px solid var(--ink); border-radius: 3px; background: linear-gradient(90deg, #e9edf2 0 66%, #c3cdd8 66%); }
+/* 天花板嵌燈：每個座位上方一條白色燈條，墨線框；夜晚燈條本身亮著（桌燈的光暈已經照亮下面） */
+.ceil { background: linear-gradient(var(--ceiling), var(--ceiling)) !important; }
+.ceil .lamp { position: absolute; bottom: -1px; width: 30px; height: 5px; margin-left: -15px; box-sizing: border-box; border: 1.3px solid var(--ink); border-radius: 0 0 3px 3px; background: #fffdf3; }
+</style>
+<script>
+(() => {
+  // 天際線改畫：同一個種子，加墨線、右側硬影、窗格
+  const sky = document.querySelector('#building .sky'); sky.querySelector('.skyline')?.remove();
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const W = Math.max(1600, document.body.scrollWidth), H = 120; let far = '', near = '', win = '';
+  for (let x = -10; x < W; ) {
+    const w = 34 + rnd() * 60, h = 40 + rnd() * 70, y = H - h;
+    far += `<rect class="far" x="${x}" y="${y}" width="${w}" height="${h + 4}" rx="3"/><rect class="shade-far" x="${x + w * .7}" y="${y + 1}" width="${w * .3 - .6}" height="${h + 2}"/>`;
+    x += w + 4 + rnd() * 10;
+  }
+  for (let x = 0; x < W; ) {
+    const w = 26 + rnd() * 46, h = 22 + rnd() * 48, y = H - h;
+    near += `<rect class="near" x="${x}" y="${y}" width="${w}" height="${h + 4}" rx="2"/><rect class="shade-near" x="${x + w * .7}" y="${y + 1}" width="${w * .3 - .7}" height="${h + 2}"/>`;
+    for (let wy = y + 7; wy < H - 6; wy += 9) for (let wx = x + 5; wx < x + w * .7 - 4; wx += 8) {
+      near += `<rect class="pane" x="${wx}" y="${wy}" width="3" height="4"/>`;
+      if (rnd() < .18) win += `<rect class="win" x="${wx}" y="${wy}" width="3" height="4"/>`;
+    }
+    x += w + 8 + rnd() * 26;
+  }
+  sky.insertAdjacentHTML('beforeend', `<svg class="skyline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${far}${near}${win}</svg>`);
+  // 嵌燈：只掛在座位區，家具區上方不掛
+  for (const inner of document.querySelectorAll('.floor-in')) {
+    const ceil = inner.querySelector('.ceil'), w = inner.clientWidth;
+    for (let x = 84; x < w - 224; x += 120) ceil.insertAdjacentHTML('beforeend', `<span class="lamp" style="left:${x - 16}px"></span>`);
+  }
+  // 屋頂招牌
+  document.querySelector('#building .roof').insertAdjacentHTML('beforeend', '<div class="rsign"><div class="box"><b>Claude</b>辦公室</div><div class="legs"><i></i><i></i></div></div>');
+  // 陽光：每扇圓窗下面一塊
+  for (const inner of document.querySelectorAll('.floor-in')) {
+    for (const g of inner.querySelectorAll('.windows .glow')) {
+      const d = document.createElement('div'); d.className = 'sun'; d.style.left = g.style.left;
+      inner.insertBefore(d, inner.querySelector('.chairs'));
+    }
+  }
+  // 花台：避開地面兩端，每 260 一個
+  const ground = document.querySelector('#building .ground');
+  const gw = ground.clientWidth || W;
+  for (let x = 150; x < gw - 60; x += 260) ground.insertAdjacentHTML('beforeend', `<div class="planter" style="left:${x}px"><div class="bush"></div><div class="pot"></div></div>`);
+})();
+</script>
