@@ -314,6 +314,14 @@ test('工作中的助理數：派三個 3、前景完成一個 2、背景啟動�
   expect(working()).toBe(0);
 });
 
+test('async_launched 沒給 agentId 就當成完成：配對不到 SubagentStop，不能一直坐著', () => {
+  const { state } = run([
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 't1', tool_input: { description: 'x' } }),
+    ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 't1', tool_response: { status: 'async_launched' } }),
+  ]);
+  expect(workingCount(state.employees.s1.assistants)).toBe(0);
+});
+
 const NOTIFY = '<task-notification>\n<task-id>x</task-id>\n</task-notification>';
 
 test('系統通知走 UserPromptSubmit：不蓋掉 prompt、不清動作、不結束前景助理，只把輪到你叫醒', () => {

@@ -16,10 +16,13 @@ const children = (dir: string): string[] => {
   }
 };
 
-const defaultRoots = (): string[] => [
-  // 只在 Windows 商店版實測過，其他路徑找不到時會退回 12 小時逾時
-  ...children(join(process.env.LOCALAPPDATA ?? '', 'Claude-Data')).map((p) => join(p, 'claude-code-sessions')),
-  join(process.env.APPDATA ?? '', 'Claude', 'claude-code-sessions'),
+/** Desktop 的 session id（local_…）；來自 HTTP 請求，會拼進路徑，只收這個格式 */
+export const isHostSessionId = (id: string): boolean => /^local_[0-9a-zA-Z-]+$/.test(id);
+
+const defaultRoots = ({ LOCALAPPDATA, APPDATA } = process.env): string[] => [
+  // 只在 Windows 商店版實測過，其他路徑找不到時會退回 12 小時逾時。環境變數沒設（macOS、Linux）就跳過，不然會變成相對於目前資料夾的路徑
+  ...(LOCALAPPDATA ? children(join(LOCALAPPDATA, 'Claude-Data')).map((p) => join(p, 'claude-code-sessions')) : []),
+  ...(APPDATA ? [join(APPDATA, 'Claude', 'claude-code-sessions')] : []),
   join(homedir(), 'Library', 'Application Support', 'Claude', 'claude-code-sessions'),
   join(homedir(), '.config', 'Claude', 'claude-code-sessions'),
 ];
@@ -29,7 +32,7 @@ const defaultRoots = (): string[] => [
  * 這不是公開格式，所以判斷不了就回 null（不是當成結束），呼叫端退回 12 小時逾時。
  */
 export function readDesktopSession(hostId: string, roots: string[] = defaultRoots()): DesktopSession | null {
-  if (!/^local_[0-9a-zA-Z-]+$/.test(hostId)) return null; // id 來自 HTTP 請求，會拼進路徑
+  if (!isHostSessionId(hostId)) return null;
   for (const root of roots)
     for (const account of children(root))
       for (const org of children(account)) {

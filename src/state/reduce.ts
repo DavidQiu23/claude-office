@@ -126,9 +126,10 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       background: true,
     });
   } else if ((e.hook_event_name === 'PostToolUse' || e.hook_event_name === 'PostToolUseFailure') && e.tool_use_id) {
-    const launched = e.tool_response?.status === 'async_launched';
+    // 背景助理靠 agentId 等 SubagentStop；沒給 agentId 就永遠配對不到，只能當成完成，不然會一直坐在座位上
+    const agentId = e.tool_response?.status === 'async_launched' ? e.tool_response.agentId : undefined;
     assistants = assistants.map((a) =>
-      a.id !== e.tool_use_id ? a : launched ? { ...a, background: true, agentId: String(e.tool_response?.agentId ?? '') } : { ...a, status: 'done' },
+      a.id !== e.tool_use_id ? a : typeof agentId === 'string' && agentId ? { ...a, background: true, agentId } : { ...a, status: 'done' },
     );
   } else if (e.hook_event_name === 'SubagentStop' && e.agent_id) {
     // 前景助理等 PostToolUse：它緊接在後，這裡先完成的話，下一個事件就把剛完成的清掉了

@@ -28,6 +28,12 @@ export class InfoCard {
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
   private err = '';
   id: string | null = null; // 目前顯示的員工 session id 或助理 id
+  private cur: Occupant | null = null; // 目前顯示的資料，請他下班失敗時用它重畫
+  // 內文、頁尾和按鈕一直是同一組節點，換內容時不拿下來：每個事件都會重畫卡片，按鈕被換掉的話，按下到放開之間來了事件，這次點擊就沒了
+  private body = el('div', 'card-body');
+  private foot = el('div', 'card-foot');
+  private footText = el('span', 'card-foot-text');
+  private btn = el('button', 'dismiss', '請他下班');
 
   private origin: HTMLElement | null = null; // 鍵盤進到卡片前的人物，離開時焦點還給他
 
@@ -35,6 +41,10 @@ export class InfoCard {
     this.box.id = CARD_ID;
     this.box.onmouseenter = () => clearTimeout(this.hideTimer);
     this.box.onmouseleave = () => this.scheduleHide();
+    this.foot.append(this.footText, this.btn);
+    this.body.append(this.foot);
+    this.box.append(this.body);
+    this.btn.onclick = () => void this.dismiss();
     document.body.append(this.box);
     document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape') this.close();
@@ -49,7 +59,7 @@ export class InfoCard {
   /** 焦點移進卡片裡的按鈕（助理的卡片沒有按鈕，就留在人物上） */
   enter(): void {
     this.origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    this.box.querySelector('button')?.focus({ preventScroll: true });
+    if (!this.btn.hidden) this.btn.focus({ preventScroll: true });
   }
 
   /** 關掉；焦點在卡片裡就還給人物。要先還再藏，藏了焦點就丟了 */
@@ -73,14 +83,33 @@ export class InfoCard {
     this.box.style.top = `${Math.max(AVATAR_RISE + 4, Math.min(top, window.innerHeight - this.box.offsetHeight - 8))}px`;
   }
 
-  /** 卡片外框：頂端專案色帶上寫標題（最多兩行），頭像突出色帶上緣，狀態標籤騎在色帶右上緣（助理沒有） */
-  private frame(color: string, key: string, st: Chip | null, title: string, body: HTMLElement): void {
+  /** 卡片外框：頂端專案色帶上寫標題（最多兩行），頭像突出色帶上緣，狀態標籤騎在色帶右上緣（助理沒有）。
+   *  parts 放進內文、排在頁尾前面；頁尾左邊是 foot 文字，右邊的按鈕只有員工有 */
+  private frame(color: string, key: string, st: Chip | null, title: string, parts: HTMLElement[], foot: { text: string; error: boolean; button: boolean }): void {
     this.box.style.setProperty('--pc', color); // 專案色：色帶、頭像底、資料夾小方塊都用它
     const bar = el('div', 'card-bar');
     bar.append(el('div', 'card-title clamp clamp-2', title));
-    const focused = this.box.contains(document.activeElement); // 內容更新會換掉按鈕，焦點要接回去
-    this.box.replaceChildren(bar, avatar(key), ...(st ? [el('span', `chip ${st.cls}`, st.text)] : []), body);
-    if (focused) this.box.querySelector('button')?.focus({ preventScroll: true });
+    for (const n of Array.from(this.box.children)) if (n !== this.body) n.remove();
+    this.body.before(bar, avatar(key), ...(st ? [el('span', `chip ${st.cls}`, st.text)] : []));
+    for (const n of Array.from(this.body.children)) if (n !== this.foot) n.remove();
+    this.foot.before(...parts);
+    this.footText.className = `card-foot-text${foot.error ? ' error' : ''}`;
+    this.footText.textContent = foot.text;
+    this.btn.hidden = !foot.button;
+  }
+
+  private async dismiss(): Promise<void> {
+    const id = this.id;
+    if (!id) return;
+    try {
+      const r = await fetch(`/employees/${encodeURIComponent(id)}/dismiss`, { method: 'POST' });
+      if (!r.ok) throw new Error(String(r.status));
+      if (this.id === id) this.hide();
+    } catch {
+      if (this.id !== id) return; // 卡片已經換人或關掉
+      this.err = '操作失敗，請稍後再試';
+      if (this.cur) this.fill(this.cur);
+    }
   }
 
   /** 一段「標題 + 文字」（文字最多 lines 行） */
@@ -102,19 +131,20 @@ export class InfoCard {
   }
 
   fill(e: Occupant): void {
+    this.cur = e;
     if (e.assistant && e.owner) return this.fillHelper(e.owner, e.assistant);
     const color = projectColor(roomKey(e));
-    const body = el('div', 'card-body');
+    const body: HTMLElement[] = [];
     const title = nameplate(e) || '（無標題）';
-    body.append(el('div', 'folder', e.folder));
+    body.push(el('div', 'folder', e.folder));
 
     // 目前在做什麼；等你批准時整塊變紅
-    if (e.activity) body.append(this.activity(e.activity, e.status === 'waiting'));
+    if (e.activity) body.push(this.activity(e.activity, e.status === 'waiting'));
 
     // prompt：第一個只在和最近的不同時才顯示
-    body.append(this.section('最近的 PROMPT', oneLine(e.lastPrompt) || '（無）', false, 3));
+    body.push(this.section('最近的 PROMPT', oneLine(e.lastPrompt) || '（無）', false, 3));
     if (e.firstPrompt && oneLine(e.firstPrompt) !== oneLine(e.lastPrompt)) {
-      body.append(this.section('第一個 PROMPT', oneLine(e.firstPrompt), true, 1));
+      body.push(this.section('第一個 PROMPT', oneLine(e.firstPrompt), true, 1));
     }
 
     // 助理：工作中排前，最多 4 位，其餘併成一行
@@ -145,43 +175,20 @@ export class InfoCard {
       if (working) title.append(el('span', 'count-working', `${working} 位工作中`));
       const help = el('div');
       help.append(title, list);
-      body.append(help);
+      body.push(help);
     }
 
     // 頁尾：到班時間 / 錯誤，右邊「請他下班」
-    const left = el('span', `card-foot-text${this.err ? ' error' : ''}`, this.err || `到班 ${formatTime(e.arrivedAt)}`);
-    const btn = el('button', 'dismiss', '請他下班');
-    btn.onclick = async () => {
-      const id = this.id;
-      if (!id) return;
-      try {
-        const r = await fetch(`/employees/${encodeURIComponent(id)}/dismiss`, { method: 'POST' });
-        if (!r.ok) throw new Error(String(r.status));
-        this.hide();
-      } catch {
-        this.err = '操作失敗，請稍後再試';
-        const cur = this.id === id ? e : null;
-        if (cur) this.fill(cur);
-      }
-    };
-    const foot = el('div', 'card-foot');
-    foot.append(left, btn);
-    body.append(foot);
-
-    this.frame(color, e.sessionId, STATUS[e.status], title, body);
+    this.frame(color, e.sessionId, STATUS[e.status], title, body, { text: this.err || `到班 ${formatTime(e.arrivedAt)}`, error: !!this.err, button: true });
   }
 
   /** 助理：描述、目前動作、類型、主人的標題、開始時間。在座位上一定是工作中，所以不貼狀態標籤，也不能請他下班 */
   private fillHelper(owner: Employee, a: Assistant): void {
-    const body = el('div', 'card-body');
-    body.append(el('div', 'folder', owner.folder));
-    if (a.activity) body.append(this.activity(a.activity, false));
-    if (a.kind) body.append(this.section('類型', a.kind, false, 1));
-    body.append(this.section('主人', nameplate(owner) || '（無標題）', false, 2));
-    const foot = el('div', 'card-foot');
-    foot.append(el('span', 'card-foot-text', `開始 ${formatTime(a.startedAt)}`));
-    body.append(foot);
-    this.frame(projectColor(roomKey(owner)), a.id, null, oneLine(a.description) || '（無描述）', body);
+    const body: HTMLElement[] = [el('div', 'folder', owner.folder)];
+    if (a.activity) body.push(this.activity(a.activity, false));
+    if (a.kind) body.push(this.section('類型', a.kind, false, 1));
+    body.push(this.section('主人', nameplate(owner) || '（無標題）', false, 2));
+    this.frame(projectColor(roomKey(owner)), a.id, null, oneLine(a.description) || '（無描述）', body, { text: `開始 ${formatTime(a.startedAt)}`, error: false, button: false });
   }
 
   scheduleHide(): void {
@@ -194,5 +201,6 @@ export class InfoCard {
     clearTimeout(this.hideTimer);
     this.box.style.display = 'none';
     this.id = null;
+    this.cur = null;
   }
 }

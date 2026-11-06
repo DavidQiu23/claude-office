@@ -43,3 +43,13 @@ test('readAiTitle 已有標題時只讀檔尾：標題在檔尾視窗之外就�
   const p = write('big2.jsonl', rec({ type: 'ai-title', aiTitle: '很早的標題' }) + filler);
   expect(await readAiTitle(p, true)).toBe('');
 });
+
+test('readAiTitle 檔尾視窗剛好從標記開始、那行解析不了：回空字串，不會卡住', async () => {
+  const TAIL = 512 * 1024;
+  const head = '"type":"ai-title","aiTitle":"cut"}\n';
+  const pad = rec({ type: 'user', text: 'x'.repeat(TAIL - head.length - 40) });
+  const tail = head + pad + ' '.repeat(TAIL - head.length - pad.length);
+  expect(Buffer.byteLength(tail)).toBe(TAIL);
+  const p = write('cut.jsonl', rec({ type: 'user' }) + '{' + tail);
+  expect(await readAiTitle(p, true)).toBe('');
+}, 2000);

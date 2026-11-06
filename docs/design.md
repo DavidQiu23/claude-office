@@ -50,14 +50,14 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
 - **等你處理以 `PermissionRequest` 為準，不是 `PreToolUse`**：`PreToolUse` 在權限判斷之前就會觸發，`Notification` 又要晚約 6 秒才到。
 - **只有三種狀態，沒有「閒置」**：`idle` 在畫面上顯示成「輪到你」，意思是 Claude 做完這一輪，等你下一個指示。它會一直亮著，直到你送出 prompt，不會隨時間退回安靜狀態。紅色只給等你處理，輪到你用比較安靜的琥珀色，而且不脈動。
 - **subagent 內部的事件（帶 `agent_id`）不改主人的 `activity`**，也不清助理，只更新那位助理自己的 `activity`。主 session 已經 Stop 的話，這類事件也不會把狀態改回工作中。助理的動作不看 `sentAt`：平行助理的事件常常交錯，別人的事件比較新不代表這位的動作過期。
-- **背景助理（`run_in_background`）**：`PostToolUse` 和 `Stop` 都不算它完成，要等 `SubagentStop`。沒指定時預設就是背景（`async_launched`），前景要明確傳 `run_in_background: false`。
+- **背景助理（`run_in_background`）**：`PostToolUse` 和 `Stop` 都不算它完成，要等 `SubagentStop`。沒指定時預設就是背景（`async_launched`），前景要明確傳 `run_in_background: false`。`async_launched` 沒帶 `agentId` 就對不上 `SubagentStop`，與其讓它一直坐在座位上，直接當成完成。
 - **系統通知不算 prompt**：助理完成（`<task-notification>`）、session 之間傳訊（`<agent-message>` 等）也走 `UserPromptSubmit`，hook 沒有欄位能分辨，只能比對開頭的標籤（`describe.ts` 的 `isSystemPrompt`，只認列出來的標籤，使用者貼的 HTML 不算）。它不是你下的指示，也可能發生在回合中間，所以不改 prompt、不清 `activity`、不結束前景助理；只把輪到你改成工作中，等你處理維持不變。
 - **助理的目前動作只看 `PreToolUse`，不顯示「等你批准」**：實測 auto mode 放行的指令不會觸發 `PermissionRequest`；headless 下它照樣觸發，但沒有人被問，馬上就拒絕（官方文件：不能詢問時 hook 仍會跑）。文件說手動模式才會真的問，而 hook 分不出這兩種，所以助理卡片和主人的紅條都不寫助理在等什麼。助理的工具也沒有 `AskUserQuestion`，不會有「提問中」。
 - **內部事件怎麼對回助理**：助理的 `id` 是 `tool_use_id`，內部事件只有 `agent_id`，`agent_type` 在平行、同類型時全部一樣，不能用來分辨。背景助理的 `async_launched` 同時帶兩者；前景助理的 `agentId` 要到做完的 `PostToolUse` 才有，所以由伺服器（不是 `src/state`）在第一個內部事件時讀 `<transcript 去掉 .jsonl>/subagents/agent-<agent_id>.meta.json` 的 `toolUseId`，用 `bindAgent` 補上。實測第一個內部工具事件時這個檔已經在了，`SubagentStart` 時還沒有。這不是公開格式，讀不到只會少顯示前景助理的動作。前景助理配對到 `agentId` 後，`SubagentStop` 仍不算完成，不然緊接的 `PostToolUse` 會把剛完成的清掉，主人的資訊卡就看不到了。
 - **事件先後以 hook 附上的 `sentAt` 判斷**：比較舊的事件不改狀態，但仍然可以用來補登記和配對助理。
 - **幽靈員工**：強制結束 session 時收不到 `SessionEnd`，所以要有「請他下班」和 12 小時逾時。被請下班的 session 如果還有事件進來，會重新登場。
 - **Claude Desktop 的員工只在 session 真的結束時下班**：Desktop 在 rewind 和記憶體吃緊暫停閒置 session 時都會停掉 CLI，`SessionEnd` 的 `reason` 和真的下班一樣是 `other`；rewind 還會 fork 出新的 `session_id`，transcript 沒有 `continued-in`，`SessionStart` 的 `source` 也靠不住。所以改認 Desktop 自己的 id：hook 把環境變數 `CLAUDE_CODE_HOST_SESSION_ID`（`local_…`）當成 `host_session_id` 送出，有這個欄位的員工（`hostSessionId`）收到 `SessionEnd` 只變成輪到你、清掉助理。真的結束靠 `src/server/desktop.ts` 讀 Desktop 的紀錄（`claude-code-sessions/<帳號>/<組織>/local_<id>.json` 的 `isArchived`，刪除後留 `deleted_<id>`），60 秒巡檢一次；紀錄說還開著就不套用 12 小時逾時。標題也來自這份紀錄，因為 Desktop 的 transcript 只有 `custom-title`、沒有 `ai-title`。這不是公開格式，讀不到一律回 `null`，當成判斷不了而不是結束，退回 12 小時逾時。
-- **環境變數會繼承，所以新 `session_id` 不能直接併給主人**：Desktop session 裡開的 `claude -p` 也帶同一個 `local_` id。fork 一定在舊 CLI 停掉之後才出現，所以新 id 要符合「主人的 CLI 已送過 `SessionEnd`、且這個 id 第一次出現」或「Desktop 紀錄的 `cliSessionId`／`priorCliSessionIds` 列著它」才算同一位（沿用 `aliases`）；否則拿掉 `host_session_id`，當成一般 CLI 的員工。紀錄比 fork 的第一個事件晚幾秒才更新，所以 `SessionEnd` 沒送到時會先多一個人，下一個事件就併回來。
+- **環境變數會繼承，所以新 `session_id` 不能直接併給主人**：Desktop session 裡開的 `claude -p` 也帶同一個 `local_` id。fork 一定在舊 CLI 停掉之後才出現，所以新 id 要符合「主人的 CLI 已送過 `SessionEnd`、且這個 id 第一次出現」或「Desktop 紀錄的 `cliSessionId`／`priorCliSessionIds` 列著它」才算同一位（沿用 `aliases`）；否則拿掉 `host_session_id`，當成一般 CLI 的員工。紀錄比 fork 的第一個事件晚幾秒才更新，所以 `SessionEnd` 沒送到時會先多一個人，之後的事件再併回來。子行程的每個事件都會走到這裡，查一次紀錄要同步掃好幾層資料夾，所以同一個 id 隔 `DESKTOP_RECHECK_MS`（5 秒）才再查一次，併回來最多慢這麼久。
 - **純 CLI 不走這些路徑**：終端機和 Desktop 的 Terminal 面板都沒有 `CLAUDE_CODE_HOST_SESSION_ID`，事件不帶這個欄位，也不會去讀 Desktop 的紀錄。
 
 ## 畫面的決定
@@ -69,6 +69,7 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
 - **斷線要看得出來**：畫面停在舊狀態又看不出來，比空白更危險，所以 `sync.ts` 回報連線狀態，斷線時紅條換成斷線說明（掛在同一個位置，不佔版面）、狀態列外框變墨色虛線、大家用 `animation-play-state` 停在當下的動作。用墨色不用紅或琥珀，這不是 session 的狀態。紅條拿掉是因為它是畫面上最響的東西，不該替舊資料喊話；名牌和人數維持斷線當下的樣子。
 - **狀態列的外框只給紅色，也沒有比例條**：輪到你不會退，外框和比例條的琥珀可能整天亮著，常亮就不是訊號。輪到你照樣亮在名牌、人物、電梯燈、圖例和分頁標題，狀態規則不變。比例條和圖例的人數重複，拿掉琥珀那段之後比例也不對了，所以整條拿掉。
 - **狀態列內容沒變就不重寫**：每個事件都重寫的話，鍵盤焦點會掉、螢幕閱讀器會重念，按到一半的按鈕也會消失。紅條內容變了才重寫，並把焦點還給同一個人的按鈕。
+- **資訊卡的「請他下班」一直是同一顆按鈕**：卡片開著時，那個人的每個事件都會重畫卡片。按鈕跟著換掉的話，按下到放開之間來了事件，這次點擊就沒了。所以內文、頁尾和按鈕是固定的節點，只換裡面的內容，助理的卡片把按鈕藏起來。
 - **鍵盤走得完**：人物可以用 Tab 選到，focus 等同滑鼠移上去；卡片排在 DOM 最後，所以 Enter 明確進到卡片的按鈕，Tab 或 Esc 回到人物。電梯燈加「!」「✓」，紅和琥珀才不是只差顏色。
 - **助理坐自己的桌子**：工作中的助理是坐在主人那層的人，和員工用同一條座位規則（那層號碼最小的空位，`src/state` 的 `freeSeat`），長相由助理 id 決定，名牌是「↳ 類型 · 描述」、用工作中的底色。它只有工作中一種樣子，完成就退場，主人離開時一起退場；資訊卡沒有狀態標籤和「請他下班」。電梯燈、狀態列、分頁標題都不算助理。前端把助理當成座位上的人（`floors.ts` 的 `Occupant`、`helpersOf`，`owner`／`assistant` 欄位指向主人和助理本人），沿用員工的人物、瞬移和退場；助理沒有 `leave` 事件，從座位消失時由 `building.ts` 播退場。以前因為座位分配太複雜改成主人名牌旁的「↳N」，那時要走電梯、走到座位、做完走回電梯；改成瞬移後，加上座位統一在 `src/state` 分配，就沒有那層複雜度了。主人被請下班後又回來，助理不跟著回來（`dismiss` 連助理清單一起刪掉）。
 - **沒有電梯和走路**：人在座位上瞬移登場（直向光痕閃兩下，人從窄變寬、稍微超過再彈回，兩邊的殘影收回本體，約 0.35 秒）；退場時站起來雙指點額 0.3 秒，再閃三下、橫向壓成一條線，留下光痕後消失（共約 0.8 秒）。開頁面和重新連線時大家直接坐好，不播動畫。電梯進出原本是前端最複雜、又沒有測試的部分，所以拿掉，換成好維護。

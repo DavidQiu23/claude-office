@@ -1,5 +1,5 @@
 // node dist/installer/main.js install|uninstall
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +16,10 @@ if (action !== 'install' && action !== 'uninstall') fail('用法：node dist/ins
 const file = join(homedir(), '.claude', 'settings.json');
 let settings: any = {};
 const exists = existsSync(file);
+if (action === 'uninstall' && !exists) {
+  console.log(`沒有 ${file}，不需要移除`);
+  process.exit(0);
+}
 if (exists) {
   try {
     const text = readFileSync(file, 'utf8').replace(/^﻿/, '');
@@ -35,5 +39,9 @@ const next = action === 'install' ? addHooks(settings, hookCommand(script)) : re
 mkdirSync(dirname(file), { recursive: true });
 const bak = `${file}.claude-office.bak`;
 if (exists && !existsSync(bak)) copyFileSync(file, bak); // 只保留最初的原始檔
-writeFileSync(file, JSON.stringify(next, null, 2) + '\n');
+// 先寫暫存檔再換名：寫到一半中斷時，原本的 settings.json 還是完整的。換名對象是連結指向的真正檔案，連結本身留著
+const target = exists ? realpathSync(file) : file;
+const tmp = `${target}.claude-office.tmp`;
+writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n');
+renameSync(tmp, target);
 console.log(action === 'install' ? `已安裝 hooks：${file}` : `已移除 hooks：${file}`);
