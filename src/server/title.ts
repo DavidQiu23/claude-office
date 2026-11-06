@@ -15,7 +15,7 @@ const lastTitle = (text: string): string => {
       const rec = JSON.parse(text.slice(start, end < 0 ? undefined : end));
       if (rec.type === 'ai-title' && typeof rec.aiTitle === 'string') return rec.aiTitle;
     } catch {} // 檔尾切到一半的行
-    i = text.lastIndexOf(MARK, i - 1);
+    i = i > 0 ? text.lastIndexOf(MARK, i - 1) : -1; // lastIndexOf 的負起點會當成 0，i 為 0 時要自己停
   }
   return '';
 };

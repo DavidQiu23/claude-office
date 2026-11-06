@@ -70,7 +70,7 @@ npm run install-hooks
 - 第一次修改前會備份成 `settings.json.claude-office.bak`，之後不再覆蓋，永遠是最初的原始檔。
 - 送事件最多等 300 毫秒，伺服器沒開時靜默結束，不影響 Claude Code。
 
-移除時只拿掉帶 `--tag=claude-office` 的項目，你的其他 hook 保留：
+移除時只拿掉帶 `--tag=claude-office` 的項目，你的其他 hook 保留；`settings.json` 不存在時什麼都不做。安裝和移除都先寫暫存檔再換名，中途中斷也不會留下寫一半的設定檔；`settings.json` 是連結時，改的是它指向的檔案：
 
 ```bash
 npm run uninstall-hooks
@@ -197,7 +197,7 @@ npm run build
 
 - 強制結束 Claude Code 時收不到 Stop／SessionEnd，員工會停在原狀態，直到下一個事件、你按「請他下班」或 12 小時後離開。按 Esc 中斷或直接關終端機是否一樣，還沒確認。
 - Claude Desktop 的 session 是否結束，是讀 Desktop 自己的 session 紀錄判斷的，這不是公開格式，目前只在 Windows 商店版驗證過。讀不到時退回 12 小時沒有事件就下班。
-- 背景執行（`run_in_background`）的助理要等 SubagentStop 才算完成。
+- 背景執行（`run_in_background`）的助理要等 SubagentStop 才算完成。`async_launched` 沒帶 `agentId` 時對不上 SubagentStop，直接當成完成。
 - Notification 權限提示、AskUserQuestion、MCP Elicitation 依官方 hooks 文件實作，還沒在互動式 session 實測。
 
 ## 開發

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { afterAll, afterEach, beforeEach, expect, test } from 'vitest';
-import { createApp } from '../src/server/app.js';
+import { createApp, DESKTOP_RECHECK_MS } from '../src/server/app.js';
 import { readDesktopSession, type DesktopSession } from '../src/server/desktop.js';
 import { IDLE_TIMEOUT_MS } from '../src/state/maintenance.js';
 
@@ -46,11 +46,13 @@ let app: ReturnType<typeof createApp>;
 let base: string;
 let clock = 1000;
 let desktop: Record<string, DesktopSession | null> = {};
+let desktopReads = 0;
 
 beforeEach(async () => {
   clock = 1000;
   desktop = {};
-  app = createApp({ staticDir: tmp, now: () => clock, desktopSession: (id) => desktop[id] ?? null });
+  desktopReads = 0;
+  app = createApp({ staticDir: tmp, now: () => clock, desktopSession: (id) => (desktopReads++, desktop[id] ?? null) });
   await new Promise<void>((r) => app.server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
 });
@@ -102,10 +104,21 @@ test('Desktop：沒收到 SessionEnd 時，新 id 先分開，等紀錄列出它
   await send('SessionStart', 'b', fromDesktop);
   expect(await ids()).toEqual(['a', 'b']);
   desktop[HOST] = alive(['b', 'a']);
+  clock += DESKTOP_RECHECK_MS;
   await send('UserPromptSubmit', 'b', { ...fromDesktop, prompt: '第二句' });
   const list = await employees();
   expect(list.map((e) => e.sessionId)).toEqual(['a']);
   expect([list[0].firstPrompt, list[0].lastPrompt]).toEqual(['第一句', '第二句']);
+});
+test('Desktop 裡開的 CLI 子行程：紀錄每隔一段時間才查一次，不是每個事件都查', async () => {
+  await send('UserPromptSubmit', 'a', { ...fromDesktop, prompt: '主人' });
+  desktop[HOST] = alive(['a']);
+  for (let i = 0; i < 5; i++) await send('PreToolUse', 'child', { ...fromDesktop, tool_name: 'Bash' });
+  expect(desktopReads).toBe(1);
+  clock += DESKTOP_RECHECK_MS;
+  await send('PreToolUse', 'child', { ...fromDesktop, tool_name: 'Bash' });
+  expect(desktopReads).toBe(2);
+  expect(await ids()).toEqual(['a', 'child']);
 });
 test('Desktop 裡開的 CLI 子行程：是獨立的員工，下班不影響主人', async () => {
   await send('UserPromptSubmit', 'a', { ...fromDesktop, prompt: '主人' });

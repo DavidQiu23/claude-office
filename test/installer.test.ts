@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
@@ -134,4 +134,33 @@ test('空檔或只有空白的 settings.json 視為 {}', () => {
     expect(r.status).toBe(0);
     expect(countOurs(JSON.parse(readFileSync(file, 'utf8')), 'Stop')).toBe(1);
   }
+});
+
+test('settings.json 不存在時 uninstall 不建立檔案', () => {
+  const { r, file } = main('uninstall');
+  expect(r.status).toBe(0);
+  expect(existsSync(file)).toBe(false);
+});
+
+test('安裝後不留暫存檔', () => {
+  const { file } = main('install', '{"theme":"dark"}');
+  expect(readdirSync(join(file, '..')).filter((n) => n.endsWith('.tmp'))).toEqual([]);
+});
+
+test('settings.json 是連結時改的是連結指向的檔案，連結留著', () => {
+  const { file } = main('install', '{}');
+  const real = join(file, '..', 'real.json');
+  writeFileSync(real, '{"theme":"dark"}');
+  rmSync(file);
+  rmSync(file + '.claude-office.bak');
+  try {
+    symlinkSync(real, file);
+  } catch {
+    return; // Windows 沒有建立連結的權限時略過
+  }
+  const home = join(file, '..', '..');
+  const r = spawnSync(process.execPath, [resolve('dist/installer/main.js'), 'install'], { env: { ...process.env, USERPROFILE: home, HOME: home } });
+  expect(r.status).toBe(0);
+  expect(readFileSync(file, 'utf8')).toBe(readFileSync(real, 'utf8'));
+  expect(countOurs(JSON.parse(readFileSync(real, 'utf8')), 'Stop')).toBe(1);
 });

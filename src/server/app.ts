@@ -4,7 +4,7 @@ import { extname, join, resolve, sep } from 'node:path';
 import { CONFIG_FILE } from '../config.js';
 import { bindAgent, dismiss, setTitle, sweep } from '../state/maintenance.js';
 import { reduce } from '../state/reduce.js';
-import { readDesktopSession, type DesktopSession } from './desktop.js';
+import { isHostSessionId, readDesktopSession, type DesktopSession } from './desktop.js';
 import { readAiTitle, readContinuedIn, readSubagentToolUseId } from './title.js';
 import { emptyState, type Change, type HookEvent } from '../state/types.js';
 
@@ -13,6 +13,8 @@ export const portInUseMessage = (port: number, file: string = CONFIG_FILE()): st
   `port ${port} 已被占用，請在 ${file} 修改 port`;
 
 const MAX_BODY = 1024 * 1024;
+/** 同一個新 session_id 多久才再查一次 Desktop 的紀錄：查一次要掃好幾層資料夾，不能每個事件都同步做 */
+export const DESKTOP_RECHECK_MS = 5_000;
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -41,6 +43,14 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
 
   // 接續的新 session_id → 原本那位員工的 id；同一段對話換了 id 仍是同一位員工（外觀、座位都不變）
   const aliases = new Map<string, string>();
+  const checkedAt = new Map<string, number>(); // 新 session_id → 上次查 Desktop 紀錄的時間（子行程每個事件都會走到這裡）
+  const scanned = new Set<string>(); // 整份 transcript 找過標題的員工；之後的標題一定寫在檔尾，只讀檔尾
+  const recordLists = (host: string, id: string): boolean => {
+    const last = checkedAt.get(id);
+    if (last !== undefined && now() - last < DESKTOP_RECHECK_MS) return false;
+    checkedAt.set(id, now());
+    return !!desktopSession(host)?.cliIds.includes(id);
+  };
   const desktopOwner = (host: string) => Object.values(state.employees).find((e) => e.hostSessionId === host);
   const continuedFrom = (id: string, cwd: unknown, host: string | undefined): string => {
     const known = aliases.get(id);
@@ -50,8 +60,9 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
       // 帶同一個 Desktop id 的新 session_id 可能是 rewind fork 出來的，也可能是 session 裡開的 CLI 子行程（環境變數會繼承）。
       // fork 一定在舊 CLI 停掉之後才出現；SessionEnd 沒送到時，等 Desktop 的紀錄列出它再併回來。
       const seen = Object.hasOwn(state.employees, id);
-      if ((owner.cliEnded && !seen) || desktopSession(host!)?.cliIds.includes(id)) {
+      if ((owner.cliEnded && !seen) || recordLists(host!, id)) {
         if (seen) apply(dismiss(state, id));
+        checkedAt.delete(id);
         aliases.set(id, owner.sessionId);
         return owner.sessionId;
       }
@@ -136,7 +147,7 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
       // 型別不符的欄位視為不存在，避免 reduce 內部丟錯
       for (const k of ['cwd', 'transcript_path', 'prompt', 'tool_name', 'tool_use_id', 'notification_type', 'message', 'agent_id', 'host_session_id'])
         if (typeof ev[k] !== 'string') delete ev[k];
-      if (!/^local_[0-9a-zA-Z-]+$/.test(ev.host_session_id ?? '')) delete ev.host_session_id;
+      if (!isHostSessionId(ev.host_session_id ?? '')) delete ev.host_session_id;
       if (typeof ev.hook_event_name !== 'string') ev.hook_event_name = '';
       if (typeof ev.tool_input !== 'object' || ev.tool_input === null || Array.isArray(ev.tool_input)) delete ev.tool_input;
       if (!Number.isFinite(ev.sentAt)) ev.sentAt = now();
@@ -150,10 +161,13 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
       // 標題在第一輪回應後才會寫進 transcript；回合結束時背景讀取，不拖慢 hook 回應
       const emp = ev.hook_event_name === 'Stop' && !ev.agent_id ? r.state.employees[ev.session_id] : undefined;
       if (emp?.hostSessionId) refreshDesktopTitle(emp.sessionId, emp.hostSessionId);
-      else if (emp?.transcriptPath)
-        void readAiTitle(emp.transcriptPath, !!emp.title).then((t) => {
+      else if (emp?.transcriptPath) {
+        const tailOnly = !!emp.title || scanned.has(emp.sessionId);
+        scanned.add(emp.sessionId);
+        void readAiTitle(emp.transcriptPath, tailOnly).then((t) => {
           if (t) apply(setTitle(state, emp.sessionId, t));
         });
+      }
       return void res.writeHead(204).end();
     }
     const employees = () => Object.values(state.employees).sort((a, b) => a.seat - b.seat);
@@ -205,6 +219,11 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
         if (record.title) apply(setTitle(state, e.sessionId, record.title));
       }
       apply(sweep(state, now(), alive));
+      // 只留還在的員工相關的紀錄，長時間開著不會越積越多
+      const here = (id: string) => Object.hasOwn(state.employees, id);
+      for (const [id, to] of aliases) if (!here(to)) aliases.delete(id);
+      for (const [id, at] of checkedAt) if (!here(id) && now() - at >= DESKTOP_RECHECK_MS) checkedAt.delete(id);
+      for (const id of scanned) if (!here(id)) scanned.delete(id);
     },
     clientCount: () => clients.size,
   };
