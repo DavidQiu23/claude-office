@@ -49,12 +49,15 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .side-r { right: 0; transform: scaleX(-1); --side-wall: var(--side-wall-r); }
 /* 樓板：上下各一條墨線 */
 .slab { left: 0; right: 0; top: 192px; height: 8px; box-sizing: border-box; border: solid var(--ink); border-width: 1.6px 0; background: var(--slab); }
-/* 招牌：不透明的專案色（floor.ts 設）、共用的介面樣式（theme.css 的 --ui-*）、白色粗體，放不下用「…」；left 與 max-width（到第一扇窗之前）由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定 */
+/* 招牌：不透明的專案色（floor.ts 設）、共用的介面樣式（theme.css 的 --ui-*）、白色粗體，放不下用「…」；left 與 max-width 由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定 */
 .sign { z-index: 3; top: 14px; height: 26px; padding: 0 12px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px; box-sizing: border-box;
   color: #fff; font: bold 15px/22px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chairs, .people, .desks, .windows { inset: 0; pointer-events: none; }
-/* 右端家具區：離樓層右緣 24（GEO.sideGap）、寬 200（GEO.furnitureW） */
-.furniture { top: 0; right: 24px; width: 200px; height: 200px; pointer-events: none; }
+/* 家具區：夾在桌子中間，left 和 width 由 floor.ts 依格線（floors.ts 的 seatGrid）設定 */
+.bays { inset: 0; pointer-events: none; }
+.furniture { position: absolute; top: 0; height: 200px; }
+/* 空桌的椅子調淡：一整排亮藍椅子比坐著的人還搶眼。人來了就變回原本的藍 */
+.chairs > .obj.vacant { filter: saturate(.3) brightness(1.1); }
 .obj { position: absolute; display: block; overflow: visible; }
 /* 桌子、家具、屋頂往右下的硬投影（設計稿）：離開牆面、有深度 */
 .desk > .obj, .furniture > .obj { filter: var(--drop); }
@@ -95,7 +98,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .windows .win { display: contents; }
 /* 窗外夜空：蓋在圓窗玻璃上（圓心在樓層 y 40、半徑 21），設計稿的夜空漸層 */
 .windows .glow { top: 19px; width: 42px; height: 42px; margin-left: -21px; border-radius: 50%; background: linear-gradient(#0a0f33, #2e2f6e); }
-/* 家具的燈：立燈燈罩中心在家具區 y 72，販賣機整台微微發光 */
+/* 家具的燈：立燈燈罩中心在樓層 y 72，販賣機整台微微發光 */
 .furniture .glow-floorLamp { top: 6px; width: 132px; height: 132px; margin-left: -66px; background: radial-gradient(closest-side, rgb(255 243 196 / .85), rgb(255 240 184 / .4) 35%, transparent); }
 .furniture .glow-vending { top: 44px; width: 92px; height: 112px; margin-left: -46px; background: radial-gradient(closest-side, rgb(255 243 196 / .35), transparent); }
 :root[data-time="night"] :is(.windows, .furniture) .glow { display: block; }

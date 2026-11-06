@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { buildingPlan, floorAlert, floorPlan, personLabel, plateText, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
+import { buildingPlan, buildingWidth, floorAlert, floorPlan, personLabel, plateText, seatGrid, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
+import { furnitureSet, layoutSet, SETS, wallPlan } from '../web/src/furniture.js';
 import type { Floor } from '../web/src/floors.js';
 import { PROJECT_COLORS } from '../web/src/view.js';
 import type { Employee } from '../src/state/types.js';
@@ -150,4 +151,64 @@ test('withLeaving：新人坐上正在離開的人的座位時新人優先；同
 test('vacate：沒有人在離開時原樣回傳', () => {
   const plan = floorPlan([emp('a')], none);
   expect(vacate(plan, new Set())).toBe(plan);
+});
+
+const round = (xs: number[]) => xs.map((x) => Math.round(x * 10) / 10);
+
+test('seatGrid：900 寬（樓層 828）是 3 桌、1 個家具區、2 桌', () => {
+  const g = seatGrid(828);
+  expect(g.seats).toEqual([84, 204, 324, 624, 744]);
+  expect(g.bays).toEqual([{ x: 384, w: 180 }]);
+  expect(g.groups.map((x) => x.length)).toEqual([3, 2]);
+});
+
+test('seatGrid：1920 寬（樓層 1848）是 10 桌、3 個家具區，餘數平均給家具區', () => {
+  const g = seatGrid(1848);
+  expect(g.seats.length).toBe(10);
+  expect(g.bays).toEqual([{ x: 384, w: 200 }, { x: 944, w: 200 }, { x: 1504, w: 200 }]);
+  expect(g.groups.map((x) => x.length)).toEqual([3, 3, 3, 1]);
+});
+
+test('seatGrid：桌子和家具區不重疊，最後都在樓層裡', () => {
+  for (let w = 0; w <= 4000; w += 37) {
+    const g = seatGrid(w);
+    const parts = [...g.seats.map((c) => [c - 60, c + 60]), ...g.bays.map((b) => [b.x, b.x + b.w])].sort((a, b) => a[0]! - b[0]!);
+    parts.forEach((p, i) => { if (i) expect(p[0]! + 1e-6).toBeGreaterThanOrEqual(parts[i - 1]![1]!); });
+    if (g.seats.length) expect(parts.at(-1)![1]! - 1e-6).toBeLessThanOrEqual(w - 24);
+  }
+});
+
+test('buildingWidth：任何桌數、任何可用寬，格子都放得下；放得下時就是可用寬', () => {
+  for (let desks = 1; desks <= 40; desks++) {
+    for (const avail of [0, 588, 813, 828, 1128, 1848, 2300]) {
+      const w = buildingWidth([floorOf(...Array(desks).fill(null))], avail);
+      expect(w).toBeGreaterThanOrEqual(avail);
+      expect(seatGrid(w).seats.length).toBeGreaterThanOrEqual(desks);
+    }
+  }
+  expect(buildingWidth([floorOf(null, null)], 828)).toBe(828);
+  expect(buildingWidth([floorOf(null, null, null, null)], 813)).toBe(813); // 3 桌、家具區、1 桌放得下，不用加寬
+  // 1128 寬多出第二個家具區、只排得下 6 桌，7 桌要再往右長
+  expect(seatGrid(buildingWidth([floorOf(...Array(7).fill(null))], 1128)).seats.length).toBeGreaterThanOrEqual(7);
+  expect(buildingWidth([], 500)).toBe(500);
+});
+
+test('wallPlan：第一組只在第三張桌子上方開窗，不足三張不開，其他組依桌數', () => {
+  expect(wallPlan({ seats: [], bays: [], groups: [[84, 204, 324], [564, 684]] }).windows).toEqual([324, 684]);
+  expect(wallPlan({ seats: [], bays: [], groups: [[84, 204]] }).windows).toEqual([]);
+  expect(round(wallPlan(seatGrid(1848)).windows)).toEqual([324, 644, 884, 1204, 1444, 1764]);
+});
+
+test('furnitureSet：同一個 key 第一區永遠同一組，後面依 SETS 順序輪', () => {
+  const first = SETS.indexOf(furnitureSet('/x'));
+  expect(furnitureSet('/x', 0)).toBe(furnitureSet('/x'));
+  expect(furnitureSet('/x', 1)).toBe(SETS[(first + 1) % SETS.length]);
+});
+
+test('layoutSet：整組在家具區裡置中', () => {
+  for (const set of SETS) {
+    const it = layoutSet(set, 180);
+    expect(it[0]!.x).toBeGreaterThan(0);
+    expect(it.at(-1)!.x).toBeLessThan(180);
+  }
 });

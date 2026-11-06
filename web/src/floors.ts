@@ -2,10 +2,36 @@ import type { Assistant, Employee } from '../../src/state/types.js';
 import { nameplate, oneLine, platePrefix, projectColor, roomKey, shortPath } from './view.js';
 
 // ---- 剖面大樓的尺寸（CSS px）----
-export const GEO = { floorH: 200, slab: 8, seatW: 120, furnitureW: 200, groundH: 72, panelW: 40, gutter: 56, rightMargin: 16, sideGap: 24 } as const; // sideGap：桌子、招牌、家具區離樓層左右緣的距離（兩側斜牆寬 16）
+export const GEO = { floorH: 200, slab: 8, seatW: 120, bayMin: 180, groundH: 72, panelW: 40, gutter: 56, rightMargin: 16, sideGap: 24 } as const; // bayMin：最窄的家具區；sideGap：桌子、招牌、家具區離樓層左右緣的距離（兩側斜牆寬 16）
 
-/** 第 i 個座位的中心 x（樓層內座標） */
-export const seatCenter = (i: number): number => GEO.sideGap + i * GEO.seatW + GEO.seatW / 2;
+/** 三張桌子接一個家具區 */
+const DESKS_PER_BAY = 3;
+export interface Bay { x: number; w: number }
+/** 一層樓的格線，樓層內座標：seats 是每個座位的中心 x（第 i 號座位坐第 i 格），groups 是被家具區隔開的每組座位，bays 是每個家具區 */
+export interface SeatGrid { seats: number[]; groups: number[][]; bays: Bay[] }
+
+/** 樓層寬 width 排得下幾張桌子、幾個家具區；u 是扣掉兩側留白的可用寬 */
+function gridCounts(width: number): { u: number; nBays: number; nDesks: number } {
+  const u = Math.max(0, width - 2 * GEO.sideGap);
+  const nBays = Math.max(1, Math.floor(u / (DESKS_PER_BAY * GEO.seatW + GEO.bayMin)));
+  return { u, nBays, nDesks: Math.max(0, Math.floor((u - nBays * GEO.bayMin) / GEO.seatW)) };
+}
+
+/** 只跟樓層寬有關，所以各層相同：從左邊開始，三張桌子接一個家具區，餘數平均給家具區。桌子不會把家具推走 */
+export function seatGrid(width: number): SeatGrid {
+  const { u, nBays, nDesks } = gridCounts(width);
+  const bayW = (u - nDesks * GEO.seatW) / nBays;
+  const grid: SeatGrid = { seats: [], groups: [], bays: [] };
+  let x = GEO.sideGap;
+  for (let left = nDesks, b = nBays; left > 0 || b > 0; b--) {
+    const n = Math.min(DESKS_PER_BAY, left), group = Array.from({ length: n }, (_, i) => x + i * GEO.seatW + GEO.seatW / 2);
+    if (n) { grid.seats.push(...group); grid.groups.push(group); }
+    x += n * GEO.seatW;
+    left -= n;
+    if (b > 0) { grid.bays.push({ x, w: bayW }); x += bayW; }
+  }
+  return grid;
+}
 
 /** 座位上的人：員工，或工作中的助理（assistant 是助理本人、owner 是主人；sessionId 換成助理 id，人物外觀、資訊卡和退場都靠它） */
 export type Occupant = Employee & { owner?: Employee; assistant?: Assistant };
@@ -45,9 +71,14 @@ export function floorAlert(f: Floor): Alert {
   return has('waiting') ? 'waiting' : has('idle') ? 'idle' : null;
 }
 
-/** 全部樓層共用的寬度：至少撐滿可用寬，桌數最多那層放不下就往右長（整棟樓變寬、整頁橫向捲動）；沒有樓層（空大廳）就是可用寬 */
-export const buildingWidth = (plan: Floor[], avail: number): number =>
-  plan.length ? Math.max(avail, Math.max(...plan.map((f) => f.desks)) * GEO.seatW + GEO.furnitureW + 2 * GEO.sideGap) : avail;
+/** 全部樓層共用的寬度：至少撐滿可用寬，格子放不下桌數最多那層就往右長（整棟樓變寬、整頁橫向捲動）；沒有樓層（空大廳）就是可用寬 */
+export function buildingWidth(plan: Floor[], avail: number): number {
+  if (!plan.length) return avail;
+  const desks = Math.max(...plan.map((f) => f.desks));
+  let width = avail;
+  while (gridCounts(width).nDesks < desks) width++; // 一格一格試：多出一個家具區時桌數會少，寬度和桌數不是單調的，算不出公式
+  return width;
+}
 
 /** 主人的工作中助理，坐在主人那層自己的座位（座位由 src/state 分配）；完成的不在座位上 */
 export const helpersOf = (e: Employee): Occupant[] =>

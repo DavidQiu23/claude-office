@@ -4,7 +4,7 @@ import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
 import { div } from './dom.js';
 import { FloorView, lobby } from './floor.js';
-import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, personLabel, seatCenter, type Floor, type Occupant } from './floors.js';
+import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, personLabel, seatGrid, type Floor, type Occupant, type SeatGrid } from './floors.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
 
@@ -94,14 +94,15 @@ export class Building {
         if (r.bottom > 0 && (!anchor || r.top < anchor.top)) anchor = { el: v.el, top: r.top };
       }
     }
-    this.layoutFloors(plan);
+    const grid = this.layoutFloors(plan);
     if (stick) window.scrollTo({ top: root.scrollHeight }); // 沒給 left：不動橫向捲動位置
     else if (anchor?.el.isConnected) window.scrollBy(0, anchor.el.getBoundingClientRect().top - anchor.top);
-    this.placePeople(plan, animate);
+    this.placePeople(plan, grid, animate);
     this.panel.update(plan.map((f) => ({ level: f.level, title: f.title, alert: floorAlert(f), el: this.floors.get(f.key)!.el })));
   }
 
-  private layoutFloors(plan: Floor[]): void {
+  /** 回傳這次的格線（各層相同）：人要照它坐 */
+  private layoutFloors(plan: Floor[]): SeatGrid {
     const keep = new Set(plan.map((f) => f.key));
     for (const [k, v] of this.floors) if (!keep.has(k)) { v.destroy(); this.floors.delete(k); }
     // 各層同寬；放不下時整棟樓變寬（body 撐開、整頁橫向捲動）
@@ -127,9 +128,10 @@ export class Building {
     }
     if (!plan.length) this.stack.append(this.empty);
     else this.empty.remove();
+    return seatGrid(width);
   }
 
-  private placePeople(plan: Floor[], animate: boolean): void {
+  private placePeople(plan: Floor[], grid: SeatGrid, animate: boolean): void {
     const seen = new Set<string>();
     for (const f of plan) {
       const v = this.floors.get(f.key)!;
@@ -154,7 +156,7 @@ export class Building {
           v.people.append(rec.p.el);
           rec.floor = f.key;
         }
-        rec.p.placeAt(seatCenter(s.index));
+        rec.p.placeAt(grid.seats[s.index]!);
         // 只在這個人的資料變了才重畫卡片
         if (this.card.id === id && before !== e) this.card.fill(e);
         rec.emp = e;

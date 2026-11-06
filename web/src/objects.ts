@@ -1,4 +1,4 @@
-// 圓滾滾機械風物件：桌子、椅子、圓窗、右端家具、房間的兩側斜牆、木地板的透視板縫。純函式產生 SVG 字串（不碰 DOM），defsSvg() 放進頁面共用的隱藏 <svg>，再用 <use href="#id"> 擺上去。
+// 圓滾滾機械風物件：桌子、椅子、圓窗、家具、房間的兩側斜牆、木地板的透視板縫。純函式產生 SVG 字串（不碰 DOM），defsSvg() 放進頁面共用的隱藏 <svg>，再用 <use href="#id"> 擺上去。
 // 畫風和人物一樣：黑色線稿（mk 粗、mk-thin 細）、一階硬影（右側一塊加深的實色，不用網點）、圓角、鉚釘。
 // 座標：原點 = 底邊中點，x 往右、y 往上是負的；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}`。
 // 顏色規則：一律寫在 style 或 class，不用 fill="色"／stroke="色" 屬性。
@@ -148,7 +148,7 @@ const windowSym = () =>
   + Array.from({ length: 8 }, (_, i) => rivet(+(23 * Math.cos((i * Math.PI) / 4)).toFixed(2), +(WIN_C + 23 * Math.sin((i * Math.PI) / 4)).toFixed(2))).join('');
 
 // ── 窗景：所有窗共用的一張全景，左上角是原點、y 往下。由上往下：天空（沒有雲和星星）、遠處的屋頂、對面的大樓、街道。
-//    左右兩端接得起來（窗多時從頭接）；寬是窗距 240 的整數倍。furniture.ts 的 windowView 決定每扇窗露出哪一塊 ──
+//    左右兩端接得起來（窗多時從頭接）。furniture.ts 的 windowView 決定每扇窗露出哪一塊 ──
 
 export const PANO = { w: 1440, h: 260 } as const;
 const STREET_Y = 244;
@@ -209,7 +209,7 @@ function panorama(): string {
   return sky + g('opacity:.5', far) + night(farLit) + near + street;
 }
 
-// ── 右端家具（尺寸沿用原本的版本，layoutSet 排出來的位置不變）：都是圓角，右側一塊硬影 ──
+// ── 家具：都是圓角，右側一塊硬影 ──
 
 /** 飲水機 28×78：圓水桶、機身、藍白兩個出水口 */
 const waterCooler = () =>
