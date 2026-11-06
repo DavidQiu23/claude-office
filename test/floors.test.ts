@@ -194,9 +194,10 @@ test('buildingWidth：任何桌數、任何可用寬，格子都放得下；放�
 });
 
 test('wallPlan：第一組只在第三張桌子上方開窗，不足三張不開，其他組依桌數', () => {
-  expect(wallPlan({ seats: [], bays: [], groups: [[84, 204, 324], [564, 684]] }).windows).toEqual([324, 684]);
+  expect(wallPlan(seatGrid(828))).toEqual({ windows: [324, 744], arts: [624] });
   expect(wallPlan({ seats: [], bays: [], groups: [[84, 204]] }).windows).toEqual([]);
   expect(round(wallPlan(seatGrid(1848)).windows)).toEqual([324, 644, 884, 1204, 1444, 1764]);
+  expect(round(wallPlan(seatGrid(1848)).arts)).toEqual([764, 1324]);
 });
 
 test('furnitureSet：同一個 key 第一區永遠同一組，後面依 SETS 順序輪', () => {

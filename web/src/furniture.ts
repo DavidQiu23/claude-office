@@ -42,17 +42,17 @@ export const SIGN_X = GEO.sideGap; // 招牌左緣：和第一張桌子一樣離
 /** 招牌最大寬 */
 export const SIGN_MAX_W = 228;
 
-/** 後牆上窗的中心 x，只開在桌子區的牆上，家具區留給高的家具。第一組的左邊是招牌，只在第三張桌子上方開一扇，不足三張就不開；其他組：三張兩扇，兩張或一張一扇 */
-export function wallPlan(grid: SeatGrid): { windows: number[] } {
-  const windows: number[] = [];
+/** 後牆上窗和掛畫的中心 x，只開在桌子區的牆上，家具區留給高的家具。第一組的左邊是招牌，只在第三張桌子上方開一扇窗，不足三張就不開；其他組：三張是窗、掛畫、窗，兩張是掛畫、窗，一張是窗 */
+export function wallPlan(grid: SeatGrid): { windows: number[]; arts: number[] } {
+  const windows: number[] = [], arts: number[] = [];
   grid.groups.forEach((g, i) => {
     const c = (g[0]! + g[g.length - 1]!) / 2;
     if (i === 0) { if (g.length >= 3) windows.push(g[2]!); }
-    else if (g.length >= 3) windows.push(c - GEO.seatW, c + GEO.seatW);
-    else if (g.length === 2) windows.push(c + GEO.seatW / 2);
+    else if (g.length >= 3) { windows.push(c - GEO.seatW, c + GEO.seatW); arts.push(c); }
+    else if (g.length === 2) { arts.push(c - GEO.seatW / 2); windows.push(c + GEO.seatW / 2); }
     else windows.push(c);
   });
-  return { windows };
+  return { windows, arts };
 }
 
 /** 窗景的上下：每高一層往上看 step；topLevel 以上固定在最高的視角 */

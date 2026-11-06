@@ -95,6 +95,34 @@ export function skylineSvg(width: number): string {
   return tag('svg', { class: 'skyline', xmlns: 'http://www.w3.org/2000/svg', width, height: SKYLINE_H, viewBox: `0 0 ${width} ${SKYLINE_H}`, 'aria-hidden': 'true' }, far + near + lit);
 }
 
+// ── 牆上和地上的裝飾：掛畫 76×50（墨線框、白襯紙，只用藍、綠、紫、青瓷）、沙發下的透視地毯、垂吊盆栽。座標從左上角起算 ──
+
+const INK = 'var(--ink)';
+const frame = (inner: string) => `<svg width="76" height="50" viewBox="0 0 76 50" aria-hidden="true">
+  <rect x="1" y="1" width="74" height="48" rx="3" style="fill:#fff;stroke:${INK};stroke-width:1.8"/>
+  <rect x="7" y="7" width="62" height="36" rx="1.5" style="fill:#dff1fb;stroke:${INK};stroke-width:1.3"/>${inner}
+  <rect x="1" y="1" width="74" height="48" rx="3" style="fill:none;stroke:${INK};stroke-width:1.8"/></svg>`;
+/** 三幅掛畫：山和海、圓和方塊、一片大葉子 */
+export const ARTS = [
+  frame(`<path d="M8 36 L24 18 L34 28 L44 14 L68 36 L68 42 L8 42Z" style="fill:#6f9a5e;stroke:${INK};stroke-width:1.2;stroke-linejoin:round"/>
+    <path d="M44 14 L68 36 L58 36 Z" style="fill:#5b8450"/><path d="M8 37 H68 V42 H8Z" style="fill:#4f86b8;stroke:${INK};stroke-width:1.2"/>`),
+  frame(`<circle cx="26" cy="25" r="11" style="fill:#8a74b0;stroke:${INK};stroke-width:1.2"/><rect x="38" y="14" width="22" height="22" rx="2" style="fill:#4a9a94;stroke:${INK};stroke-width:1.2"/>
+    <path d="M49 14 H60 V36 H49Z" style="fill:#3d8580"/><path d="M12 38 H64" style="stroke:${INK};stroke-width:1.2"/>`),
+  frame(`<path d="M18 38 C18 20 40 10 58 12 C56 30 40 40 18 38Z" style="fill:#7fbf7a;stroke:${INK};stroke-width:1.2;stroke-linejoin:round"/>
+    <path d="M18 38 C30 30 42 22 54 15" style="fill:none;stroke:${INK};stroke-width:1.1;stroke-linecap:round"/><path d="M40 24 C46 30 52 24 56 16 C50 28 46 32 40 24Z" style="fill:#67a866"/>`),
+];
+export const RUG_W = 150;
+export const RUG = `<svg width="${RUG_W}" height="30" viewBox="0 0 ${RUG_W} 30" aria-hidden="true">
+  <path d="M14 1 H${RUG_W - 14} L${RUG_W} 29 H0 Z" style="fill:#a9bcd9;stroke:${INK};stroke-width:1.6;stroke-linejoin:round"/>
+  <path d="M${RUG_W * 0.72} 1 H${RUG_W - 14} L${RUG_W} 29 H${RUG_W * 0.76} Z" style="fill:#97acce"/>
+  <path d="M22 6 H${RUG_W - 22} L${RUG_W - 12} 24 H12 Z" style="fill:none;stroke:#e9eef6;stroke-width:1.6;stroke-dasharray:5 4"/>
+  <path d="M14 1 H${RUG_W - 14} L${RUG_W} 29 H0 Z" style="fill:none;stroke:${INK};stroke-width:1.6;stroke-linejoin:round"/></svg>`;
+export const HANGING_PLANT = `<svg width="34" height="58" viewBox="0 0 34 58" aria-hidden="true">
+  <path d="M17 0 V14" style="stroke:${INK};stroke-width:1.3"/><path d="M8 20 L17 14 L26 20" style="fill:none;stroke:${INK};stroke-width:1.1"/>
+  <path d="M6 20 H28 L25 31 H9 Z" style="fill:#e9edf2;stroke:${INK};stroke-width:1.5;stroke-linejoin:round"/><path d="M21 20 H28 L25 31 H19Z" style="fill:#c3cdd8"/>
+  <path d="M9 30 C4 38 6 46 4 54" style="fill:none;stroke:#3f7a4c;stroke-width:1.6;stroke-linecap:round"/><path d="M25 30 C30 38 28 44 30 50" style="fill:none;stroke:#3f7a4c;stroke-width:1.6;stroke-linecap:round"/>
+  ${[[5, 36], [3, 46], [6, 53], [29, 36], [30, 44], [13, 33], [22, 34]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="2.8" style="fill:#7fbf7a;stroke:${INK};stroke-width:1.1"/>`).join('')}</svg>`;
+
 // ── 桌子 112×88：冷白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54（外殼不放大，畫面放大、邊框變窄）；正面 y −42 到 −23 留白給 HTML 名牌 ──
 
 /** 映像管的深藍底（設計稿）：空桌畫一道淡藍弧、工作中疊亮色程式碼（DESK_CODE）、等你處理疊權限對話框；只有輪到你是琥珀色（狀態信號） */

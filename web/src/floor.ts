@@ -1,7 +1,7 @@
 // 一層樓：淺盒房間（天花板、後牆、木地板、兩側斜牆）、樓板、招牌「NF 專案名」、圓窗、一排椅子（在人後面）、正面桌與名牌、夾在桌子中間的家具區。人物由 building.ts 放進 people 圖層
 import { GEO, plateText, seatGrid, type Floor, type Occupant, type SeatGrid } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, wallPlan, windowView } from './furniture.js';
-import { DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, OBJECTS, PANO, ROOM_SIDE, floorSeams, type DeskState, type ObjectId } from './objects.js';
+import { ARTS, DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, HANGING_PLANT, OBJECTS, PANO, ROOM_SIDE, RUG, RUG_W, floorSeams, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
 import { motionDelay } from './view.js';
 
@@ -61,7 +61,15 @@ function shell(): HTMLElement[] {
     d.innerHTML = ROOM_SIDE; // objects.ts 產生、不含使用者資料
     return d;
   };
-  return [div('pillar pillar-l'), div('pillar pillar-r'), div('ceil'), div('wall'), div('boards'), side('side-l'), side('side-r'), div('slab')];
+  return [div('pillar pillar-l'), div('pillar pillar-r'), div('ceil'), div('wall'), div('boards'), div('baseboard'), side('side-l'), side('side-r'), div('slab')];
+}
+
+/** 沙發下的地毯，x 是沙發中心（家具區座標） */
+function rugEl(x: number): HTMLElement {
+  const r = div('rug');
+  r.style.left = `${x - RUG_W / 2}px`;
+  r.innerHTML = RUG; // objects.ts 產生、不含使用者資料
+  return r;
 }
 
 const deskState = (e: Occupant | null): DeskState => (e ? e.status : 'empty');
@@ -79,6 +87,8 @@ export class FloorView {
   private desks: DeskEl[] = [];
   private windows = div('windows');
   private bays = div('bays'); // 每個家具區一個 .furniture
+  private deco = div('deco'); // 掛畫、陽光、垂吊盆栽
+  private lights = div('lights'); // 夜晚天花板燈條往下的柔光（光暈 z-index 2，要留在根的疊層）
   private seams = div('seams'); // 木地板的透視板縫，依樓層寬畫
   private laidOut = ''; // 目前依哪個 roomKey、樓號和寬度排的；窗、板縫、家具只有這個變了才重排
   private f: Floor | null = null;
@@ -86,7 +96,7 @@ export class FloorView {
   constructor(hooks: { hover(e: Occupant, at: DOMRect): void; unhover(): void; enter(): void }) {
     this.sign.style.left = `${SIGN_X}px`;
     this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
-    this.inner.append(...shell(), this.seams, this.windows, this.sign, this.bays, this.chairs, this.people, this.deskRow);
+    this.inner.append(...shell(), this.seams, this.windows, this.sign, this.deco, this.bays, this.chairs, this.people, this.deskRow, this.lights);
     this.el.append(this.inner); // 內容座標與 seatGrid 同一套
     // 滑過人物：依 data-key 找這層目前的佔用者
     const personOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>('.person') : null);
@@ -133,16 +143,19 @@ export class FloorView {
     });
   }
 
-  update(f: Floor, width: number): void {
+  /** top：這是最上面一層（只有它掛垂吊盆栽） */
+  update(f: Floor, width: number, top: boolean): void {
     this.f = f;
     this.el.dataset.key = f.key;
     this.inner.style.width = `${width}px`;
-    const grid = seatGrid(width), layout = `${f.key}\n${f.level}\n${width}`;
+    const grid = seatGrid(width), layout = `${f.key}\n${f.level}\n${width}\n${top}`;
     if (this.laidOut !== layout) {
       this.laidOut = layout;
       this.seams.innerHTML = floorSeams(width); // objects.ts 產生、不含使用者資料
       this.placeWindows(grid, f.level);
       this.placeFurniture(grid, f.key);
+      this.placeDeco(grid, f.level, top);
+      this.placeLamps(grid);
     }
     this.sign.textContent = `${f.level}F ${f.title}`;
     this.sign.title = f.key || f.title;
@@ -195,19 +208,54 @@ export class FloorView {
       box.style.left = `${b.x}px`;
       box.style.width = `${b.w}px`;
       box.append(...layoutSet(furnitureSet(key, k), b.w).flatMap((it) => {
+        const rug = it.id === 'sofa' ? [rugEl(it.x)] : [];
         const n = useObj(it.id, it.x, FURN_Y), anim = FURN_ANIM[it.id];
         n.dataset.id = it.id;
         if (anim) {
           n.insertAdjacentHTML('beforeend', anim); // 葉子、咖啡煙（objects.ts 產生、不含使用者資料）
           n.style.setProperty('--delay', `-${motionDelay(`${key}#${k}#${it.id}`)}s`); // 各層同一件家具不同步
         }
-        if (it.id !== 'floorLamp' && it.id !== 'vending') return [n];
+        if (it.id !== 'floorLamp' && it.id !== 'vending') return [...rug, n];
         const glow = div(`glow glow-${it.id}`); // 夜晚的燈光（building.css）
         glow.style.left = `${it.x}px`;
         return [n, glow];
       }));
       return box;
     }));
+  }
+
+  /** 掛畫三幅輪流，起點依樓號；每扇窗下面一塊陽光（building.css：只有白天）；垂吊盆栽只掛在最上面一層最後一個家具區的角落 */
+  private placeDeco(grid: SeatGrid, level: number, top: boolean): void {
+    const { windows, arts } = wallPlan(grid);
+    const art = arts.map((x, i) => {
+      const a = div('art');
+      a.style.left = `${x}px`;
+      a.innerHTML = ARTS[(((level - 1 - i) % ARTS.length) + ARTS.length) % ARTS.length]!; // objects.ts 產生、不含使用者資料
+      return a;
+    });
+    const sun = windows.map((x) => {
+      const s = div('sun');
+      s.style.left = `${x}px`;
+      return s;
+    });
+    const last = grid.bays[grid.bays.length - 1];
+    const hang = top && last ? [div('hang')] : [];
+    for (const h of hang) {
+      h.style.left = `${last!.x + last!.w - 40}px`;
+      h.innerHTML = HANGING_PLANT; // objects.ts 產生、不含使用者資料
+    }
+    this.deco.replaceChildren(...sun, ...art, ...hang);
+  }
+
+  /** 每個座位上方一條燈條，夜晚往下打一道柔光；家具區上方不掛 */
+  private placeLamps(grid: SeatGrid): void {
+    const at = (cls: string, x: number) => {
+      const n = div(cls);
+      n.style.left = `${x}px`;
+      return n;
+    };
+    this.inner.querySelector('.ceil')!.replaceChildren(...grid.seats.map((x) => at('lamp', x)));
+    this.lights.replaceChildren(...grid.seats.map((x) => at('ceil-glow', x)));
   }
 
   destroy(): void {

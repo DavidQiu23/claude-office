@@ -132,7 +132,7 @@ export class Building {
         });
         this.floors.set(f.key, v);
       }
-      v.update(f, width);
+      v.update(f, width, f.level === plan.length);
       const want: ChildNode | null = prev ? prev.nextSibling : this.stack.firstChild;
       if (v.el !== want) this.stack.insertBefore(v.el, want);
       prev = v.el;
