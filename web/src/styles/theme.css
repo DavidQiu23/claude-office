@@ -79,7 +79,7 @@
 .ink { stroke: var(--ink); stroke-width: 1.6; }
 .mk { stroke: var(--fig-ink); stroke-width: 1.5; }
 .mk-thin { stroke: var(--fig-ink); stroke-width: 1.1; }
-.ol { stroke: var(--fig-ink); stroke-width: 1.6; }
+.ol { stroke: var(--fig-ink); stroke-width: 1.9; }
 
 /* 工作中螢幕上的程式碼（objects.ts 的 DESK_CODE）：一行一行往上捲，捲完一份（objects.ts 的 CODE_SCROLL：6 行 × 行距 4 = 24）接回開頭 */
 .code-scroll { animation: code-scroll 4.8s steps(6) infinite; }

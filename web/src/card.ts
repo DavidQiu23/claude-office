@@ -86,7 +86,7 @@ export class InfoCard {
   /** 卡片外框：頂端專案色帶上寫標題（最多兩行），頭像突出色帶上緣，狀態標籤騎在色帶右上緣（助理沒有）。
    *  parts 放進內文、排在頁尾前面；頁尾左邊是 foot 文字，右邊的按鈕只有員工有 */
   private frame(color: string, key: string, st: Chip | null, title: string, parts: HTMLElement[], foot: { text: string; error: boolean; button: boolean }): void {
-    this.box.style.setProperty('--pc', color); // 專案色：色帶、頭像底、資料夾小方塊都用它
+    this.box.style.setProperty('--pc', color); // 專案色：色帶、頭像的底和外圈、資料夾小牌都用它
     const bar = el('div', 'card-bar');
     bar.append(el('div', 'card-title clamp clamp-2', title));
     for (const n of Array.from(this.box.children)) if (n !== this.body) n.remove();

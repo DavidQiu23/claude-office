@@ -9,6 +9,8 @@ export const FIG = { w: 60, h: 84 } as const;
 type Pt = [number, number];
 
 const n = (v: number) => Math.round(v * 100) / 100;
+/** 裁切用的 clipPath 要全頁不重複：同一個人的桌上人物和頭像也不能撞 */
+let clipSeq = 0;
 const g = (cls: string, children: string) => tag('g', { class: cls }, children);
 
 const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -30,32 +32,25 @@ const inkStroke = (d: string, w: number) => path(d, undefined, pen(w));
 
 // ── 頭髮：大塊稜角髮束，不畫髮絲；每束右側一塊加深的硬影。後髮在身體後面 ──
 
-interface Hair { back: string; front: string }
+/** fringe：前髮的形狀，往右下挪一點就是額頭上的影子；戴毛帽的人是空字串（用帽緣的形狀，也不加亮面：針織帽不會反光） */
+interface Hair { back: string; front: string; fringe: string }
 
 function hair(look: Look): Hair {
   const c = HAIR_COLORS[look.hair]!;
   const lock = (d: string, shade: string) => path(d, 'ol', fill(c)) + path(shade, undefined, fill(hairShade(c)));
+  const styled = (back: string, frontD: string, shadeD: string): Hair => ({ back, front: lock(frontD, shadeD), fringe: frontD });
   switch (look.style) {
     case 1: // 齊瀏海鮑伯頭
-      return {
-        back: lock('M9 19.5 Q8 -0.5 30 -1.5 Q52 -0.5 51 19.5 L51 41.5 L9 41.5Z', 'M42 3.5 Q51 7.5 51 19.5 L51 41.5 L45 41.5Z'),
-        front: lock('M11 27.5 Q9 -0.5 30 -1.5 Q51 -0.5 49 27.5 L46 27.5 L46 17.5 L14 17.5 L14 27.5Z', 'M39 1 Q49 4.5 49 27.5 L46 27.5 L46 17.5 L41 17.5Z'),
-      };
+      return styled(lock('M9 19.5 Q8 -0.5 30 -1.5 Q52 -0.5 51 19.5 L51 41.5 L9 41.5Z', 'M42 3.5 Q51 7.5 51 19.5 L51 41.5 L45 41.5Z'),
+        'M11 27.5 Q9 -0.5 30 -1.5 Q51 -0.5 49 27.5 L46 27.5 L46 17.5 L14 17.5 L14 27.5Z', 'M39 1 Q49 4.5 49 27.5 L46 27.5 L46 17.5 L41 17.5Z');
     case 2: // 包頭：瀏海往一邊掃
-      return {
-        back: circle(32, -3.5, 8, 'ol', fill(c)),
-        front: lock('M11 26.5 Q9 1.5 30 0.5 Q51 1.5 49 26.5 L46 20.5 Q34 19.5 24 9.5 Q20 18.5 14 22.5Z', 'M39 3 Q49 6.5 49 26.5 L46 20.5 Q42 20 39 18.5Z'),
-      };
+      return styled(circle(32, -3.5, 8, 'ol', fill(c)),
+        'M11 26.5 Q9 1.5 30 0.5 Q51 1.5 49 26.5 L46 20.5 Q34 19.5 24 9.5 Q20 18.5 14 22.5Z', 'M39 3 Q49 6.5 49 26.5 L46 20.5 Q42 20 39 18.5Z');
     case 3: // 旁分短髮
-      return {
-        back: '',
-        front: lock('M12 27.5 L10 12 Q14 0 30 -1 Q46 0 50 12 L49 27.5 L46 18 Q38 17 31 9 Q26 16 16 17 L14 25Z', 'M40 1 Q48 5 50 12 L49 27.5 L46 18 Q43 17.5 41 16.5Z'),
-      };
+      return styled('', 'M12 27.5 L10 12 Q14 0 30 -1 Q46 0 50 12 L49 27.5 L46 18 Q38 17 31 9 Q26 16 16 17 L14 25Z', 'M40 1 Q48 5 50 12 L49 27.5 L46 18 Q43 17.5 41 16.5Z');
     case 4: // 中分長髮：後髮垂到肩下
-      return {
-        back: lock('M9 19.5 Q8 -0.5 30 -1.5 Q52 -0.5 51 19.5 L52 50 L46 46 L42 51 L18 51 L14 46 L8 50Z', 'M42 3.5 Q51 7.5 51 19.5 L52 50 L46 46Z'),
-        front: lock('M11 27.5 Q9 -0.5 30 -1.5 Q51 -0.5 49 27.5 L45 22 Q40 12 31 6 L29 6 Q20 12 15 22Z', 'M39 1 Q49 4.5 49 27.5 L45 22 Q43 17 40 13Z'),
-      };
+      return styled(lock('M9 19.5 Q8 -0.5 30 -1.5 Q52 -0.5 51 19.5 L52 50 L46 46 L42 51 L18 51 L14 46 L8 50Z', 'M42 3.5 Q51 7.5 51 19.5 L52 50 L46 46Z'),
+        'M11 27.5 Q9 -0.5 30 -1.5 Q51 -0.5 49 27.5 L45 22 Q40 12 31 6 L29 6 Q20 12 15 22Z', 'M39 1 Q49 4.5 49 27.5 L45 22 Q43 17 40 13Z');
     case 5: { // 毛帽：帽子用衣服色，兩側露一束頭髮
       const s = SHIRT_COLORS[look.shirt]!;
       return {
@@ -63,14 +58,12 @@ function hair(look: Look): Hair {
         front: path('M12 17 L11 27 L15 24 L16 17Z M48 17 L49 27 L45 24 L44 17Z', 'ol', fill(c))
           + circle(30, -7, 4, 'ol', fill(s)) + path('M11 14 Q11 -5 30 -5 Q49 -5 49 14Z', 'ol', fill(s)) + path('M40 -3 Q49 1 49 11 L41 11Z', undefined, fill(clothShade(s)))
           + rect(10, 10.5, 40, 7, 3.5, 'ol', fill(s)) + line([15, 20, 25, 30, 35, 40, 45].map((x) => `M${x} 12 v4`).join(' '), 'mk-thin'),
+        fringe: '',
       };
     }
     default: // 0 尖角短髮
-      return {
-        back: '',
-        front: lock('M12 27.5 L9 11.5 L16 3.5 L24 -1.5 L36 -2.5 L46 1.5 L54 -4.5 L51 8.5 L49 27.5 L45 17.5 L42 23.5 L36 13.5 L32 22.5 L26 12.5 L22 21.5 L16 13.5Z',
-          'M36 -2.5 L46 1.5 L54 -4.5 L51 8.5 L49 27.5 L45 17.5 L42 23.5 L39 15.5Z'),
-      };
+      return styled('', 'M12 27.5 L9 11.5 L16 3.5 L24 -1.5 L36 -2.5 L46 1.5 L54 -4.5 L51 8.5 L49 27.5 L45 17.5 L42 23.5 L36 13.5 L32 22.5 L26 12.5 L22 21.5 L16 13.5Z',
+        'M36 -2.5 L46 1.5 L54 -4.5 L51 8.5 L49 27.5 L45 17.5 L42 23.5 L39 15.5Z');
   }
 }
 
@@ -81,11 +74,17 @@ const EY = 26;
 const EYES_X: [number, number][] = [[23, -1], [37, 1]]; // [x, 外側方向]
 const both = (f: (ex: number, side: number) => string) => EYES_X.map(([ex, side]) => f(ex, side)).join('');
 
+/** 工作中的瞳孔是深色虹膜，加第二點高光 */
+const IRIS = fill('#2c2a4a');
+const catchLight = (cx: number, cy: number) => circle(cx + 1, cy + 1.4, 0.55, undefined, 'fill:#fff;opacity:.85');
+/** 腮紅：工作中和冥想的臉（爆氣不加），淡鮭魚色，不碰狀態紅 */
+const BLUSH = [18.5, 41.5].map((x) => ellipse(x, 31, 3, 1.5, undefined, 'fill:#f4b8ad;opacity:.95')).join('');
+
 const openEye = (round: boolean) => (ex: number, side: number) => round
-  ? ellipse(ex, EY, 3.7, 4.5, 'mk-thin', WHITE) + ellipse(ex + 0.3, EY + 0.6, 2.5, 3.3, undefined, INK) + circle(ex - 0.6, EY - 0.7, 1.1, undefined, WHITE)
+  ? ellipse(ex, EY, 3.7, 4.5, 'mk-thin', WHITE) + ellipse(ex + 0.3, EY + 0.6, 2.5, 3.3, undefined, IRIS) + circle(ex - 0.6, EY - 0.7, 1.1, undefined, WHITE) + catchLight(ex + 0.3, EY + 0.6)
     + inkStroke(`M${ex + side * 3.4} ${EY - 3.2} l${side * 1.8} -1.4 M${ex + side * 3.9} ${EY - 1.6} l${side * 1.9} -.6`, 1.1)
   : path(`M${ex - 4} ${EY - 2.4} L${ex + 4} ${EY - 2.4} Q${ex + 4.4} ${EY + 3} ${ex} ${EY + 3.2} Q${ex - 4.4} ${EY + 3} ${ex - 4} ${EY - 2.4}Z`, 'mk-thin', WHITE)
-    + ellipse(ex, EY + 0.6, 1.6, 2.3, undefined, INK) + circle(ex - 0.5, EY - 0.3, 0.6, undefined, WHITE);
+    + ellipse(ex, EY + 0.6, 1.6, 2.3, undefined, IRIS) + circle(ex - 0.5, EY - 0.3, 0.6, undefined, WHITE) + catchLight(ex, EY + 0.6);
 /** 爆氣的眼：上緣從外眼角往內眼角壓低（內眼角低） */
 const angryEye = (ex: number, side: number) =>
   path(`M${n(ex - 4.2)} ${n(EY - 1.2 + side * 1.2)} L${n(ex + 4.2)} ${n(EY - 1.2 - side * 1.2)} Q${ex + 4} ${EY + 3.2} ${ex} ${EY + 3.2} Q${ex - 4} ${EY + 3.2} ${n(ex - 4.2)} ${n(EY - 1.2 + side * 1.2)}Z`, 'mk-thin', WHITE)
@@ -96,28 +95,42 @@ function face(look: Look, m: Mood): string {
   const round = look.eyes === 1;
   const parts: Record<Mood, () => string> = {
     // 角度眼的粗眉幾乎水平：專心但不兇（往中間壓的眉毛留給爆氣）
-    work: () => both(openEye(round)) + (round ? '' : inkStroke('M19 18.6 L27 19.6 M33 19.6 L41 18.6', 2.4)) + inkStroke('M27.8 33.5 L32.2 33.5', 1.4),
+    work: () => both(openEye(round)) + (round ? '' : inkStroke('M19 18.6 L27 19.6 M33 19.6 L41 18.6', 2.4)) + inkStroke('M27.8 33.5 L32.2 33.5', 1.4) + BLUSH,
     wait: () => both(angryEye) + inkStroke('M18 16 L27 20.5 M33 20.5 L42 16', 2.8) // 大喊：上下排牙齒
       + path('M24 31.5 Q30 30 36 31.5 Q35 42 30 42 Q25 42 24 31.5Z', 'mk-thin', MOUTH_IN)
       + path('M24.8 32.3 L35.2 32.3 L34.8 33.7 L25.2 33.7Z', undefined, WHITE) + path('M26 40.5 L34 40.5 L33.4 39.3 L26.6 39.3Z', undefined, WHITE),
     // 冥想：閉眼、眉毛放鬆
     turn: () => shutEye(23) + inkStroke('M19 20 L27 20.4', 1.8)
       + shutEye(37) + inkStroke('M33 20.4 L41 20', 1.8)
-      + inkStroke('M27.4 34 L32.6 34', 1.4),
+      + inkStroke('M27.4 34 L32.6 34', 1.4) + BLUSH,
   };
   return g(`face-${m}`, parts[m]());
 }
 
 const GLASSES = line('M17.8 26 a5.2 5.2 0 1 0 10.4 0 a5.2 5.2 0 1 0 -10.4 0 M31.8 26 a5.2 5.2 0 1 0 10.4 0 a5.2 5.2 0 1 0 -10.4 0 M28.2 25.5 h3.6', 'mk');
 
+/** 瀏海在額頭上的影子：前髮的形狀（毛帽是帽緣）往右下挪一點，用皮膚的硬影色，裁在臉的範圍裡 */
+function foreheadShade(h: Hair): string {
+  const id = `fc${++clipSeq}`;
+  const shape = h.fringe ? tag('path', { d: h.fringe, transform: 'translate(1.8 3.2)', style: SKIN_SHADE }) : rect(11.8, 13.7, 40, 7, 3.5, undefined, SKIN_SHADE);
+  return tag('clipPath', { id }, ellipse(30, 22.5, 17.2, 16.2, undefined)) + tag('g', { 'clip-path': `url(#${id})` }, shape);
+}
+
+/** 頭髮左上一塊同色調亮的硬邊亮面 */
+const hairLight = (look: Look, d: string) => path(d, undefined, fill(mix(HAIR_COLORS[look.hair]!, '#ffffff', 0.42)));
+
 function head(look: Look, moods: Mood[]): string {
+  const h = hair(look);
   return g('head', rect(26.5, 35.5, 7, 7, 0, 'mk-thin', SKIN_SHADE) // 脖子
     + ellipse(30, 22.5, 18, 17, 'ol', SKIN)
     + path('M40 35.5 Q47 30.5 47.5 21.5 Q48 35.5 36 38.9Z', undefined, SKIN_SHADE) // 下巴右側的硬影
     + path('M12 24.5 q-3.2 1 -1.5 5 q1 2 2.4 1.4 M48 24.5 q3.2 1 1.5 5 q-1 2 -2.4 1.4', 'mk-thin', SKIN) // 耳朵
     + line('M30.3 29.1 l1.4 1.8 l-1.6 .4', 'mk-thin') // 鼻子
     + moods.map((m) => face(look, m)).join('')
-    + g('hair', hair(look).front) + (moods.includes('wait') ? g('hair-up', hairUp(look)) : '') + (look.glasses ? GLASSES : ''));
+    + foreheadShade(h)
+    + g('hair', h.front + (h.fringe ? hairLight(look, 'M14.5 11 Q17 2 27 -.5 Q29 .5 27.5 1.5 Q20 4 17.5 12Z') : ''))
+    + (moods.includes('wait') ? g('hair-up', hairUp(look) + (h.fringe ? hairLight(look, 'M13 8 L14 -3 L18 4Z M22 -10 L25 -1 L21 0Z') : '')) : '')
+    + (look.glasses ? GLASSES : ''));
 }
 
 // ── 身體與衣服：窄肩的身體、右側一條硬影。T 恤（領口弧線）、帽 T（帽緣、兩條繩、口袋）、襯衫（白領加領帶） ──
@@ -132,14 +145,17 @@ function body(look: Look): string {
     path('M24 40.8 L30 46 L26.5 49.5Z M36 40.8 L30 46 L33.5 49.5Z', 'mk-thin', WHITE) + path('M30 46 l-2.2 9 l2.2 3.2 l2.2 -3.2z', 'mk-thin', fill(tie)),
   ][look.outfit] ?? '';
   return g('body', path('M15 85.5 L15 51.5 Q15 41.5 25 40.5 L35 40.5 Q45 41.5 45 51.5 L45 85.5Z', 'ol', fill(c))
-    + path('M36 41.5 Q45 42.5 45 51.5 L45 85.5 L37 85.5Z', undefined, fill(clothShade(c))) + outfit);
+    + path('M36 41.5 Q45 42.5 45 51.5 L45 85.5 L37 85.5Z', undefined, fill(clothShade(c))) + outfit
+    + line('M18.5 52 q2 3.5 1 8 M41.5 52 q-2 3.5 -1 8', 'mk-thin', 'stroke-width:.9') // 腋下的皺褶
+    + (look.outfit === 0 ? line('M34 50 h6 v5 q0 2 -2 2 h-2 q-2 0 -2 -2Z', 'mk-thin', 'stroke-width:1') : '')); // T 恤的胸前口袋
 }
 
 /** 只露前臂：打字時手在桌緣（下半被桌子擋住，殘影才看得到手）。cls 預設是會打字的手，殘影和點額時靜止的左手另給 class */
 const arm = (side: 'l' | 'r', look: Look, cls = `arm arm-${side}`) => {
   const c = SHIRT_COLORS[look.shirt]!, x = side === 'l' ? 10 : 41;
   return g(cls, rect(x, 53, 9, 16, 4.5, 'ol', fill(c)) + rect(x + 5.2, 55, 2.6, 12, 1.3, undefined, fill(clothShade(c)))
-    + circle(x + 4.5, 69, 4, 'mk-thin', SKIN));
+    + circle(x + 4.5, 69, 4, 'mk-thin', SKIN)
+    + (cls.startsWith('arm ') ? line(`M${x + 0.8} 63.5 h7.4`, 'mk-thin', 'stroke-width:.9') : '')); // 打字的手有袖口線
 };
 /** 殘像打字：每隻手後面兩層殘影（透明度和落後的時間在 figure.css），排在真的手前面才會畫在後面 */
 const typing = (look: Look) => (['l', 'r'] as const).map((s) =>
