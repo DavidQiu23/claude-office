@@ -74,7 +74,7 @@ function rugEl(x: number): HTMLElement {
 
 const deskState = (e: Occupant | null): DeskState => (e ? e.status : 'empty');
 
-interface DeskEl { el: HTMLElement; chair: SVGSVGElement; use: SVGUseElement; plate: HTMLElement; badge: HTMLElement; text: HTMLElement }
+interface DeskEl { el: HTMLElement; halo: HTMLElement; chair: SVGSVGElement; use: SVGUseElement; plate: HTMLElement; badge: HTMLElement; text: HTMLElement }
 
 export class FloorView {
   /** 寬度由 building.ts 統一給（各層同寬），不自己捲動 */
@@ -91,6 +91,7 @@ export class FloorView {
   private bays = div('bays'); // 每個家具區一個 .furniture
   private deco = div('deco'); // 掛畫、陽光、垂吊盆栽
   private lights = div('lights'); // 夜晚天花板燈條往下的柔光（光暈 z-index 2，要留在根的疊層）
+  private halos = div('lights'); // 夜晚等你處理座位後面的紅光；人物疊到遮罩上之後，光要留在樓層上才 screen 得到牆
   private seams = div('seams'); // 木地板的透視板縫，依樓層寬畫
   private laidOut = ''; // 目前依哪個 roomKey、樓號和寬度排的；窗、板縫、家具只有這個變了才重排
   private f: Floor | null = null;
@@ -101,7 +102,7 @@ export class FloorView {
     const fl = el('span', 'fl'); // 樓號放在白色小牌上：數字放大、F 縮小
     fl.append(this.signLevel, el('small', '', 'F'));
     this.sign.append(fl, this.signTitle);
-    this.inner.append(...shell(), this.seams, this.windows, this.sign, this.deco, this.bays, this.chairs, this.people, this.deskRow, this.lights);
+    this.inner.append(...shell(), this.seams, this.windows, this.sign, this.deco, this.bays, this.halos, this.chairs, this.people, this.deskRow, this.lights);
     this.el.append(this.inner); // 內容座標與 seatGrid 同一套
     // 滑過人物：依 data-key 找這層目前的佔用者
     const personOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>('.person') : null);
@@ -171,6 +172,7 @@ export class FloorView {
       const d = this.desks.pop()!;
       d.el.remove();
       d.chair.remove();
+      d.halo.remove();
     }
     while (this.desks.length < grid.seats.length) {
       const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), box = el('span'), badge = el('b', 'pb'), text = el('span', 'txt');
@@ -180,16 +182,19 @@ export class FloorView {
       box.append(badge, text);
       plate.append(box);
       desk.append(pic, div('glow'), plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上；glow 是夜晚的桌燈與螢幕光（building.css）
-      const chair = useObj('chair', 0, CHAIR_Y);
+      const chair = useObj('chair', 0, CHAIR_Y), halo = div('seat-halo');
       this.chairs.append(chair);
+      this.halos.append(halo);
       this.deskRow.append(desk);
-      this.desks.push({ el: desk, chair, use: pic.firstElementChild as SVGUseElement, plate, badge, text });
+      this.desks.push({ el: desk, halo, chair, use: pic.firstElementChild as SVGUseElement, plate, badge, text });
     }
     this.desks.forEach((d, i) => {
       const x = grid.seats[i]!, occ = f.seats[i]?.occ ?? null, st = deskState(occ);
       d.el.style.left = `${x - GEO.seatW / 2}px`; // 一格寬 120
       d.chair.style.left = `${x - OBJECTS.chair.w / 2}px`;
       d.chair.classList.toggle('vacant', !occ);
+      d.halo.style.left = `${x}px`;
+      d.halo.hidden = st !== 'waiting';
       d.use.setAttribute('href', `#desk-${st}`); // 狀態變了就換 symbol
       d.el.dataset.st = st; // building.css 依此顯示螢幕上的程式碼
       // 名牌永遠等於這個座位目前的人；空桌連字與底色一起清掉

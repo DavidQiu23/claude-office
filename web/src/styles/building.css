@@ -41,7 +41,13 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 /* 天線：頂端一顆圓燈（藍色，不用狀態色） */
 .roof .antenna { left: 28px; width: 1.6px; height: 26px; background: var(--ink); }
 .roof .antenna::after { content: ''; position: absolute; left: -3.7px; top: -7px; width: 9px; height: 9px; box-sizing: border-box; border: 1.3px solid var(--ink); border-radius: 50%; background: var(--tank); }
-#building .floors { padding: 0 16px 0 56px; }
+/* overflow-x: clip：最右邊那張桌子的夜晚光暈會超出大樓，不裁的話整頁多出橫向捲動。clip 不建立疊層，遮罩和光暈不受影響 */
+#building .floors { position: relative; padding: 0 16px 0 56px; overflow-x: clip; }
+/* 隔壁棟外牆：左右的留白一路接到地面，上緣一條墨線，右側一階硬影，天際線才不會在半空被切斷；夜晚電梯面板壓在上面也清楚 */
+#building .floors::before, #building .floors::after { content: ""; position: absolute; top: 0; bottom: 0; box-sizing: border-box; border-top: 1.4px solid var(--ink); pointer-events: none; }
+#building .floors::before { left: 0; width: 44px;
+  background: conic-gradient(at 5px 7px, transparent 75%, var(--sk-pane) 0) 7px 9px / 14px 18px, linear-gradient(90deg, var(--sk-near) 0 70%, var(--sk-near-shade) 70%); }
+#building .floors::after { right: 0; width: 4px; background: var(--sk-near); }
 /* 地面（高 72）：人行道磚（每 40 一條縫）、路緣、柏油路和白色車道線 */
 #building .ground { position: relative; height: 72px; box-sizing: border-box; border-top: 1.6px solid var(--ink); background:
     linear-gradient(var(--ink), var(--ink)) 0 25px / 100% 1.4px no-repeat,
@@ -119,8 +125,12 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .furniture > .rug { position: absolute; top: 160px; height: 30px; }
 /* 夜晚：天花板燈條往下打一道柔光，比桌燈弱，不蓋過爆氣的紅光 */
 .lights > .ceil-glow { display: none; top: 10px; width: 100px; height: 72px; margin-left: -50px; z-index: 2; mix-blend-mode: screen;
-  background: radial-gradient(48px 66px at 50% 0, rgb(255 248 226 / .24), rgb(255 244 214 / .07) 60%, transparent 74%); }
+  background: radial-gradient(48px 66px at 50% 0, rgb(255 248 226 / .16), rgb(255 244 214 / .04) 60%, transparent 74%); }
 :root[data-time="night"] .lights > .ceil-glow { display: block; }
+/* 夜晚等你處理的座位後面一片紅光，只映在牆上 */
+.lights > .seat-halo { display: none; top: 2px; width: 230px; height: 190px; margin-left: -115px; z-index: 2; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, rgb(214 52 52 / .78), rgb(214 52 52 / .34) 58%, transparent); }
+:root[data-time="night"] .lights > .seat-halo { display: block; }
 .furniture { position: absolute; top: 0; height: 200px; }
 /* 空桌的椅子調淡：一整排亮藍椅子比坐著的人還搶眼。人來了就變回原本的藍 */
 .chairs > .obj.vacant { filter: saturate(.3) brightness(1.1); }
@@ -145,7 +155,8 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .plate.waiting .pb { background: #fff; color: var(--waiting); box-shadow: 0 0 0 1.2px var(--ink); }
 .plate.idle .pb { background: #4a3000; color: var(--turn); }
 /* 截行放在內層：和 padding 同一層的話，被截掉的第三行會露在 padding 裡。英文在連字號或字與字之間斷行，不用 break-all */
-.plate .txt { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: normal; overflow-wrap: anywhere; text-align: left; }
+/* text-wrap: balance：兩行平均分配，不留單字一行 */
+.plate .txt { text-wrap: balance; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: normal; overflow-wrap: anywhere; text-align: left; }
 .plate.working .txt { text-align: center; }
 /* 沒有人上班：空大廳，兩行字寫在貼在牆上的紙條（微微歪 −2°） */
 .lobby-msg { z-index: 3; left: 0; right: 0; top: 40px; display: flex; justify-content: center; }
@@ -160,14 +171,21 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .roof .parapet::after, #building .ground::after { content: ''; position: absolute; display: none; background: var(--night-shade); mix-blend-mode: multiply; opacity: .62; border-radius: inherit; }
 .roof .parapet::after { inset: -1.6px; }
 #building .ground::after { inset: -1.6px 0 0; }
+/* 夜晚的房間是亮著的：室內換成暖褐（奶油牆壓下來是暖米色，彩度低於撞色標準），外牆柱和樓板維持深藍，建築外面才暗得下來 */
+:root[data-time="night"] .floor-in::after {
+  background: linear-gradient(var(--night-shade), var(--night-shade)) 0 192px / 100% 8px no-repeat,
+    linear-gradient(90deg, var(--night-shade) 0 12px, #6b4a3a 12px calc(100% - 12px), var(--night-shade) calc(100% - 12px)); }
+/* 夜晚等你處理的桌子和人一起疊到遮罩上面（figure.css）；招牌再高一層，頭髮才不會蓋住它 */
+:root[data-time="night"] .desk[data-st="waiting"] { z-index: 3; }
+:root[data-time="night"] .sign { z-index: 4; }
 :root[data-time="night"] .floor-in::after, :root[data-time="night"] .roof .parapet::after, :root[data-time="night"] #building .ground::after { display: block; }
-/* 光暈：screen 疊在遮罩上，只在夜晚。人物爆氣的紅光在 figure.css */
+/* 光暈：screen 疊在遮罩上，只在夜晚 */
 .glow { position: absolute; z-index: 2; display: none; mix-blend-mode: screen; pointer-events: none; }
-/* 桌燈與螢幕的光（設計稿的 rLamp、rMon）：桌子元素座標的燈罩中心 (12, 123)、螢幕中心 (93.5, 120)；左右各多留 60，光暈才不會被切掉。輪到你的螢幕發琥珀色的光 */
-.desk .glow { left: -60px; right: -60px; top: 0; height: 200px; --mon: rgb(159 208 255 / .7);
-  background: radial-gradient(circle 58px at 153.5px 120px, var(--mon), transparent), radial-gradient(circle 40px at 72px 123px, rgb(255 243 196 / .85), rgb(255 240 184 / .4) 35%, transparent); }
-.desk[data-st="idle"] .glow { --mon: color-mix(in srgb, var(--screen-turn) 70%, transparent); }
-:root[data-time="night"] .desk:not([data-st="empty"]) .glow { display: block; }
+/* 桌燈與螢幕的光：照亮桌面就好，不蓋到臉；左右各多留 60，光暈才不會被切掉。輪到你的螢幕發琥珀色的光；等你處理的座位已經疊到遮罩上，不用光 */
+.desk .glow { left: -60px; right: -60px; top: 0; height: 200px; --mon: rgb(159 208 255 / .26);
+  background: radial-gradient(circle 44px at 153.5px 118px, var(--mon), transparent), radial-gradient(circle 28px at 72px 126px, rgb(255 243 196 / .5), rgb(255 240 184 / .18) 45%, transparent); }
+.desk[data-st="idle"] .glow { --mon: color-mix(in srgb, var(--screen-turn) 42%, transparent); }
+:root[data-time="night"] .desk:not([data-st="empty"], [data-st="waiting"]) .glow { display: block; }
 .windows .win { display: contents; }
 /* 窗外夜空：蓋在圓窗玻璃上（圓心在樓層 y 40、半徑 21），設計稿的夜空漸層 */
 .windows .glow { top: 19px; width: 42px; height: 42px; margin-left: -21px; border-radius: 50%; background: linear-gradient(#0a0f33, #2e2f6e); }
