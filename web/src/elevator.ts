@@ -14,21 +14,16 @@ export class ElevatorPanel {
   private els: HTMLElement[] = []; // 與 btns 同序
   private visible = new Set<HTMLElement>();
   private io: IntersectionObserver;
-  private barH = 0; // 黏在頂端的狀態列高度：只在狀態列底下的樓層不算看得到
 
   constructor(private root: HTMLElement) {
-    const bar = document.getElementById('top');
-    this.barH = bar?.offsetHeight ?? 0;
-    this.io = this.observer();
-    if (bar) {
-      // 狀態列高度變了（換行、字級、有沒有紅框）就用新的上緣重建觀察者
-      new ResizeObserver(() => {
-        const h = bar.offsetHeight;
-        if (h === this.barH) return;
-        this.barH = h;
-        this.reobserve();
-      }).observe(bar);
-    }
+    this.io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const el = e.target as HTMLElement;
+        if (e.isIntersecting) this.visible.add(el);
+        else this.visible.delete(el);
+      }
+      this.drawFrame();
+    });
     this.frame.hidden = true;
     this.inner.append(this.frame);
     root.replaceChildren(this.inner);
@@ -41,25 +36,6 @@ export class ElevatorPanel {
       const r = el.getBoundingClientRect();
       window.scrollBy({ top: r.top + r.height / 2 - document.documentElement.clientHeight / 2, behavior: reduceMotion() ? 'auto' : 'smooth' }); // clientHeight 不含橫向捲軸
     });
-  }
-
-  /** 上緣內縮狀態列的高度，樓層要露出狀態列之下才算看得到 */
-  private observer(): IntersectionObserver {
-    return new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        const el = e.target as HTMLElement;
-        if (e.isIntersecting) this.visible.add(el);
-        else this.visible.delete(el);
-      }
-      this.drawFrame();
-    }, { threshold: 0, rootMargin: `-${this.barH}px 0px 0px 0px` });
-  }
-
-  private reobserve(): void {
-    this.io.disconnect();
-    this.visible.clear();
-    this.io = this.observer();
-    for (const el of this.els) this.io.observe(el); // 新觀察者第一次回報就會補上目前看得到的
   }
 
   update(floors: ElevatorFloor[]): void {

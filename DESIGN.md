@@ -46,11 +46,6 @@ colors:
   project-magenta: "#a64d9e"
   project-steel: "#6e7b8b"
 typography:
-  count:
-    fontFamily: "system-ui, \"Microsoft JhengHei\", sans-serif"
-    fontSize: "17px"
-    fontWeight: 700
-    fontFeature: "\"tnum\""
   card-title:
     fontFamily: "system-ui, \"Microsoft JhengHei\", sans-serif"
     fontSize: "16px"
@@ -61,10 +56,6 @@ typography:
     fontSize: "15px"
     fontWeight: 700
     lineHeight: "22px"
-  legend:
-    fontFamily: "system-ui, \"Microsoft JhengHei\", sans-serif"
-    fontSize: "15px"
-    fontWeight: 400
   plate:
     fontFamily: "system-ui, \"Microsoft JhengHei\", sans-serif"
     fontSize: "13px"
@@ -130,17 +121,6 @@ components:
     rounded: "{rounded.plate}"
     padding: "0 12px"
     height: "26px"
-  status-bar:
-    backgroundColor: "{colors.sticker-white}"
-    textColor: "{colors.comic-ink}"
-    typography: "{typography.legend}"
-    rounded: "{rounded.panel}"
-    padding: "6px 12px 8px"
-  wait-slip:
-    backgroundColor: "{colors.alarm-red}"
-    textColor: "{colors.sticker-white}"
-    rounded: "{rounded.panel}"
-    padding: "4px 11px 5px"
   elevator-rail:
     backgroundColor: "{colors.sticker-white}"
     rounded: "{rounded.rail}"
@@ -189,7 +169,7 @@ components:
 
 **Creative North Star: "下班不關燈的剖面大樓"**
 
-這是一棟被切開的大樓，一個專案一層樓，每個 session 是坐在桌後、面向你的 Q 版員工。它從早到晚開在副螢幕上，所以平常要安靜：環境只有很慢、很小的動作，大部分顏色是奶油、藍綠和木頭。有人等你時才吵：那個人站起來爆氣，名牌變紅，狀態列下面掛出一排紅條。可愛是為了讓人願意一直開著，不是裝飾；紅色和琥珀色的稀有，才是畫面真正的功能。
+這是一棟被切開的大樓，一個專案一層樓，每個 session 是坐在桌後、面向你的 Q 版員工。它從早到晚開在副螢幕上，所以平常要安靜：環境只有很慢、很小的動作，大部分顏色是奶油、藍綠和木頭。有人等你時才吵：那個人站起來爆氣，名牌變紅。可愛是為了讓人願意一直開著，不是裝飾；紅色和琥珀色的稀有，才是畫面真正的功能。
 
 畫法是黑色線稿加一階硬影，圓滾滾的機械風，人物走鳥山明前期風的 Q 版比例，但不放原作的角色、招牌髮型、標誌或名字。介面是貼在大樓上的厚實貼紙與硬卡：粗墨線、白外圈、不模糊的硬投影。夜晚不是另一套配色，是同一棟樓蓋上深藍遮罩再點燈。
 
@@ -213,11 +193,11 @@ components:
 
 狀態色就是這套系統的主色，日夜相同。
 
-- **警示紅** (#d63434)：等你處理。名牌、電梯燈、狀態列外框、紅條、夜晚爆氣周圍的紅光。
-- **暖燈琥珀** (#f2b83d)：輪到你。名牌、電梯燈、圖例小方塊。比紅色安靜，不脈動；它常亮，所以不佔狀態列外框。
+- **警示紅** (#d63434)：等你處理。名牌、電梯燈、權限對話框、夜晚爆氣周圍的紅光。
+- **暖燈琥珀** (#f2b83d)：輪到你。名牌、電梯燈、輪到你的螢幕。比紅色安靜，不脈動。
 - **琥珀螢幕** (#f6d68a)：輪到你的映像管畫面和夜晚的螢幕光。
 - **淡紅螢幕** (#f2a0a0)：等你處理時螢幕上對話框的標題列。
-- **安靜葉綠** (#6fae7a)：工作中。只出現在狀態列與資訊卡的小標記；名牌本身維持米白，三種狀態裡最不搶眼。
+- **安靜葉綠** (#6fae7a)：工作中。只出現在資訊卡的小標記；名牌本身維持米白，三種狀態裡最不搶眼。
 
 ### Secondary
 
@@ -271,10 +251,8 @@ components:
 
 ### Hierarchy
 
-- **Count** (700, 17px, tabular)：狀態列的人數，數字不能跳動。
 - **Card Title** (800, 16px, 1.35)：資訊卡色帶上的標題，白字加 3px 墨線描邊，`paint-order: stroke fill`。專案色多半是中明度，白字直接放上去對比不夠。
 - **Sign** (700, 15px, 22px)：樓層招牌。放不下用「…」。
-- **Legend** (400, 15px)：狀態列圖例；等你處理和輪到你在人數大於零時加粗。
 - **Plate** (700, 13px, 15px)：名牌，最寬 112px，放不下用「…」。
 - **Body** (400, 13px, 1.5)：資訊卡內文，以 line clamp 限 1 到 3 行。
 - **Label** (700, 11px, 0.08em)：資訊卡的段落小標。
@@ -288,11 +266,11 @@ components:
 
 固定節奏的剖面：一層樓高 200px（含 8px 樓板），一個座位寬 120px，右端家具區寬 200px，地面高 72px。專案多時不把樓層變矮，往下捲；各層同寬，整頁一起橫向捲動。
 
-左邊留 56px 給電梯面板（固定在視窗左側垂直置中，寬 40px），右邊距 16px。桌子、招牌、家具區離樓層左右緣各 24px，不貼著兩側 16px 寬的斜牆。頂端狀態列 sticky 釘在左上，寬度維持視窗寬；大樓比視窗矮時，上方由天空補滿，不留空白或暗角。
+左邊留 56px 給電梯面板（固定在視窗左側垂直置中，寬 40px），右邊距 16px。桌子、招牌、家具區離樓層左右緣各 24px，不貼著兩側 16px 寬的斜牆。大樓比視窗矮時，上方由天空補滿，不留空白或暗角。
 
-沒有 CSS 斷點：窄窗格靠整頁橫向捲動，狀態列下的等待條格數由 JS 依寬度算（`waitSlots`），放不下的收進「+N」。
+沒有 CSS 斷點：窄窗格靠整頁橫向捲動。
 
-疊放順序是規則的一部分：夜晚遮罩 1、光暈 2、名牌和招牌 3、狀態列 20、電梯面板 25、資訊卡 30。
+疊放順序是規則的一部分：夜晚遮罩 1、光暈 2、名牌和招牌 3、斷線說明 20、電梯面板 25、資訊卡 30。
 
 **The Root Stacking Rule.** 樓層、桌子、人物這幾層祖先都不能建立自己的疊層（不加 `transform`、`filter`、`opacity`、`z-index`），不然遮罩或光暈會被關在裡面。
 
@@ -304,7 +282,7 @@ components:
 
 ### Shadow Vocabulary
 
-- **貼紙投影** (`box-shadow: 0 0 0 2.5px #fff, 2px 3px 0 2.5px rgb(27 23 22 / .35)`)：名牌、招牌、狀態列、電梯面板、資訊卡共用（`--ui-shadow`）。白外圈讓它們能壓在任何背景上。
+- **貼紙投影** (`box-shadow: 0 0 0 2.5px #fff, 2px 3px 0 2.5px rgb(27 23 22 / .35)`)：名牌、招牌、斷線說明、電梯面板、資訊卡共用（`--ui-shadow`）。白外圈讓它們能壓在任何背景上。
 - **物件投影** (`filter: drop-shadow(3px 3px 0 rgb(27 23 22 / .18))`)：桌子、家具、屋頂，讓它們離開牆面（`--drop`）。
 - **卡片暗面** (`box-shadow: inset -7px -7px 0 color-mix(in srgb, #e8dbc2 55%, #fff)`)：資訊卡內側右下的一階硬影，畫在 `.card::before`。
 - **小件投影** (`box-shadow: 2px 3px 0 rgb(27 23 22 / .22)` 到 `.3`)：卡片裡的目前動作框、請他下班按鈕。
@@ -319,7 +297,7 @@ components:
 
 一切都是圓的：物件有圓角和鉚釘，人物是大頭寬橢圓臉，屋頂有圓頂水塔，窗是鉚釘圓窗。只有兩側斜牆和透視地板的板縫是直線，用來交代空間。
 
-介面的圓角隨面積變大：3px 的小色塊、7px 的名牌與招牌、9px 的狀態列與按鈕、14px 的資訊卡；電梯面板是 20px 的長膠囊，按鈕是正圓。只有兩樣東西刻意歪著：狀態標籤轉 3°、大廳紙條轉 −2°，它們是貼上去的。
+介面的圓角隨面積變大：3px 的小色塊、7px 的名牌與招牌、9px 的斷線說明與按鈕、14px 的資訊卡；電梯面板是 20px 的長膠囊，按鈕是正圓。只有兩樣東西刻意歪著：狀態標籤轉 3°、大廳紙條轉 −2°，它們是貼上去的。
 
 ## Components
 
@@ -329,7 +307,7 @@ components:
 
 - **Shape:** 微圓的硬卡（9px）。
 - **請他下班：** 1.7px 墨線框，貼紙白到磨舊按鈕的上下兩段硬色（55% 處切開），小件投影。
-- **Hover / Focus:** Hover 時字和框變警示紅，因為這是唯一的破壞性動作，`:focus-visible` 是 3px 墨線外框。等待條的 `:focus-visible` 是畫在紅底裡面的 2.5px 白框，外面是深藍夜空時墨線看不到。
+- **Hover / Focus:** Hover 時字和框變警示紅，因為這是唯一的破壞性動作，`:focus-visible` 是 3px 墨線外框。
 
 ### Chips
 
@@ -346,7 +324,7 @@ components:
 - **頭像：** 72px 正圓，突出色帶上緣 26px，標題寫在頭像右邊。
 - **目前動作框：** 10px 圓角，斜切兩段底色；等你處理時框和底色都換成紅。
 
-名牌、狀態列太小太細，加明暗會變花，所以只有資訊卡畫內部硬影。
+名牌太小太細，加明暗會變花，所以只有資訊卡畫內部硬影。
 
 ### Navigation
 
@@ -362,11 +340,9 @@ components:
 
 高 26px，底色是專案色，白色粗體，貼在每層左上角的後牆上。
 
-### 狀態列（Signature）
+### 斷線說明（Signature）
 
-白卡上一行圖例。有人等你處理時外框變 2.6px 紅色，輪到你不佔外框。下面掛等待條：警示紅的按鈕，一行寫樓層和名牌，一行寫要批准什麼；它們不佔版面，有人開始等時樓層才不會跳，代價是蓋住最上面樓層的一小條。
-
-斷線時外框變 2.6px 墨色虛線，等待條換成同位置的白底虛線說明，大家停在當下的動作。用墨色，因為斷線不是 session 的狀態。
+只在連不上時出現，固定在視窗上緣中間，最寬 520px。白底、2.6px 墨色虛線框、貼紙投影、15px 粗體置中。用墨色，因為斷線不是 session 的狀態；大家同時停在當下的動作。
 
 ### 人物（Signature）
 

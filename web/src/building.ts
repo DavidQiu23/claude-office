@@ -54,14 +54,12 @@ export class Building {
         window.scrollTo({ top: document.documentElement.scrollHeight }); // 沒給 left：不動橫向捲動位置
       }
     });
-    // 視窗變寬變窄、或直向捲軸出現時，樓層寬跟著重算；觀察 <html>，因為樓層變寬後 .floors 不再跟著視窗變。
-    // 狀態列寬（--view-w）只跟視窗寬有關，也在這裡更新
+    // 視窗變寬變窄、或直向捲軸出現時，樓層寬跟著重算；觀察 <html>，因為樓層變寬後 .floors 不再跟著視窗變
     let w = -1;
     new ResizeObserver(() => {
       const a = this.avail();
       if (a === w) return;
       w = a;
-      document.documentElement.style.setProperty('--view-w', `${document.documentElement.clientWidth}px`);
       this.render();
     }).observe(document.documentElement);
     // 頁面捲動時，卡片的位置就不對了，先藏起來
@@ -88,13 +86,12 @@ export class Building {
     this.order = order;
     const root = document.documentElement;
     const stick = changed && atBottom(window.scrollY, root.scrollHeight, root.clientHeight); // clientHeight 不含橫向捲軸
-    // 不在最底：記住第一個看得到的樓層（狀態列之下）的位置
+    // 不在最底：記住第一個看得到的樓層的位置
     let anchor: { el: HTMLElement; top: number } | null = null;
     if (changed && !stick) {
-      const bar = document.getElementById('top')?.getBoundingClientRect().bottom ?? 0;
       for (const v of this.floors.values()) {
         const r = v.el.getBoundingClientRect();
-        if (r.bottom > bar && (!anchor || r.top < anchor.top)) anchor = { el: v.el, top: r.top };
+        if (r.bottom > 0 && (!anchor || r.top < anchor.top)) anchor = { el: v.el, top: r.top };
       }
     }
     this.layoutFloors(plan);
@@ -107,7 +104,7 @@ export class Building {
   private layoutFloors(plan: Floor[]): void {
     const keep = new Set(plan.map((f) => f.key));
     for (const [k, v] of this.floors) if (!keep.has(k)) { v.destroy(); this.floors.delete(k); }
-    // 各層同寬；放不下時整棟樓變寬（body 撐開、整頁橫向捲動），狀態列由 --view-w 維持視窗寬
+    // 各層同寬；放不下時整棟樓變寬（body 撐開、整頁橫向捲動）
     const width = buildingWidth(plan, this.avail());
     const minW = `${width + GEO.gutter + GEO.rightMargin}px`;
     if (minW !== this.minW) document.body.style.minWidth = this.minW = minW;

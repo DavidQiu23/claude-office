@@ -60,32 +60,12 @@ export const assistantList = (list: readonly Assistant[], max = 4) => {
 };
 
 // status 'idle' 在畫面上叫「輪到你」：Claude 做完這一輪、等你下一個指示
-export interface SummaryItem { key: Employee['status']; sym: string; label: string; n: number }
-
-/** 狀態列：items 依緊急程度排序（等你處理 → 輪到你 → 工作中），同時是圖例的順序 */
-export function summary(employees: Employee[]): { items: SummaryItem[]; total: number; alert: boolean; title: string } {
+/** 分頁標題：有人等你處理或輪到你時，人數寫在最前面 */
+export function tabTitle(employees: Employee[]): string {
   const n = (s: Employee['status']) => employees.filter((e) => e.status === s).length;
-  const waiting = n('waiting');
-  const turn = n('idle');
-  const badge = [waiting ? `!${waiting}` : '', turn ? `✓${turn}` : ''].filter(Boolean).join(' ');
-  return {
-    items: [
-      { key: 'waiting', sym: '!', label: '等你處理', n: waiting },
-      { key: 'idle', sym: '✓', label: '輪到你', n: turn },
-      { key: 'working', sym: '●', label: '工作中', n: n('working') },
-    ],
-    total: employees.length,
-    alert: waiting > 0,
-    title: (badge ? `(${badge}) ` : '') + 'Claude 辦公室',
-  };
+  const badge = [n('waiting') ? `!${n('waiting')}` : '', n('idle') ? `✓${n('idle')}` : ''].filter(Boolean).join(' ');
+  return (badge ? `(${badge}) ` : '') + 'Claude 辦公室';
 }
-
-/** 等你處理的人，等最久的排前面（狀態列列給你看） */
-export const waitingList = (employees: Employee[]): Employee[] =>
-  employees.filter((e) => e.status === 'waiting').sort((a, b) => a.lastEventAt - b.lastEventAt || a.sessionId.localeCompare(b.sessionId));
-
-/** 狀態列放得下幾格：每格至少 240 寬才讀得到字，最多 3 格，其餘併成 +N */
-export const waitSlots = (width: number): number => Math.max(1, Math.min(3, Math.floor(width / 240)));
 
 // 到班時間 HH:mm（本地時區）
 export const formatTime = (ms: number): string => {

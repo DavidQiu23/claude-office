@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { assistantList, formatTime, nameplate, summary, waitingList, waitSlots } from '../web/src/view.js';
+import { assistantList, formatTime, nameplate, tabTitle } from '../web/src/view.js';
 import { OfficeStore } from '../web/src/sync.js';
 import type { Assistant, Employee } from '../src/state/types.js';
 
@@ -22,23 +22,10 @@ test('nameplate 換行壓成單行', () => {
   expect(nameplate(emp('abcd', 'idle', { title: 'a\n\n  b\r\nc ' }))).toBe('a b c');
 });
 
-test('waitingList 只列等你處理的人，等最久的在前', () => {
-  const list = [{ ...emp('new', 'waiting'), lastEventAt: 300 }, emp('w', 'working'), { ...emp('old', 'waiting'), lastEventAt: 100 }, emp('i', 'idle')];
-  expect(waitingList(list).map((e) => e.sessionId)).toEqual(['old', 'new']);
-});
-
-test('waitSlots 依寬度決定格數：1 到 3 格', () => {
-  expect([0, 239, 480, 719, 720, 2000].map(waitSlots)).toEqual([1, 1, 2, 2, 3, 3]);
-});
-
-test('summary 人數、底色與分頁標題', () => {
-  const s = summary([emp('a', 'working'), emp('b', 'working'), emp('c', 'idle')]);
-  expect(s).toMatchObject({ total: 3, alert: false, title: '(✓1) Claude 辦公室' });
-  // 依緊急程度排序：等你處理 → 輪到你 → 工作中
-  expect(s.items.map((i) => [i.key, i.n])).toEqual([['waiting', 0], ['idle', 1], ['working', 2]]);
-  // 外框只有等你處理時才變紅，標題兩項都列
-  expect(summary([emp('a', 'waiting'), emp('b', 'idle'), emp('c', 'idle')])).toMatchObject({ alert: true, title: '(!1 ✓2) Claude 辦公室' });
-  expect(summary([emp('a', 'working')])).toMatchObject({ alert: false, title: 'Claude 辦公室' });
+test('tabTitle：等你處理和輪到你的人數，工作中不算', () => {
+  expect(tabTitle([emp('a', 'working'), emp('b', 'working'), emp('c', 'idle')])).toBe('(✓1) Claude 辦公室');
+  expect(tabTitle([emp('a', 'waiting'), emp('b', 'idle'), emp('c', 'idle')])).toBe('(!1 ✓2) Claude 辦公室');
+  expect(tabTitle([emp('a', 'working')])).toBe('Claude 辦公室');
 });
 
 test('OfficeStore 套用 upsert 與 leave 並通知監聽者', () => {

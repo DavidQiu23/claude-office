@@ -1,5 +1,5 @@
 html { background: var(--sky-bg); }
-/* body 是直向 flex：狀態列取自己的高度，大樓 flex:1 補滿剩下的視窗高（不必量狀態列） */
+/* body 是直向 flex：大樓 flex:1 補滿視窗高，比視窗矮時上方由天空補滿 */
 body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; color: var(--text); font-family: system-ui, "Microsoft JhengHei", sans-serif; }
 [hidden] { display: none !important; }
 /* 剖面大樓：上方天空、樓層（最高樓在上）、下方地面；樓層左邊留 56 給電梯面板、右邊距 16 */
