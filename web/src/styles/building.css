@@ -95,9 +95,14 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .side-r { right: 0; transform: scaleX(-1); --side-wall: var(--side-wall-r); }
 /* 樓板：上下各一條墨線 */
 .slab { left: 0; right: 0; top: 192px; height: 8px; box-sizing: border-box; border: solid var(--ink); border-width: 1.6px 0; background: var(--slab); }
-/* 招牌：不透明的專案色（floor.ts 設）、共用的介面樣式（theme.css 的 --ui-*）、白色粗體，放不下用「…」；left 與 max-width 由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定 */
-.sign { z-index: 3; top: 14px; height: 26px; padding: 0 12px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px; box-sizing: border-box;
+/* 招牌：不透明的專案色（--pc 由 floor.ts 設）、共用的介面樣式（theme.css 的 --ui-*）、白色粗體，放不下用「…」，兩端各一顆鉚釘、下緣一階硬影；left 與 max-width 由 floor.ts 依 furniture.ts 的 SIGN_X／SIGN_MAX_W 設定 */
+.sign { z-index: 3; top: 14px; height: 26px; padding: 0 16px 0 12px; border: var(--ui-border); box-shadow: var(--ui-shadow), inset 0 -4px 0 rgb(0 0 0 / .2); border-radius: 7px; box-sizing: border-box;
+  background: radial-gradient(circle 2px at 7px 50%, rgb(255 255 255 / .8) 0 90%, transparent), radial-gradient(circle 2px at calc(100% - 7px) 50%, rgb(255 255 255 / .8) 0 90%, transparent), var(--pc);
   color: #fff; font: bold 15px/22px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 樓號：白色小牌，像電梯裡的樓層牌 */
+.sign .fl { display: inline-block; margin-right: 7px; padding: 0 6px; border-radius: 4px; background: #fff; color: var(--pc); font-weight: 900; line-height: 18px; }
+.sign .fl b { font-size: 16px; font-weight: 900; }
+.sign .fl small { font-size: 10.5px; font-weight: 900; margin-left: 1px; }
 .chairs, .people, .desks, .windows { inset: 0; pointer-events: none; }
 /* 家具區：夾在桌子中間，left 和 width 由 floor.ts 依格線（floors.ts 的 seatGrid）設定 */
 .bays { inset: 0; pointer-events: none; }
@@ -127,14 +132,21 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .desk[data-st="working"] .desk-code { display: inline; } /* 工作中螢幕上捲動的程式碼（objects.ts 的 DESK_CODE） */
 .desk .desk-steam { display: none; }
 .desk[data-st="idle"] .desk-steam { display: inline; } /* 輪到你時馬克杯冒煙（objects.ts 的 DESK_STEAM） */
-/* 名牌：桌子正面，13px、最寬 112，放不下用「…」；卡片色依狀態：工作中米白（--plate，助理也是）、等你處理紅、輪到你琥珀。
+/* 名牌：桌子正面，13px 粗體、最寬 112，最多兩行，往下長，落在桌子的正面擋板上；卡片色依狀態：工作中米白（--plate，助理也是）、等你處理紅、輪到你琥珀，下緣一階硬影。
    框、白外圈、硬投影用共用的介面樣式（theme.css 的 --ui-*） */
 .plate { position: absolute; z-index: 3; top: 150px; left: 4px; right: 4px; display: flex; justify-content: center; }
-.plate > span { min-width: 0; max-width: 112px; box-sizing: border-box; height: 19px; padding: 0 7px; border: var(--ui-border); box-shadow: var(--ui-shadow); border-radius: 7px;
-  font: bold 13px/15px system-ui, "Microsoft JhengHei", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plate > span { display: inline-flex; align-items: flex-start; gap: 3px; min-width: 0; max-width: 112px; box-sizing: border-box; min-height: 20px; padding: 2px 6px 2px 5px; border: var(--ui-border); box-shadow: var(--ui-shadow), inset 0 -3px 0 rgb(0 0 0 / .13); border-radius: 7px;
+  font: bold 13px/15px system-ui, "Microsoft JhengHei", sans-serif; overflow: hidden; }
 .plate.working > span { background: var(--plate); color: #3b3020; }
 .plate.waiting > span { background: var(--waiting); color: #fff; }
 .plate.idle > span { background: var(--turn); color: #4a3000; }
+/* 圓章：「!」「✓」做成一顆 12px 的圓，顏色之外的第二個線索 */
+.plate .pb { flex: none; display: inline-grid; place-items: center; width: 12px; height: 12px; margin-top: 1.5px; border-radius: 50%; font: 900 9px/1 system-ui, sans-serif; }
+.plate.waiting .pb { background: #fff; color: var(--waiting); box-shadow: 0 0 0 1.2px var(--ink); }
+.plate.idle .pb { background: #4a3000; color: var(--turn); }
+/* 截行放在內層：和 padding 同一層的話，被截掉的第三行會露在 padding 裡。英文在連字號或字與字之間斷行，不用 break-all */
+.plate .txt { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: normal; overflow-wrap: anywhere; text-align: left; }
+.plate.working .txt { text-align: center; }
 /* 沒有人上班：空大廳，兩行字寫在貼在牆上的紙條（微微歪 −2°） */
 .lobby-msg { z-index: 3; left: 0; right: 0; top: 40px; display: flex; justify-content: center; }
 .lobby-msg .note { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 22px; border: 1.6px solid var(--ink); border-radius: 4px;

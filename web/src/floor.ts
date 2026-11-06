@@ -3,7 +3,7 @@ import { GEO, plateText, seatGrid, type Floor, type Occupant, type SeatGrid } fr
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, wallPlan, windowView } from './furniture.js';
 import { ARTS, DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, HANGING_PLANT, OBJECTS, PANO, ROOM_SIDE, RUG, RUG_W, floorSeams, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
-import { motionDelay } from './view.js';
+import { motionDelay, plateBadge } from './view.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WIN_Y = 66; // 圓窗底邊：窗頂 14 與招牌同高，窗在坐著的人頭上
@@ -74,7 +74,7 @@ function rugEl(x: number): HTMLElement {
 
 const deskState = (e: Occupant | null): DeskState => (e ? e.status : 'empty');
 
-interface DeskEl { el: HTMLElement; chair: SVGSVGElement; use: SVGUseElement; plate: HTMLElement; text: HTMLElement }
+interface DeskEl { el: HTMLElement; chair: SVGSVGElement; use: SVGUseElement; plate: HTMLElement; badge: HTMLElement; text: HTMLElement }
 
 export class FloorView {
   /** 寬度由 building.ts 統一給（各層同寬），不自己捲動 */
@@ -82,6 +82,8 @@ export class FloorView {
   readonly people = div('people');
   private inner = div('floor-in');
   private sign = div('sign');
+  private signLevel = el('b');
+  private signTitle = document.createTextNode('');
   private chairs = div('chairs'); // 每張桌子一把，空桌也有（調淡）
   private deskRow = div('desks');
   private desks: DeskEl[] = [];
@@ -95,7 +97,10 @@ export class FloorView {
 
   constructor(hooks: { hover(e: Occupant, at: DOMRect): void; unhover(): void; enter(): void }) {
     this.sign.style.left = `${SIGN_X}px`;
-    this.sign.style.maxWidth = `${SIGN_MAX_W}px`; // 到第一扇窗之前
+    this.sign.style.maxWidth = `${SIGN_MAX_W}px`;
+    const fl = el('span', 'fl'); // 樓號放在白色小牌上：數字放大、F 縮小
+    fl.append(this.signLevel, el('small', '', 'F'));
+    this.sign.append(fl, this.signTitle);
     this.inner.append(...shell(), this.seams, this.windows, this.sign, this.deco, this.bays, this.chairs, this.people, this.deskRow, this.lights);
     this.el.append(this.inner); // 內容座標與 seatGrid 同一套
     // 滑過人物：依 data-key 找這層目前的佔用者
@@ -157,9 +162,10 @@ export class FloorView {
       this.placeDeco(grid, f.level, top);
       this.placeLamps(grid);
     }
-    this.sign.textContent = `${f.level}F ${f.title}`;
+    this.signLevel.textContent = String(f.level);
+    this.signTitle.data = f.title;
     this.sign.title = f.key || f.title;
-    this.sign.style.backgroundColor = f.color; // 專案色（不透明）
+    this.sign.style.setProperty('--pc', f.color); // 專案色（不透明）：招牌底色和樓號的字
     // 每一格都有桌有椅，沒人的是空桌；buildingWidth 保證格子放得下這層所有的座位
     while (this.desks.length > grid.seats.length) {
       const d = this.desks.pop()!;
@@ -167,15 +173,17 @@ export class FloorView {
       d.chair.remove();
     }
     while (this.desks.length < grid.seats.length) {
-      const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), text = el('span');
+      const desk = div('desk'), pic = useObj('desk-empty', DESK_ORIGIN.x, DESK_ORIGIN.y), plate = div('plate'), box = el('span'), badge = el('b', 'pb'), text = el('span', 'txt');
       pic.insertAdjacentHTML('beforeend', DESK_CODE + DESK_STEAM); // 捲動的程式碼、馬克杯的煙疊在桌上（CSS 動畫在 symbol 裡不會動），依狀態顯示
       desk.style.setProperty('--delay', `-${motionDelay(`${f.key}#${this.desks.length}`)}s`); // 各層各座位的煙不同步
-      plate.append(text);
+      badge.setAttribute('aria-hidden', 'true');
+      box.append(badge, text);
+      plate.append(box);
       desk.append(pic, div('glow'), plate); // 圖在名牌之前：名牌（HTML）疊在桌子正面上；glow 是夜晚的桌燈與螢幕光（building.css）
       const chair = useObj('chair', 0, CHAIR_Y);
       this.chairs.append(chair);
       this.deskRow.append(desk);
-      this.desks.push({ el: desk, chair, use: pic.firstElementChild as SVGUseElement, plate, text });
+      this.desks.push({ el: desk, chair, use: pic.firstElementChild as SVGUseElement, plate, badge, text });
     }
     this.desks.forEach((d, i) => {
       const x = grid.seats[i]!, occ = f.seats[i]?.occ ?? null, st = deskState(occ);
@@ -188,6 +196,8 @@ export class FloorView {
       d.plate.hidden = !occ;
       d.plate.className = occ ? `plate ${occ.status}` : 'plate';
       d.text.textContent = occ ? plateText(occ) : '';
+      d.badge.textContent = occ ? plateBadge(occ) : '';
+      d.badge.hidden = !d.badge.textContent;
     });
   }
 

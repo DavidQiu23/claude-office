@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { buildingPlan, buildingWidth, floorAlert, floorPlan, personLabel, plateText, seatGrid, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
 import { furnitureSet, layoutSet, SETS, wallPlan } from '../web/src/furniture.js';
 import type { Floor } from '../web/src/floors.js';
-import { PROJECT_COLORS } from '../web/src/view.js';
+import { plateBadge, PROJECT_COLORS } from '../web/src/view.js';
 import type { Employee } from '../src/state/types.js';
 
 const emp = (id: string, status: Employee['status'] = 'idle', over: Partial<Employee> = {}): Employee => ({
@@ -102,12 +102,12 @@ test('floorAlert：等你處理 > 輪到你 > null', () => {
   expect(floorAlert(floorOf(null, ee('working')))).toBe(null);
 });
 
-test('plateText：狀態前綴', () => {
-  expect(plateText(emp('a', 'waiting', { title: '結帳' }))).toBe('! 結帳');
-  expect(plateText(emp('a', 'idle', { title: '結帳' }))).toBe('✓ 結帳');
+test('plateText 只有文字，圓章由 plateBadge 給', () => {
+  expect(plateText(emp('a', 'waiting', { title: '結帳' }))).toBe('結帳');
+  expect([plateBadge(emp('a', 'waiting')), plateBadge(emp('a', 'idle')), plateBadge(emp('a', 'working'))]).toEqual(['!', '✓', '']);
 });
 
-test('personLabel：念誰加狀態，不念前綴；助理念類型和描述', () => {
+test('personLabel：念誰加狀態；助理念類型和描述', () => {
   expect(personLabel(emp('a', 'waiting', { title: '結帳' }))).toBe('結帳，等你處理');
   expect(personLabel(emp('a', 'idle', { title: '', lastPrompt: '' }))).toBe('無標題，輪到你');
   expect(personLabel({ ...emp('b', 'working'), assistant: { id: 'b', kind: 'Explore', description: '找檔案', status: 'working', seat: 1, startedAt: 0, activity: null } })).toBe('助理 Explore · 找檔案，工作中');

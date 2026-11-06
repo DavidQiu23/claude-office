@@ -1,5 +1,5 @@
 import type { Assistant, Employee } from '../../src/state/types.js';
-import { nameplate, oneLine, platePrefix, projectColor, roomKey, shortPath } from './view.js';
+import { nameplate, oneLine, projectColor, roomKey, shortPath } from './view.js';
 
 // ---- 剖面大樓的尺寸（CSS px）----
 export const GEO = { floorH: 200, slab: 8, seatW: 120, bayMin: 180, groundH: 72, panelW: 40, gutter: 56, rightMargin: 16, sideGap: 24 } as const; // bayMin：最窄的家具區；sideGap：桌子、招牌、家具區離樓層左右緣的距離（兩側斜牆寬 16）
@@ -84,14 +84,14 @@ export function buildingWidth(plan: Floor[], avail: number): number {
 export const helpersOf = (e: Employee): Occupant[] =>
   e.assistants.filter((a) => a.status === 'working').map((a) => ({ ...e, sessionId: a.id, status: 'working', activity: null, seat: a.seat, arrivedAt: a.startedAt, assistants: [], owner: e, assistant: a }));
 
-/** 桌上名牌：員工是標題加狀態前綴（底色直接依 e.status）；助理是「↳ 類型 · 描述」 */
+/** 桌上名牌的文字（圓章另外給，底色直接依 e.status）：員工是標題；助理是「↳ 類型 · 描述」 */
 export function plateText(e: Occupant): string {
   if (e.assistant) return '↳ ' + ([e.assistant.kind, oneLine(e.assistant.description)].filter(Boolean).join(' · ') || '助理');
-  return platePrefix(e) + nameplate(e);
+  return nameplate(e);
 }
 
 const STATUS_LABEL: Record<Employee['status'], string> = { working: '工作中', waiting: '等你處理', idle: '輪到你' };
-/** 人物給螢幕閱讀器念的名字：誰加狀態（前綴的 !、✓、↳ 不念） */
+/** 人物給螢幕閱讀器念的名字：誰加狀態（↳ 不念） */
 export const personLabel = (e: Occupant): string =>
   e.assistant ? `助理 ${plateText(e).slice(2)}，工作中` : `${nameplate(e) || '無標題'}，${STATUS_LABEL[e.status]}`;
 

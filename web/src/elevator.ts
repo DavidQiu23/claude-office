@@ -25,7 +25,10 @@ export class ElevatorPanel {
       this.drawFrame();
     });
     this.frame.hidden = true;
-    this.inner.append(this.frame);
+    const ind = div('elev-ind'); // 頂端的上下箭頭顯示窗，只是裝飾
+    ind.setAttribute('aria-hidden', 'true');
+    ind.innerHTML = '<svg width="16" height="10" viewBox="0 0 16 10"><path d="M4 1 L7 5 H1Z" style="fill:#9fd0ff"/><path d="M12 9 L9 5 H15Z" style="fill:#9fd0ff;opacity:.45"/></svg>';
+    this.inner.append(ind, this.frame);
     root.replaceChildren(this.inner);
     root.hidden = true;
     root.addEventListener('click', (ev) => {

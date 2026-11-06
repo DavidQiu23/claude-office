@@ -75,8 +75,8 @@ export const formatTime = (ms: number): string => {
 
 export const PROJECT_COLORS: string[] = ['#4f86b8', '#3d4f7a', '#6f9a5e', '#8a74b0', '#c0688a', '#4a9a94', '#a64d9e', '#6e7b8b'];
 
-// 名牌前綴：等你處理「! 」、輪到你「✓ 」
-export const platePrefix = (e: Employee): string => (e.status === 'waiting' ? '! ' : e.status === 'idle' ? '✓ ' : '');
+// 名牌的圓章：等你處理「!」、輪到你「✓」，工作中沒有
+export const plateBadge = (e: Employee): string => (e.status === 'waiting' ? '!' : e.status === 'idle' ? '✓' : '');
 export const roomKey = (e: Pick<Employee, 'cwd'>): string => e.cwd ?? '';
 
 export const projectColor = (key: string): string => PROJECT_COLORS[hash(key ?? '') % PROJECT_COLORS.length];

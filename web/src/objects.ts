@@ -35,12 +35,16 @@ const g = (style: string, children: string) => tag('g', { style }, children);
 const night = (children: string) => g('opacity:var(--night)', children);
 /** 鉚釘：奶油白小圓點加細墨線 */
 const rivet = (x: number, y: number) => circle(x, y, 1.3, 'mk-thin', 'fill:#fff8e8;stroke-width:.8');
-/** 硬影：一塊加深的實色，不描邊 */
-const shade = (x: number, y: number, w: number, h: number, rx: number, c: string) => rect(x, y, w, h, rx, undefined, fill(c));
 /** 圓（用 path 畫，才能和別的形狀一起用 evenodd 挖洞） */
 const circlePath = (cx: number, cy: number, r: number) => `M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0z`;
 
-const WHITE = fill('#fff');
+/** 帶 class 和顏色的圖形：下面的物件大多是一串這些；cls 空字串就不加 class */
+const st = (f: string, extra = '') => `fill:${f}${extra ? `;${extra}` : ''}`;
+const R = (x: number, y: number, w: number, h: number, rx: number, cls: string, f: string, extra = '') => rect(x, y, w, h, rx, cls || undefined, st(f, extra));
+const C = (cx: number, cy: number, r: number, cls: string, f: string, extra = '') => circle(cx, cy, r, cls || undefined, st(f, extra));
+const E = (cx: number, cy: number, rx: number, ry: number, cls: string, f: string, extra = '') => ellipse(cx, cy, rx, ry, cls || undefined, st(f, extra));
+const P = (d: string, cls: string, f: string, extra = '') => path(d, cls || undefined, st(f, extra));
+const L = (d: string, cls: string, extra = '') => line(d, cls, extra || undefined);
 const STEEL = '#8c8f99';
 const BOOKS = ['#9cd3ff', '#5cba69', '#f2f2f2', '#9b7fd8', '#43b0c8', '#5a8fd8', '#b6ddd3', '#d9d2f2'];
 
@@ -123,7 +127,7 @@ export const HANGING_PLANT = `<svg width="34" height="58" viewBox="0 0 34 58" ar
   <path d="M9 30 C4 38 6 46 4 54" style="fill:none;stroke:#3f7a4c;stroke-width:1.6;stroke-linecap:round"/><path d="M25 30 C30 38 28 44 30 50" style="fill:none;stroke:#3f7a4c;stroke-width:1.6;stroke-linecap:round"/>
   ${[[5, 36], [3, 46], [6, 53], [29, 36], [30, 44], [13, 33], [22, 34]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="2.8" style="fill:#7fbf7a;stroke:${INK};stroke-width:1.1"/>`).join('')}</svg>`;
 
-// ── 桌子 112×88：冷白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54（外殼不放大，畫面放大、邊框變窄）；正面 y −42 到 −23 留白給 HTML 名牌 ──
+// ── 桌子 112×88：我們看到的是桌子正面的擋板（人坐在後面，抽屜和放腳的空間朝著他）。映像管在右邊 x 16–54、y −87 到 −54；正面 y −42 到 −23 留白給 HTML 名牌 ──
 
 /** 映像管的深藍底（設計稿）：空桌畫一道淡藍弧、工作中疊亮色程式碼（DESK_CODE）、等你處理疊權限對話框；只有輪到你是琥珀色（狀態信號） */
 const NAVY = '#1f3a66';
@@ -131,40 +135,52 @@ const SCREEN: Record<DeskState, string> = { empty: NAVY, working: NAVY, waiting:
 /** 映像管的畫面（DESK_CODE 也切在這個範圍） */
 const SCR = { x: 19, y: -84, w: 29, h: 24 } as const;
 
-function desk(st: DeskState): string {
-  const lit = st !== 'empty';
+function desk(state: DeskState): string {
+  const lit = state !== 'empty';
   let o = '';
-  // 圓頭檯燈：只有非空桌、只在夜晚亮著（燈光是 building.css 疊在遮罩上的 .desk .glow）
+  // 圓頭檯燈：只有非空桌。白天是關著的冷灰色，夜晚亮起（燈光是 building.css 疊在遮罩上的 .desk .glow）
   if (lit) {
-    o += night(line('M-48 -48.5 V-64', 'mk', 'stroke-width:1.6')
-      + path('M-56 -64 Q-56 -74 -48 -74 Q-40 -74 -40 -64Z', 'mk', fill('#fff3c4')));
+    const shadePath = 'M-55 -61 Q-55 -71 -48 -71 Q-41 -71 -41 -61Z';
+    o += L('M-48 -48.5 V-61', 'mk', 'stroke-width:1.6') + E(-48, -49.5, 5, 1.6, 'mk-thin', '#a5a8b2')
+      + g('opacity:var(--day)', P(shadePath, 'mk', '#cfd6de') + P('M-45 -70.4 Q-41 -68 -41 -61 L-45 -61Z', '', '#b5bfca'))
+      + g('opacity:var(--night)', P(shadePath, 'mk', '#fff3c4') + L('M-54 -61 H-42', 'mk-thin', 'stroke:#fff;stroke-width:1.4;opacity:.9'));
   }
-  // 映像管：支架、圓角外殼、右側硬影、畫面、兩顆鉚釘
-  o += rect(26, -57, 18, 8, 3, 'mk-thin', fill('#cfd2d8'))
-    + rect(16, -87, 38, 33, 9, 'mk', fill('#e9e4d8')) + shade(49.5, -84.5, 3.5, 28, 1.75, '#c8c0ae')
-    + rect(SCR.x, SCR.y, SCR.w, SCR.h, 5, 'mk-thin', fill(SCREEN[st]))
-    + rivet(19.5, -57) + rivet(46.5, -57);
-  if (st === 'empty') o += line(`M${SCR.x + 9} ${SCR.y + 14} q5.5 -5 11 0`, 'mk-thin', 'stroke:#7ab0ff;stroke-width:1.6;opacity:.7');
-  if (st === 'waiting') o += tag('g', { class: 'dialog' }, rect(SCR.x + 4, SCR.y + 4, 21, 16, 1.5, 'mk-thin', WHITE)
-    + rect(SCR.x + 4, SCR.y + 4, 21, 4, 1, undefined, fill('var(--screen-waiting)'))
-    + rect(SCR.x + 6.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#5cba69')) + rect(SCR.x + 15.5, SCR.y + 13.5, 7, 3, 1, undefined, fill('#c9c2b6')));
-  if (lit) o += line(`M${SCR.x + 3.5} ${SCR.y + 5} q3.5 -2.5 8.5 -2.5`, 'mk-thin', 'stroke:#fff;stroke-width:1.6;opacity:.55'); // 反光
-  // 桌上：馬克杯（輪到你時冒煙，見 DESK_STEAM）、鍵盤
-  o += rect(-40, -57, 9, 8.5, 3, 'mk-thin', WHITE) + line('M-31 -55 q3 0 3 2.5 q0 2.5 -3 2.5', 'mk-thin')
-    + rect(-15, -51, 30, 2.5, 1, 'mk-thin', fill('#f2f2f2'));
-  // 桌子本體：圓角桌身、右側抽屜的硬影、白色桌面、兩顆鉚釘
-  o += rect(-56, -48.5, 112, 48.5, 8, 'mk', fill('var(--desk)')) + shade(36, -39, 15, 35, 5, 'var(--desk-shade)')
-    + rect(-56, -48.5, 112, 8, 4, 'mk', fill('var(--desk-top)'))
-    + rivet(-50, -7) + rivet(50, -7);
+  // 映像管：頂面和散熱孔（交代厚度）、外殼、內框、畫面、下巴上的銘牌、旋鈕和電源燈（青色，不用狀態色；空桌是灰的）、兩層底座
+  o += R(24, -56, 22, 5, 2, 'mk-thin', '#cfd2d8') + R(20, -52.5, 30, 3.5, 1.75, 'mk-thin', '#bfc3ca')
+    + P('M18 -87 L23 -91 H49 L54 -87Z', 'mk', '#f3efe6') + L('M28 -89 h4 M35 -89 h4 M42 -89 h4', 'mk-thin', 'stroke-width:.9')
+    + R(16, -87, 38, 33, 9, 'mk', '#e9e4d8') + R(48.5, -84.5, 4, 28, 2, '', '#c8c0ae')
+    + R(17.5, -85.5, 32.5, 28.5, 7, 'mk-thin', '#ddd7c9')
+    + R(SCR.x, SCR.y, SCR.w, SCR.h, 5, 'mk-thin', SCREEN[state])
+    + R(22, -58.2, 9, 2.4, 1, 'mk-thin', '#c8c0ae') + C(45, -57, 1.4, 'mk-thin', lit ? '#9fe6ff' : '#9aa3ab') + C(40.5, -57, 1.3, 'mk-thin', '#cfc8b8');
+  // 便利貼：外殼右上角，薄荷色（黃色太接近琥珀）；貼左上會靠到人臉，空桌沒有
+  if (lit) o += tag('g', { transform: 'rotate(10 55 -82)' }, R(51, -87, 8, 8, 0.8, 'mk-thin', '#c9f0dc') + L('M53 -84 h4 M53 -81.5 h3', 'mk-thin', 'stroke-width:.7'));
+  if (state === 'empty') o += L(`M${SCR.x + 9} ${SCR.y + 14} q5.5 -5 11 0`, 'mk-thin', 'stroke:#7ab0ff;stroke-width:1.6;opacity:.7');
+  if (state === 'waiting') o += tag('g', { class: 'dialog' }, R(SCR.x + 4, SCR.y + 4, 21, 16, 1.5, 'mk-thin', '#fff')
+    + R(SCR.x + 4, SCR.y + 4, 21, 4, 1, '', 'var(--screen-waiting)')
+    + R(SCR.x + 6.5, SCR.y + 13.5, 7, 3, 1, '', '#5cba69') + R(SCR.x + 15.5, SCR.y + 13.5, 7, 3, 1, '', '#c9c2b6'));
+  if (lit) o += L(`M${SCR.x + 3.5} ${SCR.y + 5} q3.5 -2.5 8.5 -2.5`, 'mk-thin', 'stroke:#fff;stroke-width:1.6;opacity:.55'); // 反光
+  // 桌上：馬克杯（輪到你時冒煙，見 DESK_STEAM）、一排鍵的鍵盤、滑鼠。不放筆筒：和燈、杯子擠在桌角，縮小後像一塊碎片
+  o += R(-40, -57, 9, 8.5, 3, 'mk-thin', '#fff') + L('M-31 -55 q3 0 3 2.5 q0 2.5 -3 2.5', 'mk-thin')
+    + R(-16, -52, 32, 3.5, 1.2, 'mk-thin', '#f2f2f2') + L('M-13 -50.3 h2 M-9 -50.3 h2 M-5 -50.3 h2 M-1 -50.3 h2 M3 -50.3 h2 M7 -50.3 h2 M11 -50.3 h2', 'mk-thin', 'stroke-width:.8')
+    + E(20, -50, 3, 1.6, 'mk-thin', '#f2f2f2');
+  // 桌身：桌面有前緣厚度和右側硬影，底下一條細飾條、右側一階硬影、兩端一對桌腳
+  o += R(-56, -48.5, 112, 46, 8, 'mk', 'var(--desk)') + R(36, -39, 15, 33, 5, '', 'var(--desk-shade)')
+    + L('M-50 -14 H50', 'mk-thin', 'stroke-width:1;opacity:.55')
+    + R(-53, -4, 10, 4, 1.5, 'mk-thin', '#a5a8b2') + R(43, -4, 10, 4, 1.5, 'mk-thin', '#a5a8b2')
+    + R(-56, -48.5, 112, 8, 4, 'mk', 'var(--desk-top)') + R(-55, -42.6, 110, 2.2, 0, '', 'color-mix(in srgb, var(--desk-shade) 45%, var(--desk-top))') + R(40, -47.5, 14, 6, 2.5, '', 'color-mix(in srgb, var(--desk-shade) 60%, var(--desk-top))')
+    + rivet(-50, -9) + rivet(50, -9);
   return o;
 }
 
-// ── 椅子 56×60：藍色圓角椅背（不用藍綠：會和護牆板混在一起）、淺色靠墊、右側硬影、頂端兩顆鉚釘。放在人後面（floor.ts 的 chairs 圖層），下半被桌子擋住 ──
+// ── 椅子 56×60：藍色圓角椅背（不用藍綠：會和護牆板混在一起）、頭枕、靠墊一圈白色縫線、兩側扶手、右側硬影。放在人後面（floor.ts 的 chairs 圖層），下半被桌子擋住。
+//    靠墊上不要畫釦子：配上空桌螢幕的弧線會像一張臉 ──
 
 const chair = () =>
-  rect(-27, -59, 54, 59, 14, 'mk', fill('#4f7fd6')) + shade(13, -55, 9, 51, 4.5, '#3c66b3')
-  + rect(-20, -52, 32, 42, 10, 'mk-thin', fill('#82a9ec'))
-  + rivet(-21, -53) + rivet(21, -53);
+  R(-31, -22, 9, 7, 3, 'mk', '#3c66b3') + R(22, -22, 9, 7, 3, 'mk', '#3c66b3')
+  + R(-27, -59, 54, 59, 14, 'mk', '#4f7fd6') + R(13, -55, 9, 51, 4.5, '', '#3c66b3')
+  + R(-21, -56, 42, 9, 4.5, 'mk-thin', '#3c66b3') + R(9, -55, 10, 7, 3, '', '#335a9f')
+  + R(-20, -45, 32, 36, 9, 'mk-thin', '#82a9ec') + R(-17, -42, 26, 30, 7, '', 'none', 'stroke:#e3edff;stroke-width:1;stroke-dasharray:2.5 2')
+  + rivet(-21, -52) + rivet(21, -52);
 
 // ── 會動的部件：Chromium 不會把 CSS 動畫帶進 <use> 的複本，所以不放在 symbol 裡，floor.ts 把這些疊在物件的 svg 上。動畫在 theme.css ──
 
@@ -265,96 +281,124 @@ function panorama(): string {
   return sky + g('opacity:.5', far) + night(farLit) + near + street;
 }
 
-// ── 家具：都是圓角，右側一塊硬影 ──
+// ── 家具：同一套畫法，墨線、右側一階硬影、左上亮面。會動的部件（盆栽葉子、咖啡煙）在 FURN_ANIM ──
 
-/** 飲水機 28×78：圓水桶、機身、藍白兩個出水口 */
+const book = (x: number, bottom: number, w: number, h: number, c: string) =>
+  R(x, bottom - h, w, h, 1.5, 'mk-thin', c) + R(x + 1, bottom - h + 3, w - 2, 1.6, 0, '', 'rgb(255 255 255 / .6)') + R(x + w - 2, bottom - h + 1, 1.4, h - 2, 0, '', 'rgb(0 0 0 / .14)');
+
+/** 書櫃 60×104：頂冠和底座、層板有前緣、書背有白標和右側硬影；上層一盆小植物，中層一本斜靠的書和書擋，最下層兩個有標籤的收納盒 */
+function bookshelf(): string {
+  let o = R(-29, -100, 58, 100, 6, 'mk', 'var(--wood)') + R(-25, -95, 50, 87, 3, 'mk-thin', '#8e6a43') + R(18, -95, 7, 87, 0, '', 'rgb(0 0 0 / .18)');
+  const rows: [number, number][] = [[-95, -73], [-69, -50], [-46, -27]]; // [層頂, 層底]；最下層放收納盒
+  let k = 0;
+  rows.forEach(([top, bottom], r) => {
+    let x = -23;
+    const stop = r === 0 ? 4 : r === 1 ? 8 : 16;
+    for (;;) {
+      const w = [6, 8, 5, 7][k % 4]!, h = Math.min(bottom - top - 3, [17, 19, 15, 18][k % 4]!);
+      if (x + w > stop) break;
+      o += book(x, bottom, w, h, BOOKS[k % BOOKS.length]!);
+      x += w + 1;
+      k++;
+    }
+  });
+  o += R(8, -79, 12, 6, 2, 'mk-thin', '#5a8fd8') + C(11, -83, 4, 'mk-thin', '#5cba69') + C(17, -84, 3.5, 'mk-thin', '#4aa35a');
+  o += tag('g', { transform: 'rotate(18 12 -50)' }, book(9, -50, 6, 17, '#9b7fd8'));
+  o += R(18, -40, 4, 13, 1, 'mk-thin', STEEL);
+  o += R(-22, -20, 18, 12, 3, 'mk-thin', '#b6ddd3') + R(-17, -16, 8, 3, 1, 'mk-thin', '#fff') + R(-1, -20, 18, 12, 3, 'mk-thin', '#9cd3ff') + R(4, -16, 8, 3, 1, 'mk-thin', '#fff');
+  for (const y of [-73, -50, -27]) o += R(-25, y, 50, 4, 1, 'mk-thin', '#d6ad7f') + R(14, y + 0.8, 11, 2.4, 0, '', '#c0935f');
+  o += R(-30, -104, 60, 8, 3, 'mk', '#d6ad7f') + R(16, -103, 12, 6, 2, '', '#c0935f');
+  o += R(-28, -8, 56, 8, 2, 'mk', 'var(--wood-shade)');
+  return o + rivet(-26, -100) + rivet(26, -100);
+}
+
+/** 影印機 50×68：掃描蓋和操作台分開、深藍小螢幕、兩顆按鈕、出紙口一張紙；指示燈是青色，不用工作中的綠 */
+const copier = () =>
+  R(-24, -50, 48, 50, 7, 'mk', '#e9edf2') + R(13, -47, 8, 44, 3, '', '#c3cdd8')
+  + R(-25, -58, 50, 10, 4, 'mk', '#d5dbe2') + R(12, -57, 11, 8, 2, '', '#c1c9d2')
+  + R(2, -56.5, 13, 6, 1.5, 'mk-thin', '#22304f') + R(3.5, -55.2, 6, 1.4, 0.5, '', '#9fd0ff')
+  + C(-15, -53, 1.9, 'mk-thin', '#fff') + C(-9.5, -53, 1.9, 'mk-thin', '#fff') + C(19, -53, 1.3, '', '#43b0c8')
+  + R(-23, -67, 46, 9, 4, 'mk', '#f4f6f8') + R(9, -66, 12, 7, 2, '', '#dde2e8')
+  + P('M-14 -47 L-12 -51 H6 L4 -47Z', 'mk-thin', '#fff') + R(-17, -47.5, 26, 3, 1.5, 'mk-thin', '#3a4658')
+  + R(-20, -40, 32, 15, 3, 'mk-thin', '#dfe4ea') + R(-20, -22, 32, 15, 3, 'mk-thin', '#dfe4ea')
+  + L('M-9 -32.5 h12 M-9 -14.5 h12', 'mk', 'stroke-width:2')
+  + R(-20, -1.5, 8, 2.5, 1, '', '#3a4658') + R(12, -1.5, 8, 2.5, 1, '', '#3a4658')
+  + rivet(-20, -45) + rivet(20, -45);
+
+/** 盆栽 34×74：托盤、藍色圓盆、盆緣硬影、一圈淺色腰帶；三團圓葉會晃，在 FURN_ANIM.plant（葉子底 y −30 在盆緣 −28 之上，疊在上面也不蓋到盆） */
+const PLANT_LEAVES = C(-8, -40, 10, 'mk', '#4aa35a') + C(9, -42, 10, 'mk', '#3d8f4d') + C(0, -58, 13, 'mk', '#5cba69')
+  + E(-11, -44, 3.5, 2.2, '', '#7fd08a') + E(6, -46, 3.5, 2.2, '', '#6cc27a') + E(-5, -64, 4.5, 2.6, '', '#8fdc98')
+  + L('M-6 -63 q4 -5 10 -3', 'mk-thin', 'stroke:#9be0a4;stroke-width:2') + L('M0 -50 q2 -6 6 -9 M-8 -33 q-1 -4 2 -8 M9 -35 q1 -4 -2 -8', 'mk-thin', 'stroke:#2f6e3c;stroke-width:1');
+const plant = () =>
+  E(0, -1.5, 14, 3, 'mk', '#4673b8')
+  + P('M-12 -24 Q-12 0 0 0 Q12 0 12 -24Z', 'mk', '#5a8fd8') + P('M5 -24 Q11 -24 11 -14 Q10 -4 4 -1.5Z', '', '#4673b8')
+  + R(-11.5, -16, 23, 2.5, 0, '', 'rgb(255 255 255 / .35)')
+  + R(-14, -28, 28, 7, 3.5, 'mk', '#7aa8e8') + R(5, -27, 8, 5, 2, '', '#5a8fd8');
+
+/** 立燈 28×102：圓頂燈罩加飾帶和拉鍊、鋼管、配重底座（夜晚亮起；周圍的光是 building.css 的 .glow-floorLamp） */
+const DOME = 'M-14 -76 Q-14 -98 0 -98 Q14 -98 14 -76Z';
+const floorLamp = () =>
+  L('M0 -76 V-6', 'mk', 'stroke-width:5') + L('M0 -76 V-6', 'mk', `stroke:${STEEL};stroke-width:2.6`)
+  + E(0, -4, 13, 4.2, 'mk', STEEL) + R(-4.5, -11, 9, 7, 2, 'mk-thin', '#a5a8b2') + R(1, -10, 3, 5, 1, '', '#7c7f89')
+  + C(0, -99.5, 2.5, 'mk-thin', '#bfe3ff')
+  + P(DOME, 'mk', '#bfe3ff') + P('M6 -96 Q14 -92 14 -76 L8 -76Z', '', '#8fbfe0') + R(-13.5, -81, 27, 3, 0, '', '#e8f6ff')
+  + L('M6 -76 V-66', 'mk-thin') + C(6, -65, 1.5, 'mk-thin', '#fff')
+  + night(P(DOME, 'mk', '#fff3c4') + E(0, -76, 12, 2, '', '#fff', 'opacity:.9'));
+
+/** 沙發 92×46：紫色（不用藍綠：會和護牆板混在一起）、兩塊坐墊、椅背三顆釦、奶油和淺藍兩個抱枕、木腳，右扶手和右坐墊各一階硬影 */
+const SOFA = '#8a74c9', SOFA_SHADE = '#7060ad';
+const sofa = () =>
+  R(-41, -45, 82, 30, 12, 'mk', SOFA) + R(22, -42, 14, 22, 6, '', SOFA_SHADE)
+  + C(-20, -35, 1.4, 'mk-thin', '#6c5aa8') + C(0, -35, 1.4, 'mk-thin', '#6c5aa8') + C(20, -35, 1.4, 'mk-thin', '#6c5aa8')
+  + R(-32, -39, 15, 13, 5, 'mk-thin', '#f4e6b8') + R(-21, -38, 3.5, 11, 2, '', '#e4d39e')
+  + R(14, -39, 14, 12, 5, 'mk-thin', '#bfe3ff') + R(24, -38, 3, 10, 1.5, '', '#9ccbe9')
+  + R(-38, -9, 76, 5, 2, 'mk-thin', SOFA_SHADE)
+  + R(-31, -24, 31, 17, 7, 'mk', '#a594dc') + R(0, -24, 31, 17, 7, 'mk', '#a594dc') + R(22, -22, 8, 13, 3, '', '#9483cf')
+  + R(-45.5, -33, 16, 31, 8, 'mk', SOFA) + R(29.5, -33, 16, 31, 8, 'mk', SOFA) + R(38, -30, 6, 25, 3, '', SOFA_SHADE)
+  + R(-36, -4, 5, 4, 1, 'mk-thin', 'var(--wood-shade)') + R(31, -4, 5, 4, 1, 'mk-thin', 'var(--wood-shade)');
+
+/** 邊桌 30×37：桌面加厚、桌腳一圈接頭、圓底座；桌上兩本書和一杯咖啡（煙在 FURN_ANIM） */
+const sideTable = () =>
+  R(-2.5, -25, 5, 22, 1.5, 'mk-thin', STEEL) + R(-4, -12, 8, 3, 1, 'mk-thin', '#a5a8b2')
+  + E(0, -2.5, 11, 2.8, 'mk', STEEL)
+  + R(-15, -30, 30, 6, 3, 'mk', 'var(--wood)') + R(6, -28.5, 8, 3, 1.5, '', 'var(--wood-shade)')
+  + R(-12, -33, 12, 3, 1, 'mk-thin', '#5a8fd8') + R(-11, -36, 10, 3, 1, 'mk-thin', '#b6ddd3')
+  + R(3, -37, 7, 7, 2.5, 'mk-thin', '#fff') + R(7, -36, 2, 5, 1, '', '#dfe4ea') + L('M10 -35 q2.5 0 2.5 2 q0 2 -2.5 2', 'mk-thin');
+
+/** 飲水機 28×78：水桶裡有水位和瓶蓋、藍白兩個出水口、接水盤、側邊一管紙杯 */
 const waterCooler = () =>
-  rect(-10, -77, 20, 30, 9, 'mk', fill('#9cd3ff')) + shade(-6, -72, 3, 18, 1.5, '#e8f6ff')
-  + rect(-4, -49, 8, 4, 1.5, 'mk-thin', fill('#9cd3ff'))
-  + rect(-13, -46, 26, 46, 7, 'mk', fill('#e9edf2')) + shade(5, -43, 6, 40, 3, '#c3cdd8')
-  + rect(-9, -38, 14, 11, 3, 'mk-thin', fill('#cfd6de'))
-  + circle(-5, -32.5, 2.2, 'mk-thin', fill('#3a8ee6')) + circle(1.5, -32.5, 2.2, 'mk-thin', WHITE)
+  R(-10, -77, 20, 30, 9, 'mk', '#cfeaff') + R(-8.5, -68, 17, 19.5, 6, '', '#9cd3ff') + L('M-8.5 -68 H8.5', 'mk-thin', 'stroke-width:.8')
+  + R(-6, -74, 3, 16, 1.5, '', '#f2faff') + R(-3.5, -80, 7, 3.5, 1, 'mk-thin', '#3a8ee6')
+  + R(-4, -49, 8, 4, 1.5, 'mk-thin', '#9cd3ff')
+  + R(-13, -46, 26, 46, 7, 'mk', '#e9edf2') + R(5, -43, 6, 40, 3, '', '#c3cdd8')
+  + R(-9, -38, 14, 11, 3, 'mk-thin', '#cfd6de')
+  + C(-5, -32.5, 2.2, 'mk-thin', '#3a8ee6') + C(1.5, -32.5, 2.2, 'mk-thin', '#fff')
+  + R(-9, -24, 14, 3, 1.5, 'mk-thin', '#a5a8b2')
+  + R(13, -40, 5, 17, 2, 'mk-thin', '#f4f6f8') + P('M13.6 -23 H17.4 L16.6 -19 H14.4Z', 'mk-thin', '#fff')
   + rivet(-9, -5) + rivet(9, -5);
 
 const SNACKS = ['#3a8ee6', '#5cba69', '#f2f2f2', '#9b7fd8', '#43b0c8'];
-/** 販賣機 56×112：鋼藍圓角機身、燈箱（夜晚亮起；周圍的光是 building.css 的 .glow-vending）、三層商品窗、取物口、四角鉚釘 */
+/** 販賣機 56×112：玻璃斜反光、投幣面板、取物口擋板、燈箱畫杯子圖示（夜晚亮起，不寫字、沒有品牌；周圍的光是 building.css 的 .glow-vending） */
 function vending(): string {
-  let o = rect(-27, -111, 54, 111, 10, 'mk', fill('#8a9bb0')) + shade(16, -107, 8, 103, 4, '#6f8096')
-    + rect(-21, -105, 34, 9, 3, 'mk-thin', fill('#dfe8f2'))
-    + night(rect(-21, -105, 34, 9, 3, 'mk-thin', fill('#fff3c4')));
+  let o = R(-27, -111, 54, 111, 10, 'mk', '#8a9bb0') + R(16, -107, 8, 103, 4, '', '#6f8096')
+    + R(-21, -105, 34, 9, 3, 'mk-thin', '#dfe8f2') + night(R(-21, -105, 34, 9, 3, 'mk-thin', '#fff3c4'))
+    + L('M-7 -102.5 h6 v3.5 q0 1.5 -1.5 1.5 h-3 q-1.5 0 -1.5 -1.5z M-1 -101.5 q2 0 2 1.2 q0 1.2 -2 1.2', 'mk-thin', 'stroke-width:.9')
+    + R(-22, -94, 35, 72, 4, 'mk-thin', '#3f4c60');
   for (let row = 0; row < 3; row++) {
-    const y = -92 + row * 24;
-    o += rect(-21, y, 34, 21, 4, 'mk-thin', fill('#4c5a6e'));
-    for (let c = 0; c < 4; c++) o += rect(-18.5 + c * 8, y + 3 + ((c + row) % 2) * 2, 6, 16 - ((c + row) % 2) * 2, 2, 'mk-thin', `${fill(SNACKS[(c + row * 2) % SNACKS.length]!)};stroke-width:.8`);
-  }
-  return o + rect(-21, -18, 34, 9, 3, 'mk-thin', fill('#3a4658'))
-    + rivet(-22.5, -106.5) + rivet(22.5, -106.5) + rivet(-22.5, -4.5) + rivet(22.5, -4.5);
-}
-
-/** 盆栽 34×74：藍色圓盆加盆緣；三團圓葉（深淺綠）會晃，在 FURN_ANIM.plant（葉子底 y −30 在盆緣 −28 之上，疊在上面也不蓋到盆） */
-const PLANT_LEAVES = circle(-8, -40, 10, 'mk', fill('#4aa35a')) + circle(9, -42, 10, 'mk', fill('#3d8f4d')) + circle(0, -58, 13, 'mk', fill('#5cba69'))
-  + line('M-6 -63 q4 -5 10 -3', 'mk-thin', 'stroke:#9be0a4;stroke-width:2');
-const plant = () =>
-  path('M-12 -24 Q-12 0 0 0 Q12 0 12 -24Z', 'mk', fill('#5a8fd8')) + path('M5 -24 Q11 -24 11 -14 Q10 -4 4 -1.5Z', undefined, fill('#4673b8'))
-  + rect(-14, -28, 28, 7, 3.5, 'mk', fill('#7aa8e8'));
-
-/** 書櫃 60×104：圓角木框、四層、書背（淺色）、右側內壁硬影、頂端兩顆鉚釘 */
-function bookshelf(): string {
-  let books = '';
-  const rows: [number, number][] = [[-97, -75], [-75, -51], [-51, -27], [-27, -6]]; // [層頂, 層底]
-  let k = 0;
-  rows.forEach(([top, bottom], r) => {
-    for (let x = -24 + (r % 2) * 2; ; k++) {
-      const w = [6, 8, 5, 7][k % 4]!, h = Math.min(bottom - top - 3, [17, 20, 15, 19][k % 4]!);
-      if (x + w > 17) break;
-      if ((k + r) % 5 !== 3 && r < 3) books += rect(x, bottom - h, w, h, 2, 'mk-thin', fill(BOOKS[k % BOOKS.length]!)); // 每五格空一格；最下層放書盒
-      x += w + 1;
+    const y = -91 + row * 23;
+    o += R(-20, y + 18, 31, 2.5, 0, '', '#2c3646');
+    for (let c = 0; c < 4; c++) {
+      const h = 15 - ((c + row) % 2) * 3;
+      o += R(-18.5 + c * 7.6, y + 18 - h, 6, h, 2, 'mk-thin', SNACKS[(c + row * 2) % SNACKS.length]!, 'stroke-width:.8') + R(-17.5 + c * 7.6, y + 22 - h, 4, 1.5, 0, '', 'rgb(255 255 255 / .55)');
     }
-  });
-  books += rect(-22, -17, 16, 11, 3, 'mk-thin', fill('#b6ddd3')) + rect(-3, -17, 16, 11, 3, 'mk-thin', fill('#9cd3ff'));
-  return rect(-29, -103, 58, 103, 8, 'mk', fill('var(--wood)'))
-    + rect(-25, -98, 50, 92, 4, 'mk-thin', fill('var(--wood-shade)'))
-    + books
-    + shade(18, -97, 6, 91, 3, '#00000026')
-    + line(rows.map(([, b]) => `M-25 ${b} H25`).join(' '), 'mk-thin')
-    + rivet(-25, -100) + rivet(25, -100);
+  }
+  o += P('M-12 -93 H-6 L-16 -23 H-21 V-36Z', '', 'rgb(255 255 255 / .13)');
+  o += R(15, -94, 7, 44, 2, 'mk-thin', '#c9d3df');
+  for (let i = 0; i < 4; i++) o += C(18.5, -89 + i * 6, 1.5, 'mk-thin', '#fff');
+  o += R(16.5, -62, 4, 7, 1, 'mk-thin', '#3a4658');
+  o += R(-21, -18, 34, 10, 3, 'mk-thin', '#3a4658') + R(-19, -17, 30, 4, 1.5, 'mk-thin', '#56647a');
+  return o + rivet(-22.5, -106.5) + rivet(22.5, -106.5) + rivet(-22.5, -4.5) + rivet(22.5, -4.5);
 }
-
-/** 影印機 50×68：圓角機身、掃描蓋、操作面板（綠燈）、出紙口、兩個紙匣、右側硬影 */
-const copier = () =>
-  rect(-24, -53, 48, 53, 8, 'mk', fill('#e9edf2')) + shade(14, -49, 7, 45, 3, '#c3cdd8')
-  + rect(-23, -61, 46, 11, 5, 'mk', fill('#cfd6de')) + rect(-25, -67, 50, 8, 4, 'mk', fill('#dfe4ea'))
-  + rect(6, -58, 13, 5, 2.5, 'mk-thin', fill('#4c5a6e')) + circle(16, -55.5, 1.3, undefined, fill('var(--working)'))
-  + rect(-15, -50, 24, 3, 1.5, 'mk-thin', WHITE)
-  + rect(-20, -42, 32, 14, 4, 'mk-thin', fill('#dfe4ea')) + rect(-20, -24, 32, 14, 4, 'mk-thin', fill('#dfe4ea'))
-  + line('M-8 -35 h8 M-8 -17 h8', 'mk', 'stroke-width:1.8')
-  + rivet(-20, -4) + rivet(20, -4);
-
-/** 沙發 92×46：紫色圓角椅背（不用藍綠：會和護牆板混在一起）、兩側扶手、坐墊、奶油色抱枕、椅背右側硬影、短腳 */
-const SOFA = '#8a74c9';
-const sofa = () =>
-  rect(-41, -45, 82, 32, 12, 'mk', fill(SOFA)) + shade(20, -42, 16, 18, 6, '#7060ad')
-  + rect(-30, -38, 14, 13, 5, 'mk-thin', fill('#f4e6b8'))
-  + rect(-45.5, -33, 16, 31, 8, 'mk', fill(SOFA)) + rect(29.5, -33, 16, 31, 8, 'mk', fill(SOFA))
-  + rect(-31, -24, 62, 19, 8, 'mk', fill('#a594dc'))
-  + line('M-24 -4 V0 M24 -4 V0', 'mk', 'stroke-width:2.4');
-
-/** 立燈 28×102：圓頂燈罩加小圓鈕（夜晚亮起；周圍的光是 building.css 的 .glow-floorLamp）、鋼管、圓底座 */
-const DOME = 'M-14 -76 Q-14 -98 0 -98 Q14 -98 14 -76Z';
-const floorLamp = () =>
-  line('M0 -76 V-4', 'mk', 'stroke-width:4.5') + line('M0 -76 V-4', 'mk', `stroke:${STEEL};stroke-width:2.2`)
-  + ellipse(0, -4, 12, 4, 'mk', fill(STEEL))
-  + circle(0, -99.5, 2.5, 'mk-thin', fill('#bfe3ff'))
-  + path(DOME, 'mk', fill('#bfe3ff')) + path('M6 -96 Q14 -92 14 -76 L8 -76Z', undefined, fill('#8fbfe0'))
-  + night(path(DOME, 'mk', fill('#fff3c4')) + ellipse(0, -76, 12, 2, undefined, 'fill:#fff;opacity:.9'));
-
-/** 邊桌 30×37：圓角桌面、單腳、圓底座；桌上一本書與一杯咖啡 */
-const sideTable = () =>
-  rect(-2.5, -25, 5, 22, 1.5, 'mk-thin', fill(STEEL))
-  + ellipse(0, -2.5, 10, 2.5, 'mk', fill(STEEL))
-  + rect(-15, -30, 30, 6, 3, 'mk', fill('var(--wood)')) + shade(7, -28.5, 7, 3, 1.5, '#00000026')
-  + rect(-11, -33, 11, 3, 1, 'mk-thin', fill('#5a8fd8'))
-  + rect(3, -37, 7, 7, 2.5, 'mk-thin', WHITE) + line('M10 -35 q2.5 0 2.5 2 q0 2 -2.5 2', 'mk-thin');
 
 /** 家具上會動的部件（floor.ts 疊在那件家具上）：盆栽的葉子晃、邊桌的咖啡冒煙 */
 export const FURN_ANIM: Partial<Record<FurnitureId, string>> = {
