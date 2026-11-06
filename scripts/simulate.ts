@@ -13,7 +13,7 @@ const sid = (n: string) => `${n}-sim`;
 const project = (n: string) => n.replace(/\d+$/, '');
 const CWD: Record<string, string> = { api: '/work/api', web: '/work/web', docs: '/work/docs' };
 // 假 transcript：只放 ai-title，Stop 之後伺服器會讀到並顯示在名牌上
-const LONG_TITLE = '把登入流程整個重構成可以測試的小模組再補齊單元測試與整合測試並整理錯誤訊息格式化'; // 太長，名牌會截成「…」
+const LONG_TITLE = '把登入流程整個重構成可以測試的小模組再補齊單元測試與整合測試並整理錯誤訊息格式化'; // 太長，名牌最多兩行，超過的截掉
 const TITLES: Record<string, string> = { api0: '訂單 API 加分頁', api1: LONG_TITLE, web0: '首頁改版', web1: '首頁改版（新對話）', docs0: '安裝說明改寫' };
 const tdir = mkdtempSync(join(tmpdir(), 'office-sim-'));
 // 結束時（含 Ctrl+C / 被終止）刪除暫存資料夾

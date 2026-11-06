@@ -1,4 +1,4 @@
-// 電梯面板：固定在視窗左側，一層一顆按鈕（最高樓在上），燈色 = 該層提示；看得到的樓層用虛線框圈起來；點按鈕捲到那層
+// 電梯面板：固定在視窗左側，一層一顆按鈕（最高樓在上），燈色 = 該層提示；看得到的樓層用凹下去的軌道框起來；點按鈕捲到那層
 import { div } from './dom.js';
 import { visibleSpan, type Alert } from './floors.js';
 import { reduceMotion } from './motion.js';
@@ -59,7 +59,7 @@ export class ElevatorPanel {
     list.forEach((f, i) => {
       const b = this.btns[i]!;
       const lamp = f.alert ? LAMP[f.alert] : null;
-      b.textContent = `${f.level}${lamp?.mark ?? ''}`; // 記號和名牌前綴相同，燈色不是唯一的線索
+      b.textContent = `${f.level}${lamp?.mark ?? ''}`; // 記號和名牌的圓章相同，燈色不是唯一的線索
       b.title = lamp ? `${f.title}（${lamp.text}）` : f.title;
       b.setAttribute('aria-label', lamp ? `${f.level}F ${f.title}，${lamp.text}` : `${f.level}F ${f.title}`);
       b.className = f.alert ?? '';
