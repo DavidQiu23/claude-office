@@ -5,11 +5,33 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 /* 剖面大樓：上方天空、樓層（最高樓在上）、下方地面；樓層左邊留 56 給電梯面板、右邊距 16 */
 #building { flex: 1 0 auto; display: flex; flex-direction: column; overflow-anchor: none; } /* 錨定由 building.ts 自己做（瀏覽器在 scrollY 0 不錨定） */
 /* 天空：透明，露出頁面的天空（theme.css 的 --sky-bg），撐出屋頂上方的空間；天空高時上面留空 */
-#building .sky { flex: 1 0 72px; pointer-events: none; }
-/* 屋頂：疊在天空底部（往上蓋 30px），只多出 12px 的女兒牆；寬度對齊樓層。圓角機械風，平塗加 1.6px 墨線框 */
-#building .roof { position: relative; z-index: 1; height: 42px; margin: -30px 16px 0 56px; pointer-events: none; filter: var(--drop); }
+#building .sky { position: relative; flex: 1 0 72px; overflow-x: clip; pointer-events: none; } /* 天際線比視窗寬，裁掉才不會多出橫向捲動 */
+/* 天際線：屋頂後面的遠景（objects.ts 的 skylineSvg），底部藏在屋頂後面。遠的一層線細、顏色淡；沒有雲、太陽、月亮、星星 */
+.skyline { position: absolute; left: 0; bottom: -12px; display: block; }
+.skyline .far { fill: var(--sk-far); stroke: var(--sk-far-ink); stroke-width: 1.2; }
+.skyline .near { fill: var(--sk-near); stroke: var(--ink); stroke-width: 1.4; }
+.skyline .shade-far { fill: var(--sk-far-shade); }
+.skyline .shade-near { fill: var(--sk-near-shade); }
+.skyline .pane { fill: var(--sk-pane); }
+.skyline .win { fill: var(--sk-win); opacity: var(--night); }
+/* 屋頂：疊在天空底部（往上蓋 30px），只多出 12px 的女兒牆；寬度對齊外牆柱外緣。圓角機械風，平塗加 1.6px 墨線框 */
+#building .roof { position: relative; z-index: 1; height: 42px; margin: -30px 2px 0 42px; pointer-events: none; filter: var(--drop); }
 .roof > div { position: absolute; bottom: 12px; box-sizing: border-box; }
-.roof .parapet { left: 0; right: 0; bottom: 0; height: 12px; border: 1.6px solid var(--ink); border-radius: 6px 6px 0 0; background: var(--roof); }
+/* 屋簷：女兒牆加厚，下緣一排齒飾，右側一階硬影 */
+.roof .parapet { left: 0; right: 0; bottom: 0; height: 16px; border: 1.6px solid var(--ink); border-radius: 6px 6px 0 0; background:
+  linear-gradient(var(--ink), var(--ink)) 0 6px / 100% 1.3px no-repeat,
+  repeating-linear-gradient(90deg, transparent 0 9px, #cbb68a 9px 13px) 0 8px / 100% 6px no-repeat,
+  linear-gradient(90deg, var(--roof) 0 82%, #d6c196 82%); }
+/* 屋頂招牌：大樓的名字，立在女兒牆上。夜晚是燈箱，亮冷白光（不用琥珀） */
+.roof .rsign { left: 64px; bottom: 14px; display: flex; flex-direction: column; align-items: center; }
+.rsign .box { padding: 3px 14px 4px; border: 1.8px solid var(--ink); border-radius: 7px; background: linear-gradient(90deg, #fffdf6 0 84%, #eadfc8 84%);
+  font: 900 15px/1.2 system-ui, "Microsoft JhengHei", sans-serif; letter-spacing: .12em; color: var(--ink); white-space: nowrap; }
+.rsign .box b { color: #3d6fa8; letter-spacing: .02em; margin-right: .35em; }
+.rsign .legs { width: 70%; height: 8px; display: flex; justify-content: space-between; }
+.rsign .legs i { width: 3px; height: 8px; background: var(--ink); }
+:root[data-time="night"] .rsign .box { background: #1f2a55; color: #eef4ff; border-color: #0b1026;
+  text-shadow: 0 0 6px rgb(190 215 255 / .9), 0 0 14px rgb(150 190 255 / .6); box-shadow: 0 0 18px 2px rgb(140 180 255 / .35); }
+:root[data-time="night"] .rsign .box b { color: #bcd6ff; }
 /* 圓頂水塔：下緣一圈鋼箍 */
 .roof .tank { right: 40px; width: 44px; height: 28px; border: 1.6px solid var(--ink); border-radius: 22px 22px 0 0 / 26px 26px 0 0; background: var(--tank); }
 .roof .tank::before { content: ''; position: absolute; left: -5px; right: -5px; bottom: -1.6px; height: 8px; box-sizing: border-box; border: 1.5px solid var(--ink); border-radius: 4px; background: #cfd2d8; }
@@ -20,15 +42,29 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 .roof .antenna { left: 28px; width: 1.6px; height: 26px; background: var(--ink); }
 .roof .antenna::after { content: ''; position: absolute; left: -3.7px; top: -7px; width: 9px; height: 9px; box-sizing: border-box; border: 1.3px solid var(--ink); border-radius: 50%; background: var(--tank); }
 #building .floors { padding: 0 16px 0 56px; }
-/* 地面（高 72）：人行道、上緣墨線、兩排錯開的磚縫短線 */
-#building .ground { position: relative; height: 72px; box-sizing: border-box; border-top: 1.6px solid var(--ink);
-  background: linear-gradient(90deg, var(--seam) 0 12px, transparent 12px) 60px 11px / 48px 1.2px repeat-x,
-    linear-gradient(90deg, var(--seam) 0 12px, transparent 12px) 36px 35px / 48px 1.2px repeat-x, var(--ground);
-  --seam: color-mix(in srgb, var(--text-sub) 40%, var(--ground)); }
+/* 地面（高 72）：人行道磚（每 40 一條縫）、路緣、柏油路和白色車道線 */
+#building .ground { position: relative; height: 72px; box-sizing: border-box; border-top: 1.6px solid var(--ink); background:
+    linear-gradient(var(--ink), var(--ink)) 0 25px / 100% 1.4px no-repeat,
+    linear-gradient(var(--curb), var(--curb)) 0 26.4px / 100% 5px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) 0 31.4px / 100% 1.4px no-repeat,
+    linear-gradient(90deg, #f4f1ea 0 26px, transparent 26px) 20px 50px / 64px 3px repeat-x,
+    linear-gradient(var(--road), var(--road)) 0 32.8px / 100% 100% no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 39px, var(--tile-seam) 39px 40px) 0 0 / 100% 25px no-repeat,
+    var(--walk); }
+/* 人行道上的花台：墨線、圓灌木、右側硬影，高 22；在地面遮罩底下（building.ts 依寬度放） */
+.planter { position: absolute; bottom: 47px; width: 46px; height: 22px; pointer-events: none; }
+.planter .bush { position: absolute; left: 3px; right: 3px; bottom: 9px; height: 15px; border: 1.6px solid var(--ink); border-radius: 12px 12px 4px 4px;
+  background: linear-gradient(90deg, #7fbf7a 0 62%, #67a866 62%); }
+.planter .pot { position: absolute; left: 0; right: 0; bottom: 0; height: 11px; border: 1.6px solid var(--ink); border-radius: 3px; background: linear-gradient(90deg, #e9edf2 0 66%, #c3cdd8 66%); }
 /* 一層樓：高 200（含 8 樓板）；寬度由 building.ts 給，各層同寬，不自己捲動 */
 .floor { position: relative; height: 200px; }
 .floor-in { position: relative; height: 200px; min-width: 100%; }
 .floor-in > div { position: absolute; }
+/* 外牆柱：每層左右各 12，往樓層外伸，樓板接到柱子上；夜晚遮罩一起蓋住 */
+.floor-in > .pillar { top: 0; width: 12px; height: 200px; box-sizing: border-box; border: solid var(--ink); border-width: 0 1.6px; background: var(--pillar-bg); }
+.floor-in > .pillar-l { left: -12px; }
+.floor-in > .pillar-r { right: -12px; }
+.floor-in > .pillar::after { content: ""; position: absolute; left: -1.6px; right: -1.6px; top: 191px; height: 9px; border-block: 1.6px solid var(--ink); background: var(--slab); box-sizing: border-box; }
 /* 房間外殼（淺盒）：天花板 0–10、後牆 10–156（下段 122–156 是護牆板）、木地板 156–192，接著是樓板。
    兩側斜牆寬 16，連同天花板和地板的斜角畫在 objects.ts 的 ROOM_SIDE；右牆是同一張圖鏡像、換成較暗的牆色。這裡只畫中段，樓層多寬都接得上 */
 .ceil { left: 16px; right: 16px; top: 0; height: 10px; box-sizing: border-box; border-bottom: 1.5px solid var(--fig-ink); background: var(--ceiling); }
@@ -82,7 +118,7 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 
 /* ── 夜晚：同一套顏色，每層樓蓋一層深藍色 multiply 遮罩（設計稿的夜晚畫板：#16224a、不透明度 .62），壓在房間、家具和人物上。
    疊放順序（都在根的疊層裡：樓層、桌子、人物都不建立自己的疊層）：遮罩 1 → 光暈 2 → 名牌、招牌、大廳紙條 3，所以名牌和招牌夜晚和白天一樣清楚 ── */
-.floor-in::after { content: ''; position: absolute; inset: 0; z-index: 1; display: none; background: var(--night-shade); mix-blend-mode: multiply; opacity: .62; pointer-events: none; }
+.floor-in::after { content: ''; position: absolute; inset: 0 -12px; z-index: 1; display: none; background: var(--night-shade); mix-blend-mode: multiply; opacity: .62; pointer-events: none; }
 /* 屋頂女兒牆和地面也壓暗（水塔、冷氣不壓，同設計稿）；連墨線框一起蓋 */
 .roof .parapet::after, #building .ground::after { content: ''; position: absolute; display: none; background: var(--night-shade); mix-blend-mode: multiply; opacity: .62; border-radius: inherit; }
 .roof .parapet::after { inset: -1.6px; }

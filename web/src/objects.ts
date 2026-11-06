@@ -67,6 +67,34 @@ export function floorSeams(width: number): string {
     line(d, 'mk-thin', 'stroke-width:.9;stroke-opacity:.35'));
 }
 
+// ── 天際線：屋頂後面的遠景，遠近兩層平塗的樓，都有墨線、右側一階硬影；近的一層有窗格，夜晚零星的窗亮冷白色。
+//    顏色在 building.css 的 .skyline。亂數固定種子，寬度變大時前面的樓長得一樣 ──
+
+export const SKYLINE_H = 120;
+export function skylineSvg(width: number): string {
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const box = (cls: string, x: number, y: number, w: number, h: number, rx = 0) => rect(x, y, w, h, rx, cls);
+  let far = '', near = '', lit = '';
+  for (let x = -10; x < width;) {
+    const w = 34 + rnd() * 60, h = 40 + rnd() * 70, y = SKYLINE_H - h;
+    far += box('far', x, y, w, h + 4, 3) + box('shade-far', x + w * 0.7, y + 1, w * 0.3 - 0.6, h + 2);
+    x += w + 4 + rnd() * 10;
+  }
+  for (let x = 0; x < width;) {
+    const w = 26 + rnd() * 46, h = 22 + rnd() * 48, y = SKYLINE_H - h;
+    near += box('near', x, y, w, h + 4, 2) + box('shade-near', x + w * 0.7, y + 1, w * 0.3 - 0.7, h + 2);
+    for (let wy = y + 7; wy < SKYLINE_H - 6; wy += 9) {
+      for (let wx = x + 5; wx < x + w * 0.7 - 4; wx += 8) {
+        near += box('pane', wx, wy, 3, 4);
+        if (rnd() < 0.18) lit += box('win', wx, wy, 3, 4);
+      }
+    }
+    x += w + 8 + rnd() * 26;
+  }
+  return tag('svg', { class: 'skyline', xmlns: 'http://www.w3.org/2000/svg', width, height: SKYLINE_H, viewBox: `0 0 ${width} ${SKYLINE_H}`, 'aria-hidden': 'true' }, far + near + lit);
+}
+
 // ── 桌子 112×88：冷白桌身、白色桌面、右側抽屜的硬影；胖胖的映像管螢幕在右邊 x 16–54、y −87 到 −54（外殼不放大，畫面放大、邊框變窄）；正面 y −42 到 −23 留白給 HTML 名牌 ──
 
 /** 映像管的深藍底（設計稿）：空桌畫一道淡藍弧、工作中疊亮色程式碼（DESK_CODE）、等你處理疊權限對話框；只有輪到你是琥珀色（狀態信號） */

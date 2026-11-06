@@ -2,9 +2,10 @@
 import type { Employee } from '../../src/state/types.js';
 import { InfoCard } from './card.js';
 import type { ElevatorPanel } from './elevator.js';
-import { div } from './dom.js';
+import { div, el } from './dom.js';
 import { FloorView, lobby } from './floor.js';
 import { atBottom, buildingPlan, buildingWidth, floorAlert, GEO, personLabel, seatGrid, type Floor, type Occupant, type SeatGrid } from './floors.js';
+import { skylineSvg } from './objects.js';
 import { Person, type Act } from './person.js';
 import type { OfficeStore } from './sync.js';
 
@@ -15,20 +16,29 @@ interface Rec { p: Person; floor: string; emp: Occupant }
 /** 正在退場的人：座位已空，等瞬移消失才移除人物（那層最後一人時才拆樓） */
 interface Leaving { emp: Occupant; p: Person; floor: string }
 
-/** 天空：空的，只露出頁面的天空漸層，撐出屋頂上方的空間 */
-function sky(): HTMLElement {
-  return div('sky');
+/** 最高樓上面的屋頂：女兒牆、水塔、冷氣機、天線、招牌（造型都在 CSS）。招牌只寫名字，不放人數或狀態 */
+function roof(): HTMLElement {
+  const r = div('roof'), sign = div('rsign'), box = div('box'), legs = div('legs');
+  box.append(el('b', '', 'Claude'), '辦公室');
+  legs.append(el('i'), el('i'));
+  sign.append(box, legs);
+  r.append(div('antenna'), div('ac'), div('tank'), div('parapet'), sign);
+  return r;
 }
 
-/** 最高樓上面的屋頂：女兒牆、水塔、冷氣機、天線（造型都在 CSS） */
-function roof(): HTMLElement {
-  const el = div('roof');
-  el.append(div('antenna'), div('ac'), div('tank'), div('parapet'));
-  return el;
+/** 人行道上的一個花台 */
+function planter(x: number): HTMLElement {
+  const p = div('planter');
+  p.style.left = `${x}px`;
+  p.append(div('bush'), div('pot'));
+  return p;
 }
 
 export class Building {
+  private sky = div('sky'); // 只露出頁面的天空漸層，屋頂後面是天際線
   private stack = div('floors');
+  private ground = div('ground');
+  private skyW = 0; // 目前畫到多寬的天際線
   private empty = lobby();
   private floors = new Map<string, FloorView>(); // 依 floor key
   private people = new Map<string, Rec>(); // 依 sessionId
@@ -42,7 +52,7 @@ export class Building {
   private order: string[] = []; // 上次的樓層 key 順序（1F 在前），下次排樓層時還在的樓層維持這個順序
 
   constructor(root: HTMLElement, private store: OfficeStore, private panel: ElevatorPanel) {
-    root.replaceChildren(sky(), roof(), this.stack, div('ground'));
+    root.replaceChildren(this.sky, roof(), this.stack, this.ground);
     store.on((c) => {
       if (c.type === 'reset') this.clearPeople();
       else if (c.type === 'leave') this.leave(c.sessionId);
@@ -109,6 +119,7 @@ export class Building {
     const width = buildingWidth(plan, this.avail());
     const minW = `${width + GEO.gutter + GEO.rightMargin}px`;
     if (minW !== this.minW) document.body.style.minWidth = this.minW = minW;
+    this.drawStreetscape(width + GEO.gutter + GEO.rightMargin);
     // DOM 由上到下 = 樓號由大到小；位置對了就不搬
     let prev: Element | null = null;
     for (const f of [...plan].reverse()) {
@@ -129,6 +140,18 @@ export class Building {
     if (!plan.length) this.stack.append(this.empty);
     else this.empty.remove();
     return seatGrid(width);
+  }
+
+  /** 天際線和花台跟著大樓變寬：天際線只增不減（.sky 會裁掉多的），花台避開地面兩端、每 260 一個 */
+  private drawStreetscape(width: number): void {
+    const w = Math.max(width, window.innerWidth);
+    if (w > this.skyW) {
+      this.skyW = Math.max(w, 1600);
+      this.sky.innerHTML = skylineSvg(this.skyW); // objects.ts 產生、不含使用者資料
+    }
+    const n = Math.max(0, Math.ceil((w - 60 - 150) / 260)), have = this.ground.children;
+    while (have.length > n) have[have.length - 1]!.remove();
+    while (have.length < n) this.ground.append(planter(150 + have.length * 260));
   }
 
   private placePeople(plan: Floor[], grid: SeatGrid, animate: boolean): void {

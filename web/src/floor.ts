@@ -54,14 +54,14 @@ function windowEl(x: number): HTMLElement {
   return box;
 }
 
-/** 房間外殼與樓板（building.css）：兩側斜牆是 ROOM_SIDE，右邊那張由 CSS 鏡像 */
+/** 外牆柱、房間外殼與樓板（building.css）：兩側斜牆是 ROOM_SIDE，右邊那張由 CSS 鏡像 */
 function shell(): HTMLElement[] {
   const side = (cls: string) => {
     const d = div(`side ${cls}`);
     d.innerHTML = ROOM_SIDE; // objects.ts 產生、不含使用者資料
     return d;
   };
-  return [div('ceil'), div('wall'), div('boards'), side('side-l'), side('side-r'), div('slab')];
+  return [div('pillar pillar-l'), div('pillar pillar-r'), div('ceil'), div('wall'), div('boards'), side('side-l'), side('side-r'), div('slab')];
 }
 
 const deskState = (e: Occupant | null): DeskState => (e ? e.status : 'empty');

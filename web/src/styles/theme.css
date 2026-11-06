@@ -41,15 +41,22 @@
   --button: #e8dbc2;
   --plate: #fbf6ea;
   --ground: #d9d2c2;
+  --pillar-bg: linear-gradient(90deg, #f1e5cc 0 58%, #dccaa5 58%);
+  --walk: #e4dccb;
+  --curb: #cfc8b8;
+  --road: #9a9790;
+  --tile-seam: rgb(27 23 22 / .14);
   --roof: #e6d2ab;
 }
 
-/* 日夜只切換：只在白天或只在夜晚出現的東西（--day／--night，燈罩亮起、光暈）和天空。天空漸層固定在視窗上 */
+/* 日夜只切換：只在白天或只在夜晚出現的東西（--day／--night，燈罩亮起、光暈）、天空和屋頂後面的遠景。天空漸層固定在視窗上 */
 :root[data-time="day"] {
   color-scheme: light;
   --day: 1;
   --night: 0;
   --sky-bg: linear-gradient(#5fb6f5, #bfe6ff) fixed;
+  --sk-far: #b8dcf6; --sk-far-shade: #a6cfee; --sk-far-ink: #6f93b3;
+  --sk-near: #9fc8e8; --sk-near-shade: #8bb8db; --sk-pane: #d5ecfb; --sk-win: #fff;
 }
 
 :root[data-time="night"] {
@@ -57,6 +64,8 @@
   --day: 0;
   --night: 1;
   --sky-bg: linear-gradient(#0a0f33, #2e2f6e) fixed;
+  --sk-far: #1d2358; --sk-far-shade: #191e4e; --sk-far-ink: #11163d;
+  --sk-near: #262d68; --sk-near-shade: #20265c; --sk-pane: #2e3672; --sk-win: #b9c8ff;
 }
 
 /* 共用線條 class：大樓外殼的墨線、物件的輪廓與細節；人物的外輪廓 ol（比內線粗） */
