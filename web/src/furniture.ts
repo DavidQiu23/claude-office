@@ -6,10 +6,11 @@ import { GLASS, OBJECTS, PANO, type FurnitureId } from './objects.js';
 // ---------- 家具組 ----------
 export interface FurnItem { id: FurnitureId }
 export const SETS: { id: string; items: FurnItem[] }[] = [
-  { id: 'pantry', items: [{ id: 'waterCooler' }, { id: 'vending' }, { id: 'plant' }] },
-  { id: 'library', items: [{ id: 'bookshelf' }, { id: 'copier' }, { id: 'plant' }] },
-  { id: 'lounge', items: [{ id: 'floorLamp' }, { id: 'sofa' }, { id: 'sideTable' }] },
-  { id: 'reading', items: [{ id: 'bookshelf' }, { id: 'sideTable' }, { id: 'floorLamp' }] },
+  // 順序不能變：每層排哪幾組是 furnitureSet 的雜湊加這個順序算的，改了每層的辦公區域就換掉
+  { id: 'pantry', items: [{ id: 'coffeeBar' }, { id: 'waterCooler' }, { id: 'fridge' }] },
+  { id: 'files', items: [{ id: 'binderShelf' }, { id: 'fileCabinet' }, { id: 'copier' }] },
+  { id: 'servers', items: [{ id: 'serverRack' }, { id: 'networkCabinet' }] },
+  { id: 'meeting', items: [{ id: 'whiteboard' }, { id: 'highTable' }] },
 ];
 
 /** 第 bay 個家具區擺哪一組：第一區依 roomKey 的雜湊挑，同 key 永遠同一組，後面的依 SETS 順序往下輪。FNV-1a 的低位元只看每個字的低位元（只差幾個字的路徑常撞同一組），所以再打散一次 */

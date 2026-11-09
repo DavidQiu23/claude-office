@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest';
-import { buildingPlan, buildingWidth, floorAlert, floorPlan, personLabel, plateText, seatGrid, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
+import { GEO, buildingPlan, buildingWidth, floorAlert, floorPlan, personLabel, plateText, seatGrid, visibleSpan, atBottom, withLeaving, vacate } from '../web/src/floors.js';
 import { furnitureSet, layoutSet, SETS, wallPlan } from '../web/src/furniture.js';
 import type { Floor } from '../web/src/floors.js';
+import { OBJECTS } from '../web/src/objects.js';
 import { plateBadge, PROJECT_COLORS } from '../web/src/view.js';
 import type { Employee } from '../src/state/types.js';
 
@@ -206,10 +207,12 @@ test('furnitureSet：同一個 key 第一區永遠同一組，後面依 SETS 順
   expect(furnitureSet('/x', 1)).toBe(SETS[(first + 1) % SETS.length]);
 });
 
-test('layoutSet：整組在家具區裡置中', () => {
+test('layoutSet：每組放得進最窄的家具區，整組置中', () => {
   for (const set of SETS) {
-    const it = layoutSet(set, 180);
-    expect(it[0]!.x).toBeGreaterThan(0);
-    expect(it.at(-1)!.x).toBeLessThan(180);
+    const it = layoutSet(set, GEO.bayMin);
+    const left = it[0]!.x - OBJECTS[it[0]!.id].w / 2, right = it.at(-1)!.x + OBJECTS[it.at(-1)!.id].w / 2;
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(right).toBeLessThanOrEqual(GEO.bayMin);
+    expect(left).toBeCloseTo(GEO.bayMin - right);
   }
 });

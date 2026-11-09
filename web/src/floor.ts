@@ -1,7 +1,7 @@
 // 一層樓：淺盒房間（天花板、後牆、木地板、兩側斜牆）、樓板、招牌「NF 專案名」、圓窗、一排椅子（在人後面）、正面桌與名牌、夾在桌子中間的家具區。人物由 building.ts 放進 people 圖層
 import { GEO, plateText, seatGrid, type Floor, type Occupant, type SeatGrid } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, wallPlan, windowView } from './furniture.js';
-import { ARTS, DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, HANGING_PLANT, OBJECTS, PANO, ROOM_SIDE, RUG, RUG_W, floorSeams, type DeskState, type ObjectId } from './objects.js';
+import { ARTS, DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, HANGING_PLANT, OBJECTS, PANO, ROOM_SIDE, floorSeams, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
 import { motionDelay, plateBadge } from './view.js';
 
@@ -62,14 +62,6 @@ function shell(): HTMLElement[] {
     return d;
   };
   return [div('pillar pillar-l'), div('pillar pillar-r'), div('ceil'), div('wall'), div('boards'), div('baseboard'), side('side-l'), side('side-r'), div('slab')];
-}
-
-/** 沙發下的地毯，x 是沙發中心（家具區座標） */
-function rugEl(x: number): HTMLElement {
-  const r = div('rug');
-  r.style.left = `${x - RUG_W / 2}px`;
-  r.innerHTML = RUG; // objects.ts 產生、不含使用者資料
-  return r;
 }
 
 const deskState = (e: Occupant | null): DeskState => (e ? e.status : 'empty');
@@ -223,15 +215,12 @@ export class FloorView {
       box.style.left = `${b.x}px`;
       box.style.width = `${b.w}px`;
       box.append(...layoutSet(furnitureSet(key, k), b.w).flatMap((it) => {
-        const rug = it.id === 'sofa' ? [rugEl(it.x)] : [];
         const n = useObj(it.id, it.x, FURN_Y), anim = FURN_ANIM[it.id];
         n.dataset.id = it.id;
-        if (anim) {
-          n.insertAdjacentHTML('beforeend', anim); // 葉子、咖啡煙（objects.ts 產生、不含使用者資料）
-          n.style.setProperty('--delay', `-${motionDelay(`${key}#${k}#${it.id}`)}s`); // 各層同一件家具不同步
-        }
-        if (it.id !== 'floorLamp' && it.id !== 'vending') return [...rug, n];
-        const glow = div(`glow glow-${it.id}`); // 夜晚的燈光（building.css）
+        if (!anim) return [n];
+        n.insertAdjacentHTML('beforeend', anim); // 咖啡煙、機櫃指示燈（objects.ts 產生、不含使用者資料）
+        n.style.setProperty('--delay', `-${motionDelay(`${key}#${k}#${it.id}`)}s`); // 各層同一件家具不同步
+        const glow = div(`glow glow-${it.id}`); // 夜晚的螢幕和指示燈光（building.css）
         glow.style.left = `${it.x}px`;
         return [n, glow];
       }));

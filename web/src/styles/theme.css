@@ -85,15 +85,15 @@
 .code-scroll { animation: code-scroll 4.8s steps(6) infinite; }
 @keyframes code-scroll { to { transform: translateY(-24px); } }
 /* 環境動態（objects.ts 疊在物件上的部件）：比爆氣安靜得多，慢、幅度小。--delay 由 floor.ts 依樓層與家具（或座位）設，大家不同步 */
-/* 盆栽：葉子以莖頂 (0, −26) 為軸左右輕晃 ±2° */
-.sway { transform-origin: 0 -26px; animation: sway 5s ease-in-out var(--delay, 0s) infinite alternate; }
-@keyframes sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
+/* 機櫃指示燈：慢慢暗下去再亮回來，每顆依 --lag 錯開 */
+.led { animation: led 5s ease-in-out calc(var(--delay, 0s) - var(--lag, 0s)) infinite; }
+@keyframes led { 50% { opacity: .15; } }
 /* 咖啡煙：一縷往上飄、淡掉；兩縷依 --lag 錯開。減少動態時停在半透明，煙還在 */
 .steam { opacity: .45; animation: steam 2.8s ease-out calc(var(--delay, 0s) - var(--lag, 0s)) infinite; }
 @keyframes steam { 0% { opacity: 0; transform: translateY(2px); } 35% { opacity: .55; } 100% { opacity: 0; transform: translateY(-5px); } }
 /* 斷線：大家停在當下的動作，看起來就不像還在進行；ID 選擇器壓過各自 animation 簡寫重設的 running */
 #building[data-offline] * { animation-play-state: paused; }
-/* 減少動態：大樓裡所有環境動畫（盆栽、咖啡煙、螢幕程式碼）全停；ID 選擇器壓過各自的 class 規則。人物另由 figure.css 停 */
+/* 減少動態：大樓裡所有環境動畫（咖啡煙、機櫃指示燈、螢幕程式碼）全停；ID 選擇器壓過各自的 class 規則。人物另由 figure.css 停 */
 @media (prefers-reduced-motion: reduce) {
   #building * { animation: none; }
 }
