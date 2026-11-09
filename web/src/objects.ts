@@ -101,7 +101,7 @@ export function skylineSvg(width: number): string {
   return tag('svg', { class: 'skyline', xmlns: 'http://www.w3.org/2000/svg', width, height: SKYLINE_H, viewBox: `0 0 ${width} ${SKYLINE_H}`, 'aria-hidden': 'true' }, far + near + lit);
 }
 
-// ── 牆上的裝飾：掛畫 76×50（墨線框、白襯紙，只用藍、綠、紫、青瓷）、垂吊盆栽。座標從左上角起算 ──
+// ── 牆上的裝飾：掛畫 76×50（墨線框、白襯紙，只用藍、綠、紫、青瓷）。座標從左上角起算 ──
 
 const INK = 'var(--ink)';
 const frame = (inner: string) => `<svg width="76" height="50" viewBox="0 0 76 50" aria-hidden="true">
@@ -117,11 +117,7 @@ export const ARTS = [
   frame(`<path d="M18 38 C18 20 40 10 58 12 C56 30 40 40 18 38Z" style="fill:#7fbf7a;stroke:${INK};stroke-width:1.2;stroke-linejoin:round"/>
     <path d="M18 38 C30 30 42 22 54 15" style="fill:none;stroke:${INK};stroke-width:1.1;stroke-linecap:round"/><path d="M40 24 C46 30 52 24 56 16 C50 28 46 32 40 24Z" style="fill:#67a866"/>`),
 ];
-export const HANGING_PLANT = `<svg width="34" height="58" viewBox="0 0 34 58" aria-hidden="true">
-  <path d="M17 0 V14" style="stroke:${INK};stroke-width:1.3"/><path d="M8 20 L17 14 L26 20" style="fill:none;stroke:${INK};stroke-width:1.1"/>
-  <path d="M6 20 H28 L25 31 H9 Z" style="fill:#e9edf2;stroke:${INK};stroke-width:1.5;stroke-linejoin:round"/><path d="M21 20 H28 L25 31 H19Z" style="fill:#c3cdd8"/>
-  <path d="M9 30 C4 38 6 46 4 54" style="fill:none;stroke:#3f7a4c;stroke-width:1.6;stroke-linecap:round"/><path d="M25 30 C30 38 28 44 30 50" style="fill:none;stroke:#3f7a4c;stroke-width:1.6;stroke-linecap:round"/>
-  ${[[5, 36], [3, 46], [6, 53], [29, 36], [30, 44], [13, 33], [22, 34]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="2.8" style="fill:#7fbf7a;stroke:${INK};stroke-width:1.1"/>`).join('')}</svg>`;
+
 
 // ── 桌子 112×88：我們看到的是桌子正面的擋板（人坐在後面，抽屜和放腳的空間朝著他）。映像管在右邊 x 16–54、y −87 到 −54；正面 y −42 到 −23 留白給 HTML 名牌 ──
 

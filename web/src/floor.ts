@@ -1,7 +1,7 @@
 // 一層樓：淺盒房間（天花板、後牆、木地板、兩側斜牆）、樓板、招牌「NF 專案名」、圓窗、一排椅子（在人後面）、正面桌與名牌、夾在桌子中間的家具區。人物由 building.ts 放進 people 圖層
 import { GEO, plateText, seatGrid, type Floor, type Occupant, type SeatGrid } from './floors.js';
 import { furnitureSet, layoutSet, SIGN_MAX_W, SIGN_X, wallPlan, windowView } from './furniture.js';
-import { ARTS, DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, HANGING_PLANT, OBJECTS, PANO, ROOM_SIDE, floorSeams, type DeskState, type ObjectId } from './objects.js';
+import { ARTS, DESK_CODE, DESK_STEAM, FURN_ANIM, GLASS, OBJECTS, PANO, ROOM_SIDE, floorSeams, type DeskState, type ObjectId } from './objects.js';
 import { div, el } from './dom.js';
 import { motionDelay, plateBadge } from './view.js';
 
@@ -81,7 +81,7 @@ export class FloorView {
   private desks: DeskEl[] = [];
   private windows = div('windows');
   private bays = div('bays'); // 每個家具區一個 .furniture
-  private deco = div('deco'); // 掛畫、陽光、垂吊盆栽
+  private deco = div('deco'); // 掛畫、陽光
   private lights = div('lights'); // 夜晚天花板燈條往下的柔光（光暈 z-index 2，要留在根的疊層）
   private halos = div('lights'); // 夜晚等你處理座位後面的紅光；人物疊到遮罩上之後，光要留在樓層上才 screen 得到牆
   private seams = div('seams'); // 木地板的透視板縫，依樓層寬畫
@@ -141,18 +141,17 @@ export class FloorView {
     });
   }
 
-  /** top：這是最上面一層（只有它掛垂吊盆栽） */
-  update(f: Floor, width: number, top: boolean): void {
+  update(f: Floor, width: number): void {
     this.f = f;
     this.el.dataset.key = f.key;
     this.inner.style.width = `${width}px`;
-    const grid = seatGrid(width), layout = `${f.key}\n${f.level}\n${width}\n${top}`;
+    const grid = seatGrid(width), layout = `${f.key}\n${f.level}\n${width}`;
     if (this.laidOut !== layout) {
       this.laidOut = layout;
       this.seams.innerHTML = floorSeams(width); // objects.ts 產生、不含使用者資料
       this.placeWindows(grid, f.level);
       this.placeFurniture(grid, f.key);
-      this.placeDeco(grid, f.level, top);
+      this.placeDeco(grid, f.level);
       this.placeLamps(grid);
     }
     this.signLevel.textContent = String(f.level);
@@ -228,8 +227,8 @@ export class FloorView {
     }));
   }
 
-  /** 掛畫三幅輪流，起點依樓號；每扇窗下面一塊陽光（building.css：只有白天）；垂吊盆栽只掛在最上面一層最後一個家具區的角落 */
-  private placeDeco(grid: SeatGrid, level: number, top: boolean): void {
+  /** 掛畫三幅輪流，起點依樓號；每扇窗下面一塊陽光（building.css：只有白天） */
+  private placeDeco(grid: SeatGrid, level: number): void {
     const { windows, arts } = wallPlan(grid);
     const art = arts.map((x, i) => {
       const a = div('art');
@@ -242,13 +241,7 @@ export class FloorView {
       s.style.left = `${x}px`;
       return s;
     });
-    const last = grid.bays[grid.bays.length - 1];
-    const hang = top && last ? [div('hang')] : [];
-    for (const h of hang) {
-      h.style.left = `${last!.x + last!.w - 40}px`;
-      h.innerHTML = HANGING_PLANT; // objects.ts 產生、不含使用者資料
-    }
-    this.deco.replaceChildren(...sun, ...art, ...hang);
+    this.deco.replaceChildren(...sun, ...art);
   }
 
   /** 每個座位上方一條燈條，夜晚往下打一道柔光；家具區上方不掛 */
