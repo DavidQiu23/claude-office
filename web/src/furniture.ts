@@ -9,7 +9,7 @@ export const SETS: { id: string; items: FurnItem[] }[] = [
   // 順序不能變：每層排哪幾組是 furnitureSet 的雜湊加這個順序算的，改了每層的辦公區域就換掉
   { id: 'pantry', items: [{ id: 'coffeeBar' }, { id: 'waterCooler' }, { id: 'fridge' }] },
   { id: 'files', items: [{ id: 'binderShelf' }, { id: 'fileCabinet' }, { id: 'copier' }] },
-  { id: 'servers', items: [{ id: 'serverRack' }, { id: 'networkCabinet' }] },
+  { id: 'servers', items: [{ id: 'serverRack' }, { id: 'ups' }, { id: 'networkCabinet' }] },
   { id: 'meeting', items: [{ id: 'whiteboard' }, { id: 'highTable' }] },
 ];
 

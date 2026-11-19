@@ -6,7 +6,7 @@
 import { circle, ellipse, fill, line, path, rect, tag } from './svg.js';
 
 export type DeskState = 'empty' | 'working' | 'waiting' | 'idle';
-export type FurnitureId = 'coffeeBar' | 'waterCooler' | 'fridge' | 'binderShelf' | 'fileCabinet' | 'copier' | 'serverRack' | 'networkCabinet' | 'whiteboard' | 'highTable';
+export type FurnitureId = 'coffeeBar' | 'waterCooler' | 'fridge' | 'binderShelf' | 'fileCabinet' | 'copier' | 'serverRack' | 'ups' | 'networkCabinet' | 'whiteboard' | 'highTable';
 export type ObjectId = `desk-${DeskState}` | 'chair' | 'window' | FurnitureId;
 /** 原點 = 底邊中點；symbol 的 viewBox = `${-w/2} ${-h} ${w} ${h}` */
 export interface ObjectSpec { w: number; h: number }
@@ -27,6 +27,7 @@ export const OBJECTS: Record<ObjectId, ObjectSpec> = {
   fileCabinet: { w: 40, h: 102 },
   copier: { w: 50, h: 68 },
   serverRack: { w: 50, h: 114 },
+  ups: { w: 44, h: 80 },
   networkCabinet: { w: 52, h: 64 },
   whiteboard: { w: 76, h: 106 },
   highTable: { w: 86, h: 80 },
@@ -390,6 +391,17 @@ const RACK_LEDS = Array.from({ length: RACK_UNITS }, (_, i) =>
   C(3, rackY(i) + 5, 1.4, 'led', i % 3 === 1 ? '#9fe6ff' : '#43b0c8', `--lag:${(i * 1.7) % 5}s`)
   + (i % 2 ? C(7.5, rackY(i) + 5, 1.4, 'led', '#43b0c8', `--lag:${(i * 2.3 + 1) % 5}s`) : '')).join('');
 
+/** UPS 不斷電櫃 44×80：深鋼色矮櫃（比機櫃淺一階）、深藍小螢幕裡三格電量、一排青色狀態燈、四道散熱槽、兩隻腳 */
+const ups = () =>
+  R(-21, -76, 42, 73, 6, 'mk', '#56647a') + R(10, -72, 8, 66, 3, '', '#454f61')
+  + R(-22, -80, 44, 7, 3, 'mk', '#6e7b8b') + R(9, -79, 10, 5, 2, '', '#56647a')
+  + R(-16, -68, 22, 13, 2, 'mk-thin', '#22304f')
+  + R(-13, -65.5, 4, 8, 0.8, '', '#9fd0ff') + R(-8, -65.5, 4, 8, 0.8, '', '#9fd0ff') + R(-3, -65.5, 4, 8, 0.8, '', '#9fd0ff') + R(2, -63.5, 1.6, 4, 0.5, '', '#9fd0ff')
+  + C(-12, -48, 1.6, 'mk-thin', '#43b0c8') + C(-6, -48, 1.6, 'mk-thin', '#43b0c8') + C(0, -48, 1.6, 'mk-thin', '#9fe6ff')
+  + L('M-15 -38 h20 M-15 -32 h20 M-15 -26 h20 M-15 -20 h20', 'mk-thin', 'stroke:#2c3646;stroke-width:1.6')
+  + R(-18, -3, 7, 3, 1, '', '#3a4658') + R(11, -3, 7, 3, 1, '', '#3a4658')
+  + rivet(-17, -9) + rivet(14, -9);
+
 /** 網路設備矮櫃 52×64：冷白矮櫃、上面一台交換器（一排網孔）和一台雙天線的路由器，三條網路線從交換器垂到櫃子前面 */
 function networkCabinet(): string {
   let o = R(-25, -34, 50, 34, 5, 'mk', '#e9edf2') + R(11, -31, 10, 28, 3, '', '#c3cdd8') + R(-21, -30, 28, 24, 2, 'mk-thin', '#dfe4ea')
@@ -444,7 +456,7 @@ const DRAW: Record<ObjectId, () => string> = {
   'desk-idle': () => desk('idle'),
   chair,
   window: windowSym,
-  coffeeBar, waterCooler, fridge, binderShelf, fileCabinet, copier, serverRack, networkCabinet, whiteboard, highTable,
+  coffeeBar, waterCooler, fridge, binderShelf, fileCabinet, copier, serverRack, ups, networkCabinet, whiteboard, highTable,
 };
 
 /** 隱藏的 <svg>：<defs> 裡有每個 ObjectId 的 <symbol id>與窗景全景。
