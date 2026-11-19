@@ -200,6 +200,7 @@ npm run build
 - Claude Desktop 的 session 是否結束，是讀 Desktop 自己的 session 紀錄判斷的，這不是公開格式，目前只在 Windows 商店版驗證過。讀不到時退回 12 小時沒有事件就下班。
 - 背景執行（`run_in_background`）的助理要等 SubagentStop 才算完成。`async_launched` 沒帶 `agentId` 時對不上 SubagentStop，直接當成完成。
 - Notification 權限提示、AskUserQuestion、MCP Elicitation 依官方 hooks 文件實作，還沒在互動式 session 實測。
+- 大樓比視窗寬、整頁要左右捲時，等你處理的人可能在視窗右邊外面。電梯按鈕只會上下捲到那層，要自己往右捲才看得到他。
 
 ## 開發
 
