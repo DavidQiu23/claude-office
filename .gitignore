@@ -2,6 +2,3 @@
 node_modules/
 dist/
 .claude/worktrees/
-.scratch/
-.impeccable/
-.ua/
