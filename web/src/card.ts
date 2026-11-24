@@ -122,7 +122,7 @@ export class InfoCard {
   /** 目前動作。clamp 放內層：和 padding 同一層的話，被截掉的下一行會露在 padding 裡 */
   private activity(text: string, red: boolean): HTMLElement {
     const box = el('div', `activity${red ? ' activity-waiting' : ''}`);
-    box.append(el('div', 'clamp clamp-2', text));
+    box.append(el('div', `clamp ${red ? 'clamp-5' : 'clamp-2'}`, text)); // 要批准的指令得看到後面的路徑和參數
     return box;
   }
 
@@ -138,8 +138,9 @@ export class InfoCard {
     const title = nameplate(e) || '（無標題）';
     body.push(el('div', 'folder', e.folder));
 
-    // 目前在做什麼；等你批准時整塊變紅
-    if (e.activity) body.push(this.activity(e.activity, e.status === 'waiting'));
+    // 等你處理什麼；不知道（例如是助理在等）就寫目前在做什麼。等你處理時整塊變紅
+    const doing = e.asks.find((a) => a.label)?.label ?? e.activity;
+    if (doing) body.push(this.activity(doing, e.status === 'waiting'));
 
     // prompt：第一個只在和最近的不同時才顯示
     body.push(this.section('最近的 PROMPT', oneLine(e.lastPrompt) || '（無）', false, 3));

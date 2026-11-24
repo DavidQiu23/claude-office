@@ -1,8 +1,9 @@
 export const HOOK_EVENTS = [
-  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'PermissionRequest',
+  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'PostToolBatch', 'PermissionRequest',
   'Notification', 'Elicitation', 'ElicitationResult', 'Stop', 'StopFailure', 'SubagentStop', 'SessionEnd',
 ] as const;
 const TOOL_MATCHED = new Set<string>(['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'PermissionRequest']); // matcher 比對工具名稱
+const ASYNC = new Set<string>(['PostToolBatch']); // 只用來收掉等你處理，晚到沒關係；放背景跑，每批工具才不會多等一個 hook
 export const MARKER = '--tag=claude-office';
 
 type Obj = Record<string, any>;
@@ -22,7 +23,7 @@ const without = (v: unknown): unknown[] => (Array.isArray(v) ? v.filter((e) => !
 export function addHooks(settings: Obj, command: string): Obj {
   const hooks: Obj = isObj(settings.hooks) ? { ...settings.hooks } : {};
   for (const ev of HOOK_EVENTS) {
-    const entry: Obj = { hooks: [{ type: 'command', command }] };
+    const entry: Obj = { hooks: [{ type: 'command', command, ...(ASYNC.has(ev) ? { async: true } : {}) }] };
     if (TOOL_MATCHED.has(ev)) entry.matcher = '*';
     hooks[ev] = [...without(hooks[ev]), entry];
   }

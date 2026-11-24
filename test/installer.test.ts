@@ -27,6 +27,7 @@ test('保留使用者原有的 hooks 與其他設定', () => {
   for (const ev of ['PostToolUseFailure', 'PermissionRequest']) expect(out.hooks[ev][0].matcher).toBe('*');
   for (const ev of ['Notification', 'Elicitation', 'ElicitationResult', 'StopFailure']) expect(out.hooks[ev][0].matcher).toBeUndefined();
   expect(out.hooks.Stop[1].matcher).toBeUndefined();
+  expect(HOOK_EVENTS.filter((ev) => out.hooks[ev].some((e: any) => e.hooks[0].async))).toEqual(['PostToolBatch']); // 其他事件要照順序送到
   expect(user.hooks.Stop).toHaveLength(1); // 輸入不被修改
 });
 

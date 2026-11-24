@@ -65,7 +65,7 @@ test('真實 fixtures：PermissionRequest 讓員工等你批准，Stop 後閒置
     if (e.hook_event_name === 'PermissionRequest') {
       sawWaiting = true;
       expect(emp.status).toBe('waiting');
-      expect(emp.activity).toContain('等你批准');
+      expect(emp.asks).toMatchObject([{ label: '等你批准：執行 mkdir permtest' }]);
     }
   }
   expect(sawWaiting).toBe(true);
@@ -101,4 +101,39 @@ test('真實 fixtures：背景 Agent 完成的 task-notification 不蓋掉最近
   const emp = Object.values(state.employees)[0];
   expect(emp.lastPrompt).not.toContain('task-notification');
   expect(emp.firstPrompt).not.toContain('task-notification');
+});
+
+/** 重播一個 session，回傳每個事件之後的狀態 */
+const statuses = (prefix: string) => {
+  let state: OfficeState = emptyState();
+  return load(prefix).map((e) => {
+    state = reduce(state, e).state;
+    return { e, status: state.employees[e.session_id]?.status };
+  });
+};
+/** 從第一個 PermissionRequest 到被要求的工具有結果（不含）之間的狀態 */
+const whileAsking = (prefix: string, resolved: (e: HookEvent) => boolean) => {
+  const all = statuses(prefix);
+  const from = all.findIndex((x) => x.e.hook_event_name === 'PermissionRequest');
+  const to = all.findIndex((x) => resolved(x.e));
+  expect(to - from).toBeGreaterThan(2); // 中間真的夾著別人的事件
+  return { during: new Set(all.slice(from, to).map((x) => x.status)), after: all[to].status };
+};
+
+test('真實 fixtures：平行助理 A 等權限時，助理 B 做完工具、整個做完都還是等你處理', () => {
+  const r = whileAsking('95e9431e', (e) => e.hook_event_name === 'PostToolUse' && e.tool_use_id === 'toolu_subA0_23');
+  expect(r).toEqual({ during: new Set(['waiting']), after: 'working' });
+});
+
+test('真實 fixtures：主 session 等權限時，背景助理用工具、做完都還是等你處理', () => {
+  const r = whileAsking('1af29026', (e) => e.hook_event_name === 'PostToolUse' && e.tool_use_id === 'toolu_bg1_44');
+  expect(r).toEqual({ during: new Set(['waiting']), after: 'working' });
+});
+
+test('真實 fixtures：平行工具先做完還是等你處理；拒絕後沒有 PostToolUse，PostToolBatch 就回到工作中', () => {
+  const all = statuses('50a4d0e0');
+  const at = (pred: (e: HookEvent) => boolean) => all.find((x) => pred(x.e))?.status;
+  expect(at((e) => e.hook_event_name === 'PostToolUse' && e.tool_use_id === 'toolu_denypar0_7')).toBe('waiting');
+  expect(at((e) => e.hook_event_name === 'PostToolBatch')).toBe('working');
+  expect(all.at(-2)).toMatchObject({ e: { hook_event_name: 'Stop' }, status: 'idle' });
 });

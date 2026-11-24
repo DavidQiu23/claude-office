@@ -65,9 +65,10 @@ npm run install-hooks
 ```
 
 - 你要**先 build 再安裝**：hook 指向 `dist/hook/send.js`。
-- 安裝會寫入 `~/.claude/settings.json`，共 13 個事件：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、PostToolUseFailure、PermissionRequest、Notification、Elicitation、ElicitationResult、Stop、StopFailure、SubagentStop、SessionEnd。成功時顯示 `已安裝 hooks：<路徑>`。
+- 安裝會寫入 `~/.claude/settings.json`，共 14 個事件：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、PostToolUseFailure、PostToolBatch、PermissionRequest、Notification、Elicitation、ElicitationResult、Stop、StopFailure、SubagentStop、SessionEnd。成功時顯示 `已安裝 hooks：<路徑>`。
 - hook 記的是這個資料夾的絕對路徑：**搬移資料夾後要再執行一次**。重複執行不會重複新增。
 - 第一次修改前會備份成 `settings.json.claude-office.bak`，之後不再覆蓋，永遠是最初的原始檔。
+- PostToolBatch 在背景執行，不會讓 Claude Code 多等；其他事件要照順序送到，所以不是。以 Claude Code 2.1.328 實測。
 - 送事件最多等 300 毫秒，伺服器沒開時靜默結束，不影響 Claude Code。
 
 移除時只拿掉帶 `--tag=claude-office` 的項目，你的其他 hook 保留；`settings.json` 不存在時什麼都不做。安裝和移除都先寫暫存檔再換名，中途中斷也不會留下寫一半的設定檔；`settings.json` 是連結時，改的是它指向的檔案：
@@ -125,7 +126,9 @@ npm run simulate -- --loop
 | --- | --- | --- | --- |
 | 工作中 | 坐著飛快打字，手後面拖著兩層半透明殘影；螢幕上的程式碼在捲動 | 米白色 | UserPromptSubmit、PreToolUse（AskUserQuestion 除外）、PostToolUse、PostToolUseFailure、ElicitationResult |
 | 等你處理 | 站起來爆氣：握拳大喊、頭髮豎起、全身發抖，背後冒半透明白色的火焰氣場（白天外圍多一圈藍色光暈，夜晚周圍映出紅光），桌子兩側有小石子往上飄；螢幕顯示權限對話框 | 紅色，以「!」開頭 | PermissionRequest、PreToolUse 的 AskUserQuestion、Elicitation、權限或輸入類的 Notification |
-| 輪到你 | 坐著抱胸、閉眼冥想；螢幕變琥珀色，桌上的馬克杯冒煙 | 琥珀色，以「✓」開頭 | Stop、StopFailure；剛出現、還沒有其他事件的新 session |
+| 輪到你 | 坐著抱胸、閉眼冥想；螢幕變琥珀色，桌上的馬克杯冒煙 | 琥珀色，以「✓」開頭 | Stop、StopFailure；中斷這一輪（按 Esc 或拒絕權限時中斷，最多晚 1 秒）；剛出現、還沒有其他事件的新 session |
+
+- **等你處理會一直到那件事有結果**：平行的其他工具、其他助理做完，都不會把紅色收掉。同時有好幾件時，全部有結果才回到原本的狀態：主 session 還在跑是工作中，已經停了是輪到你。拒絕權限後 Claude 接著做別的，就回到工作中。
 
 - **登場**：新的 session 一出現，人就在座位上瞬移登場：先閃兩下光痕，人從一條線變寬出現。打開頁面時已在的人直接坐好。
 - **下班**：站起來雙指點額，再閃爍、壓成一條光痕消失。CLI 的 session 發生在 SessionEnd、你按「請他下班」，或 12 小時沒有任何事件時；Claude Desktop 的 session 見下一條。
@@ -137,7 +140,7 @@ npm run simulate -- --loop
 - 工作中的助理坐在主人那層的空桌打字（沒有空桌就整棟加寬），名牌是「↳ 類型 · 描述」，沒有類型時只有描述，兩個都沒有時是「↳ 助理」。
 - 一開始工作就瞬移登場，完成就退場；主人下班時一起退場。用 SendMessage 叫回已停下的助理時，它會再登場一次，描述換成這次叫回的摘要。
 - 滑鼠移到助理身上，看描述、目前動作、類型、主人的標題和開始時間。目前動作隨助理用的工具更新，第一個工具之前不顯示。主人的資訊卡也列出他的助理，包含剛完成的，但不列目前動作。
-- 助理要權限時，主人也算等你處理，但資訊卡寫的是主人自己的動作（例如「派出助理」），不是助理要批准什麼。
+- 助理要權限時，主人也算等你處理，但資訊卡寫的是主人自己的動作（例如「派出助理」），不是助理要批准什麼。主人已經停了、背景助理還在等，也算等你處理，有結果後回到輪到你。
 - 不影響電梯面板的燈色，也不算進分頁標題的人數。主人被請下班後又回來時，助理不會跟著回來。
 
 ## 畫面上的其他東西
@@ -151,7 +154,7 @@ npm run simulate -- --loop
 - **桌子和家具**：每層依視窗寬度排好固定的格子，三張桌子接一個辦公區域（茶水間、檔案區、機房角、小會議角輪流）。沒人的格子是空桌，新來的人坐號碼最小的空位，桌子和家具都不會因為有人來去而移動。人數超過格子時整棟加寬，整頁橫向捲動。
 - **連線中斷**：連不上伺服器時，視窗上緣中間出現墨色虛線的說明，寫「連線中斷，畫面停在 HH:mm」，所有人停住，分頁標題加「(斷線)」。畫面上的狀態是斷線當下的樣子。重新連上會自動恢復。
 - **分頁標題**：例如 `(!1 ✓2) Claude 辦公室`，分頁在背景也看得到。
-- **資訊卡**：滑鼠移到人身上，或用 Tab 選到人，顯示標題、狀態標籤、資料夾、目前動作、最近與第一個 prompt（相同時只顯示一個；助理完成這類系統通知不算）、助理清單與到班時間。捲動頁面時資訊卡會收起來，按 Esc 也會。
+- **資訊卡**：滑鼠移到人身上，或用 Tab 選到人，顯示標題、狀態標籤、資料夾、目前動作（等你處理時是要你處理什麼：「等你批准：」接指令或檔名、「等你回答：」接問題、「等你看計畫」）、最近與第一個 prompt（相同時只顯示一個；助理完成這類系統通知不算）、助理清單與到班時間。捲動頁面時資訊卡會收起來，按 Esc 也會。
 - **鍵盤**：Tab 依序走電梯按鈕和每個人；選到人時按 Enter 或空白鍵進到資訊卡的「請他下班」，再按 Tab 或 Esc 回到那個人。
 - **請他下班**：資訊卡上的按鈕，按下立即讓員工離開，沒有確認步驟。只從畫面移走；那個 session 還在用的話，下一個事件會讓他重新登場。失敗時卡片底部顯示「操作失敗，請稍後再試」。
 
@@ -196,10 +199,12 @@ npm run build
 
 ## 已知限制
 
-- 強制結束 Claude Code 時收不到 Stop／SessionEnd，員工會停在原狀態，直到下一個事件、你按「請他下班」或 12 小時後離開。按 Esc 中斷或直接關終端機是否一樣，還沒確認。
+- 強制結束 Claude Code 時收不到 Stop／SessionEnd，員工會停在原狀態，直到下一個事件、你按「請他下班」或 12 小時後離開。直接關終端機是否一樣，還沒確認。
+- 按下批准到工具做完之間沒有任何 hook，所以批准一個跑很久的指令後，畫面會停在等你處理，直到它跑完。
+- 中斷沒有 hook，是讀 transcript 裡的中斷標記判斷的，這不是公開格式；讀不到時員工停在原狀態。用 Claude Code 2.1.328 的 stream-json 介面實測過，互動式終端機的標記和它相同，但沒有實際按過 Esc。
 - Claude Desktop 的 session 是否結束，是讀 Desktop 自己的 session 紀錄判斷的，這不是公開格式，目前只在 Windows 商店版驗證過。讀不到時退回 12 小時沒有事件就下班。
 - 背景執行（`run_in_background`）的助理要等 SubagentStop 才算完成。`async_launched` 沒帶 `agentId` 時對不上 SubagentStop，直接當成完成。
-- Notification 權限提示、AskUserQuestion、MCP Elicitation 依官方 hooks 文件實作，還沒在互動式 session 實測。
+- MCP Elicitation 依官方 hooks 文件實作，還沒實測。
 - 大樓比視窗寬、整頁要左右捲時，等你處理的人可能在視窗右邊外面。電梯按鈕只會上下捲到那層，要自己往右捲才看得到他。
 
 ## 開發
@@ -221,7 +226,7 @@ npm run build
 | `office.bat` | Windows 一鍵啟動：伺服器沒開就開，再打開瀏覽器 |
 | `src/hook/send.ts` | hook 腳本，把事件 POST 給伺服器 |
 | `src/server/main.ts`、`app.ts` | 啟動入口；本機伺服器（收事件、狀態只存在記憶體、以 SSE 推給頁面） |
-| `src/server/title.ts` | 從 transcript 讀 ai-title 當名牌標題，讀 `continued-in` 把接續的 session 認成同一位員工 |
+| `src/server/title.ts` | 從 transcript 讀 ai-title 當名牌標題，讀 `continued-in` 把接續的 session 認成同一位員工，讀中斷標記 |
 | `src/server/desktop.ts` | 讀 Claude Desktop 的 session 紀錄：是否已封存或刪除、標題、用過的 session_id |
 | `src/state` | 由事件整理出員工與助理狀態 |
 | `src/installer` | 安裝／移除 hooks |

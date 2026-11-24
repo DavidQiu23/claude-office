@@ -50,6 +50,8 @@
 .clamp-1 { -webkit-line-clamp: 1; }
 .clamp-2 { -webkit-line-clamp: 2; }
 .clamp-3 { -webkit-line-clamp: 3; }
+.clamp-5 { -webkit-line-clamp: 5; }
+.activity .clamp { word-break: normal; overflow-wrap: anywhere; } /* 指令裡的英文不在單字中間斷行，太長的路徑才斷 */
 /* 狀態標籤：騎在色帶右上緣、斜貼的貼紙，上亮下暗（色帶裡讓給標題） */
 .chip { position: absolute; right: 14px; top: -13px; display: inline-flex; align-items: center; gap: 6px; padding: 2px 11px 3px 9px; border: 1.6px solid var(--ink); border-radius: 999px;
   font-size: 12px; font-weight: 800; color: var(--text); transform: rotate(3deg); box-shadow: 0 0 0 2px var(--paper), 2px 3px 0 2px rgb(27 23 22 / .3);

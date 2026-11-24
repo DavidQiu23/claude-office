@@ -15,3 +15,4 @@ app.server.on('error', (err: NodeJS.ErrnoException) => {
 });
 app.server.listen(port, '127.0.0.1', () => console.log(`Claude Office 已啟動：http://127.0.0.1:${port}`));
 setInterval(app.sweepNow, 60_000);
+setInterval(() => void app.checkInterrupts(), 1_000);

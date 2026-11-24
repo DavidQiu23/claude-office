@@ -1,5 +1,22 @@
-import { describeTool, folderName, isSystemPrompt, isWaitingNotification, isSubagentTool } from './describe.js';
-import type { Assistant, Change, Employee, HookEvent, OfficeState } from './types.js';
+import { askLabel, describeTool, folderName, isSystemPrompt, isWaitingNotification, isSubagentTool } from './describe.js';
+import type { Ask, Assistant, Change, Employee, HookEvent, OfficeState } from './types.js';
+
+const ASK_ELICITATION = '(elicitation)'; // MCP server 要你輸入
+const ASK_NOTICE = '(notice)'; // 只收到 Notification，不知道是誰在等什麼
+
+/** 工具參數的雜湊：同一次呼叫的 PreToolUse、PermissionRequest、PostToolUse 帶一樣的參數。不存原文，Write 的內容可能很長 */
+const digest = (input: unknown): string => {
+  let h = 0;
+  for (const c of JSON.stringify(input) ?? '') h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0;
+  return String(h);
+};
+
+/** status 由 turn 和 asks 決定 */
+export const settle = (e: Employee): Employee => ({ ...e, status: e.asks.length ? 'waiting' : e.turn });
+
+/** 主 session 這一輪結束後還在等的：只剩仍在工作的背景助理 */
+export const openAsks = (asks: Ask[], assistants: readonly Assistant[]): Ask[] =>
+  asks.filter((a) => a.agent && assistants.some((x) => x.background && x.status === 'working' && x.agentId === a.agent));
 
 export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; changes: Change[] } {
   if (!e.session_id) return { state, changes: [] };
@@ -10,12 +27,23 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
     if (!existing) return { state, changes: [] };
     if (existing.hostSessionId) {
       // Desktop 在 rewind、暫停閒置 session 時也會停掉 CLI，session 其實還開著，所以不下班；比目前狀態舊的事件不算
-      if (e.sentAt < existing.lastEventAt) return { state, changes: [] };
-      const employee: Employee = { ...existing, status: 'idle', activity: null, assistants: [], cliEnded: true, lastEventAt: e.sentAt };
+      if (e.sentAt < existing.lastTopAt) return { state, changes: [] };
+      const employee = settle({ ...existing, turn: 'idle', asks: [], activity: null, assistants: [], cliEnded: true, lastEventAt: Math.max(existing.lastEventAt, e.sentAt), lastTopAt: e.sentAt });
       return { state: { ...state, employees: { ...state.employees, [id]: employee } }, changes: [{ type: 'upsert', employee }] };
     }
     const { [id]: _gone, ...rest } = state.employees;
     return { state: { ...state, employees: rest }, changes: [{ type: 'leave', sessionId: id }] };
+  }
+
+  if (e.hook_event_name === 'PostToolBatch') {
+    // 一批工具全部有結果了。拒絕權限時沒有 PostToolUse，只有這個。這個 hook 在背景跑，可能在 Stop 或 SessionEnd 之後才到，
+    // 所以只收掉等你處理的事：不登記新員工、不動 turn 和事件時間，也不清剛完成的助理
+    const agent = e.agent_id ?? '';
+    const done = (a: Ask) =>
+      a.at <= e.sentAt && (a.tool === ASK_NOTICE || (a.agent === agent && (a.tool === ASK_ELICITATION || !e.tool_calls || e.tool_calls.some((c) => c.tool_name === a.tool))));
+    if (!existing?.asks.some(done)) return { state, changes: [] };
+    const employee = settle({ ...existing, asks: existing.asks.filter((a) => !done(a)) });
+    return { state: { ...state, employees: { ...state.employees, [id]: employee } }, changes: [{ type: 'upsert', employee }] };
   }
 
   let emp: Employee;
@@ -32,10 +60,13 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
       title: '',
       transcriptPath: '',
       status: 'idle',
+      turn: 'idle',
+      asks: [],
       activity: null,
       seat,
       arrivedAt: e.sentAt,
       lastEventAt: e.sentAt,
+      lastTopAt: 0,
       assistants: [],
     };
   }
@@ -48,58 +79,80 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
 
   // 已完成的助理在下一個事件時移除；複製一份，避免改到傳入的 state
   let assistants: Assistant[] = emp.assistants.filter((a) => a.status !== 'done');
-  const fresh = e.sentAt >= emp.lastEventAt;
+  let asks = emp.asks;
 
-  const top = !e.agent_id; // 來自 subagent 內部的事件不動 activity、不清助理
-  const wake = top || emp.status !== 'idle'; // 主 session 已 Stop（輪到你）時，背景助理內部的工具事件不把狀態改回工作中
+  const top = !e.agent_id; // 來自 subagent 內部的事件不動 turn、activity，也不清助理
+  // 先後只和主 session 自己的事件比：背景助理的事件常常交錯，它比較新不代表主 session 的 Stop 過期
+  const fresh = e.sentAt >= emp.lastTopAt;
   const finish = () => (assistants = assistants.map((a) => (a.status === 'working' && !a.background ? { ...a, status: 'done' as const } : a)));
-  if (fresh) {
+  if (top && fresh) {
     switch (e.hook_event_name) {
       case 'UserPromptSubmit':
+        emp.turn = 'working';
         // 系統通知不是你下的指示，也可能發生在回合中間：Claude 被叫醒才算工作中，其他都不動
-        if (isSystemPrompt(e.prompt)) {
-          if (emp.status === 'idle') emp.status = 'working';
-          break;
-        }
-        emp.status = 'working';
+        if (isSystemPrompt(e.prompt)) break;
         emp.lastPrompt = e.prompt ?? '';
         if (!emp.firstPrompt) emp.firstPrompt = emp.lastPrompt;
-        if (top) {
-          emp.activity = null;
-          finish();
-        }
+        emp.activity = null;
+        finish();
+        asks = openAsks(asks, assistants);
         break;
       case 'PreToolUse':
-        // AskUserQuestion：Claude 在問問題等你選，和權限詢問一樣算「等你回覆」；回答後的 PostToolUse 會回到工作中
-        if (e.tool_name === 'AskUserQuestion') emp.status = 'waiting';
-        else if (wake) emp.status = 'working';
-        if (top) emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
+        emp.turn = 'working';
+        emp.activity = describeTool(e.tool_name ?? '', e.tool_input);
         break;
       case 'PermissionRequest':
-        // 要跳權限詢問了：PreToolUse 在權限判斷之前就會觸發，所以這裡才是真正開始等你（Notification 還要再等約 6 秒）
-        emp.status = 'waiting';
-        if (top) emp.activity = '等你批准：' + describeTool(e.tool_name ?? '', e.tool_input);
-        break;
       case 'PostToolUse':
       case 'PostToolUseFailure':
-      case 'ElicitationResult':
-        if (wake) emp.status = 'working';
-        break;
-      case 'Notification':
-        if (isWaitingNotification(e)) emp.status = 'waiting';
-        break;
       case 'Elicitation':
-        emp.status = 'waiting'; // MCP server 要你輸入
+      case 'ElicitationResult':
+        emp.turn = 'working';
         break;
       case 'Stop':
       case 'StopFailure':
-        emp.status = 'idle';
-        if (top) {
-          emp.activity = null;
-          finish();
-        }
+        emp.turn = 'idle';
+        emp.activity = null;
+        finish();
+        asks = openAsks(asks, assistants);
         break;
     }
+  }
+
+  // 等你處理的事：記下是誰在等哪個工具，只有它自己有結果才清掉，別人的事件不影響
+  const agent = e.agent_id ?? '';
+  const tool = e.tool_name ?? '';
+  const add = (name: string, label = '') => {
+    if (top && !fresh) return; // 這一輪已經結束或中斷了
+    const input = digest(e.tool_input);
+    if (asks.some((a) => a.agent === agent && a.tool === name && a.input === input)) return; // AskUserQuestion 的 PreToolUse 和 PermissionRequest 是同一件
+    asks = [...asks, { agent, tool: name, input, at: e.sentAt, label: top ? label : '' }];
+  };
+  const drop = (done: (a: Ask) => boolean) => (asks = asks.filter((a) => a.at > e.sentAt || !done(a)));
+  switch (e.hook_event_name) {
+    case 'PreToolUse':
+      drop((a) => a.tool === ASK_NOTICE);
+      if (tool === 'AskUserQuestion') add(tool, askLabel(tool, e.tool_input)); // Claude 在問問題等你選
+      break;
+    case 'PermissionRequest':
+      // 要跳權限詢問了：PreToolUse 在權限判斷之前就會觸發，所以這裡才是真正開始等你（Notification 還要再等約 6 秒）
+      add(tool, askLabel(tool, e.tool_input));
+      break;
+    case 'PostToolUse':
+    case 'PostToolUseFailure':
+      drop((a) => a.tool === ASK_NOTICE || (a.agent === agent && a.tool === tool && (e.tool_input === undefined || a.input === digest(e.tool_input))));
+      break;
+    case 'SubagentStop':
+      if (!top) drop((a) => a.agent === agent);
+      break;
+    case 'Notification':
+      if (!asks.length && isWaitingNotification(e)) add(ASK_NOTICE);
+      break;
+    case 'Elicitation':
+      add(ASK_ELICITATION);
+      break;
+    case 'ElicitationResult':
+      drop((a) => a.tool === ASK_NOTICE || a.tool === ASK_ELICITATION);
+      break;
   }
 
   // 助理配對不受事件先後影響；新助理的座位要連主人這次的變動一起算
@@ -143,7 +196,10 @@ export function reduce(state: OfficeState, e: HookEvent): { state: OfficeState; 
   }
 
   emp.assistants = assistants;
+  emp.asks = asks;
   emp.lastEventAt = Math.max(emp.lastEventAt, e.sentAt);
+  if (top) emp.lastTopAt = Math.max(emp.lastTopAt, e.sentAt);
+  emp = settle(emp);
   return {
     state: { ...state, employees: { ...state.employees, [id]: emp } },
     changes: [{ type: 'upsert', employee: emp }],

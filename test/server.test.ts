@@ -278,3 +278,26 @@ test('閒置後接續到新 session_id 時沿用原本的員工', async () => {
   list = await employees();
   expect(list.map((e: any) => e.sessionId)).toEqual(['other']);
 });
+
+test('中斷沒有 hook：checkInterrupts 從 transcript 讀到後變輪到你；之後又送 prompt 就不再套用同一筆', async () => {
+  const tp = join(dir, 'int.jsonl');
+  const status = async () => (await employees())[0].status;
+  const prompt = (sentAt: number) => post('/events', { hook_event_name: 'UserPromptSubmit', session_id: 's1', cwd: 'D:\\p\\api', transcript_path: tp, prompt: 'x', sentAt });
+  writeFileSync(tp, '{}\n');
+  await prompt(1000);
+  await app.checkInterrupts();
+  expect(await status()).toBe('working');
+  const mark = JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] }, timestamp: new Date(2000).toISOString() });
+  writeFileSync(tp, '{}\n' + mark + '\n');
+  await app.checkInterrupts();
+  expect(await status()).toBe('idle');
+  await prompt(3000);
+  writeFileSync(tp, '{}\n' + mark + '\n{}\n');
+  await app.checkInterrupts();
+  expect(await status()).toBe('working');
+});
+test('PostToolBatch 的 tool_calls 型別不對時當成沒有，不會出錯', async () => {
+  await start();
+  for (const tool_calls of ['x', [null], [1]])
+    expect((await post('/events', { hook_event_name: 'PostToolBatch', session_id: 's1', tool_calls, sentAt: clock })).status).toBe(204);
+});

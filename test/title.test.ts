@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, test } from 'vitest';
-import { readAiTitle } from '../src/server/title.js';
+import { readAiTitle, readInterruptedAt } from '../src/server/title.js';
 import { setTitle } from '../src/state/maintenance.js';
 import { reduce } from '../src/state/reduce.js';
 import { emptyState } from '../src/state/types.js';
@@ -53,3 +53,17 @@ test('readAiTitle 檔尾視窗剛好從標記開始、那行解析不了：回�
   const p = write('cut.jsonl', rec({ type: 'user' }) + '{' + tail);
   expect(await readAiTitle(p, true)).toBe('');
 }, 2000);
+
+test('readInterruptedAt：取最後一次中斷的時間；助理的、使用者提到這句話的、工具結果裡的都不算', async () => {
+  const at = (s: number) => `2026-11-24T07:30:0${s}.000Z`;
+  const user = (content: unknown, s: number, extra = {}) => rec({ type: 'user', message: { role: 'user', content }, timestamp: at(s), isSidechain: false, ...extra });
+  const text = (s: string) => [{ type: 'text', text: s }];
+  const mark = '[Request interrupted by user]';
+  const p = write('int.jsonl',
+    user(text(mark), 1) + user(text('[Request interrupted by user for tool use]'), 2) + user(text(mark), 3, { isSidechain: true }) +
+    user([{ type: 'tool_result', content: mark }], 4) + user(`為什麼會有 ${mark}`, 5) + rec({ type: 'last-prompt', lastPrompt: mark }));
+  expect(await readInterruptedAt(p)).toBe(Date.parse(at(2)));
+  expect(await readInterruptedAt(write('noint.jsonl', user('hi', 1)))).toBe(0);
+  expect(await readInterruptedAt(join(dir, 'missing.jsonl'))).toBe(0);
+  expect(await readInterruptedAt(write('int.txt', user(text(mark), 1)))).toBe(0);
+});

@@ -36,7 +36,7 @@
 - 開機自動啟動與隱藏的背景程式：`office.bat` 把伺服器放在看得到的視窗，關掉就停，出錯也看得到；代價是點之前的事件收不到。
 - 聲音與系統通知。
 - 連外：只跑在本機，前端不載入外部字型、CDN 或任何外部資源。
-- 讀取對話內容。transcript 只讀 `ai-title`（名牌標題）和 `continued-in`（接續的 session）這兩種紀錄；助理的 meta 檔只讀 `toolUseId`；Claude Desktop 的 session 紀錄只讀是否封存、標題和用過的 CLI `session_id`。
+- 讀取對話內容。transcript 只讀 `ai-title`（名牌標題）、`continued-in`（接續的 session）和中斷標記（固定文字 `[Request interrupted by user`，只取時間）這三種紀錄；助理的 meta 檔只讀 `toolUseId`；Claude Desktop 的 session 紀錄只讀是否封存、標題和用過的 CLI `session_id`。
 
 ## 用詞
 
@@ -56,24 +56,28 @@ Claude Code ─hook─▶ src/hook/send.ts ─POST /events─▶ src/server ─r
                                                   web/（DOM＋行內 SVG，Vite 建置）
 ```
 
-- **hook 絕不能影響 Claude Code**：一律以結束碼 0 結束、不寫 stdout、送事件最多等 300ms，任何錯誤都安靜放棄。
+- **hook 絕不能影響 Claude Code**：一律以結束碼 0 結束、不寫 stdout、送事件最多等 300ms，任何錯誤都安靜放棄。工具結果可能有好幾 MB（圖片、整個檔案），超過伺服器上限整個事件會被丟掉，所以送出前只留配對助理要用的欄位。
 - **伺服器只對本機開放**：只監聽 127.0.0.1；`Host` 不是 `127.0.0.1` 或 `localhost` 一律拒絕（擋 DNS rebinding），POST 帶了 `Origin` 就要是同一個來源（擋跨站 POST，hook 的 fetch 不帶 `Origin`）。
 - **`src/state` 是純函式**：`reduce(state, event) → { state, changes }`，不碰網路、檔案或時間，測試都放在這一層。
 - **前端只畫畫面**：畫面改版不需要動 `src/`。如果要動，代表這次改的是資料模型，要另外說明理由。助理坐桌子時動過一次：座位一律由 `src/state` 分配，助理的座位放在前端算的話，新員工會被分到助理正坐著的桌子。
-- **`src/hook/send.ts --record=<資料夾>`**：錄製模式，用來錄真實事件存進 `test/fixtures/`。README「已知限制」還有沒在互動式 session 驗證的事件，所以先保留。
+- **`src/hook/send.ts --record=<資料夾>`**：錄製模式，用來錄真實事件存進 `test/fixtures/`。錄權限、平行工具這類要排時間的情境時，讓真的 `claude` 連到照劇本回應的本機假 API（`ANTHROPIC_BASE_URL`，隔離的 `CLAUDE_CONFIG_DIR`，`--permission-prompt-tool stdio` 由腳本決定何時批准、拒絕或中斷），不用登入，也能重播。README「已知限制」還有沒在互動式 session 驗證的事件，所以先保留。
 
 ## 狀態規則背後的理由
 
 完整的事件與狀態對應見 README「三種狀態」。下面這些不是直覺能想到的：
 
 - **等你處理以 `PermissionRequest` 為準，不是 `PreToolUse`**：`PreToolUse` 在權限判斷之前就會觸發，`Notification` 又要晚約 6 秒才到。
+- **狀態由 `turn` 和 `asks` 兩件事決定**（`reduce.ts` 的 `settle`）：`turn` 是主 session 這一輪還在跑或輪到你，只有主 session 自己的事件能改；`asks` 是還沒有結果的等你處理，有任何一件就是等你處理。以前只有一個狀態欄位，任何工具事件都會把等你處理改回工作中：平行的 Read 做完、另一位助理用工具，紅色就不見了。
+- **一件等待怎麼認、怎麼收**：`PermissionRequest` 沒有 `tool_use_id`，所以用「誰（`agent_id`）＋工具＋參數的雜湊」認。批准後看同一個人、同工具、同參數的 `PostToolUse`。拒絕權限時沒有 `PostToolUse`，只有 `PostToolBatch`，批准時改過參數也靠它收，所以它只比對工具名稱。`PostToolBatch` 放背景跑（`async`），可能在 `Stop` 或 `SessionEnd` 之後才到，因此它只收等待，不登記員工、不動 `turn` 和事件時間，也不清剛完成的助理（不然主人的資訊卡看不到）；比它晚開始的等待也不收。不用下一個 `PreToolUse` 當成「已經處理」，因為同一批的其他工具可能晚幾秒才開始。只收到 `Notification`、不知道是誰在等的，任何工具事件都會收掉。
+- **中斷看 transcript**：按 Esc、拒絕權限時中斷，`Stop`、`PostToolUse`、`PostToolBatch` 都不會觸發，唯一的痕跡是 transcript 裡的 `[Request interrupted by user`。伺服器每秒看一次沒輪到你的員工，transcript 大小變了才讀檔尾 64 KB。標記的時間比主 session 最近的事件早，表示之後又開始了，不處理。實測這筆在中斷當下就寫入。效果和 `Stop` 一樣，背景助理的等待留著。
+- **批准的當下沒有任何訊號**：實測按下批准到工具做完之間，hook 和 transcript 都沒有新紀錄，所以跑很久的指令在批准後還會是等你處理。寧可多紅一會，不猜。
 - **只有三種狀態，沒有「閒置」**：`idle` 在畫面上顯示成「輪到你」，意思是 Claude 做完這一輪，等你下一個指示。它會一直亮著，直到你送出 prompt，不會隨時間退回安靜狀態。紅色只給等你處理，輪到你用比較安靜的琥珀色，而且不脈動。
-- **subagent 內部的事件（帶 `agent_id`）不改主人的 `activity`**，也不清助理，只更新那位助理自己的 `activity`。主 session 已經 Stop 的話，這類事件也不會把狀態改回工作中。助理的動作不看 `sentAt`：平行助理的事件常常交錯，別人的事件比較新不代表這位的動作過期。
+- **subagent 內部的事件（帶 `agent_id`）不改主人的 `activity`**，也不清助理，只更新那位助理自己的 `activity`。也不改 `turn`。助理的動作不看 `sentAt`：平行助理的事件常常交錯，別人的事件比較新不代表這位的動作過期。
 - **背景助理（`run_in_background`）**：`PostToolUse` 和 `Stop` 都不算它完成，要等 `SubagentStop`。沒指定時預設就是背景（`async_launched`），前景要明確傳 `run_in_background: false`。`async_launched` 沒帶 `agentId` 就對不上 `SubagentStop`，與其讓它一直坐在座位上，直接當成完成。
-- **系統通知不算 prompt**：助理完成（`<task-notification>`）、session 之間傳訊（`<agent-message>` 等）也走 `UserPromptSubmit`，hook 沒有欄位能分辨，只能比對開頭的標籤（`describe.ts` 的 `isSystemPrompt`，只認列出來的標籤，使用者貼的 HTML 不算）。它不是你下的指示，也可能發生在回合中間，所以不改 prompt、不清 `activity`、不結束前景助理；只把輪到你改成工作中，等你處理維持不變。
-- **助理的目前動作只看 `PreToolUse`，不顯示「等你批准」**：實測 auto mode 放行的指令不會觸發 `PermissionRequest`；headless 下它照樣觸發，但沒有人被問，馬上就拒絕（官方文件：不能詢問時 hook 仍會跑）。文件說手動模式才會真的問，而 hook 分不出這兩種，所以助理卡片和主人的資訊卡都不寫助理在等什麼。助理的工具也沒有 `AskUserQuestion`，不會有「提問中」。
+- **系統通知不算 prompt**：助理完成（`<task-notification>`）、session 之間傳訊（`<agent-message>` 等）也走 `UserPromptSubmit`，hook 沒有欄位能分辨，只能比對開頭的標籤（`describe.ts` 的 `isSystemPrompt`，只認列出來的標籤，使用者貼的 HTML 不算）。它不是你下的指示，也可能發生在回合中間，所以不改 prompt、不清 `activity`、不結束前景助理、不收等待；只把 `turn` 改成工作中。
+- **助理的目前動作只看 `PreToolUse`，不顯示「等你批准」**：實測 auto mode 放行的指令不會觸發 `PermissionRequest`；headless 下它照樣觸發，但沒有人被問，馬上就拒絕（官方文件：不能詢問時 hook 仍會跑）。文件說手動模式才會真的問，而 hook 分不出這兩種，所以助理卡片和主人的資訊卡都不寫助理在等什麼（助理的 `asks` 沒有 `label`）。馬上被拒絕的由 `PostToolBatch` 收掉。助理的工具也沒有 `AskUserQuestion`，不會有「提問中」。
 - **內部事件怎麼對回助理**：助理的 `id` 是 `tool_use_id`，內部事件只有 `agent_id`，`agent_type` 在平行、同類型時全部一樣，不能用來分辨。背景助理的 `async_launched` 同時帶兩者；前景助理的 `agentId` 要到做完的 `PostToolUse` 才有，所以由伺服器（不是 `src/state`）在第一個內部事件時讀 `<transcript 去掉 .jsonl>/subagents/agent-<agent_id>.meta.json` 的 `toolUseId`，用 `bindAgent` 補上。實測第一個內部工具事件時這個檔已經在了，`SubagentStart` 時還沒有。這不是公開格式，讀不到只會少顯示前景助理的動作。前景助理配對到 `agentId` 後，`SubagentStop` 仍不算完成，不然緊接的 `PostToolUse` 會把剛完成的清掉，主人的資訊卡就看不到了。
-- **事件先後以 hook 附上的 `sentAt` 判斷**：比較舊的事件不改狀態，但仍然可以用來補登記和配對助理。
+- **事件先後以 hook 附上的 `sentAt` 判斷**：主 session 的事件只和主 session 自己最近的事件（`lastTopAt`）比，比較舊的不改狀態，但仍然可以用來補登記和配對助理。不和助理的事件比：背景助理的事件常常交錯，拿來比的話 `Stop` 會被當成過期丟掉，人就卡在工作中。
 - **幽靈員工**：強制結束 session 時收不到 `SessionEnd`，所以要有「請他下班」和 12 小時逾時。被請下班的 session 如果還有事件進來，會重新登場。
 - **Claude Desktop 的員工只在 session 真的結束時下班**：Desktop 在 rewind 和記憶體吃緊暫停閒置 session 時都會停掉 CLI，`SessionEnd` 的 `reason` 和真的下班一樣是 `other`；rewind 還會 fork 出新的 `session_id`，transcript 沒有 `continued-in`，`SessionStart` 的 `source` 也靠不住。所以改認 Desktop 自己的 id：hook 把環境變數 `CLAUDE_CODE_HOST_SESSION_ID`（`local_…`）當成 `host_session_id` 送出，有這個欄位的員工（`hostSessionId`）收到 `SessionEnd` 只變成輪到你、清掉助理。真的結束靠 `src/server/desktop.ts` 讀 Desktop 的紀錄（`claude-code-sessions/<帳號>/<組織>/local_<id>.json` 的 `isArchived`，刪除後留 `deleted_<id>`），60 秒巡檢一次；紀錄說還開著就不套用 12 小時逾時。標題也來自這份紀錄，因為 Desktop 的 transcript 只有 `custom-title`、沒有 `ai-title`。這不是公開格式，讀不到一律回 `null`，當成判斷不了而不是結束，退回 12 小時逾時。
 - **環境變數會繼承，所以新 `session_id` 不能直接併給主人**：Desktop session 裡開的 `claude -p` 也帶同一個 `local_` id。fork 一定在舊 CLI 停掉之後才出現，所以新 id 要符合「主人的 CLI 已送過 `SessionEnd`、且這個 id 第一次出現」或「Desktop 紀錄的 `cliSessionId`／`priorCliSessionIds` 列著它」才算同一位（沿用 `aliases`）；否則拿掉 `host_session_id`，當成一般 CLI 的員工。紀錄比 fork 的第一個事件晚幾秒才更新，所以 `SessionEnd` 沒送到時會先多一個人，之後的事件再併回來。子行程的每個事件都會走到這裡，查一次紀錄要同步掃好幾層資料夾，所以同一個 id 隔 `DESKTOP_RECHECK_MS`（5 秒）才再查一次，併回來最多慢這麼久。

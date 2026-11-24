@@ -1,3 +1,4 @@
+import { openAsks, settle } from './reduce.js';
 import type { Change, OfficeState } from './types.js';
 
 export const IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
@@ -39,6 +40,18 @@ export const setTitle = (state: OfficeState, sessionId: string, title: string): 
   const emp = Object.hasOwn(state.employees, sessionId) ? state.employees[sessionId] : undefined;
   if (!emp || emp.title === title) return { state, changes: [] };
   const employee = { ...emp, title };
+  return {
+    state: { ...state, employees: { ...state.employees, [sessionId]: employee } },
+    changes: [{ type: 'upsert', employee }],
+  };
+};
+
+/** 你按 Esc 或拒絕權限中斷了這一輪：沒有任何 hook，伺服器從 transcript 讀到後用這裡收尾，效果和 Stop 一樣。at 比主 session 最近的事件早，表示之後又開始了 */
+export const interrupt = (state: OfficeState, sessionId: string, at: number): { state: OfficeState; changes: Change[] } => {
+  const emp = Object.hasOwn(state.employees, sessionId) ? state.employees[sessionId] : undefined;
+  if (!emp || at < emp.lastTopAt || emp.status === 'idle') return { state, changes: [] };
+  const assistants = emp.assistants.map((a) => (a.status === 'working' && !a.background ? { ...a, status: 'done' as const } : a));
+  const employee = settle({ ...emp, turn: 'idle', activity: null, assistants, asks: openAsks(emp.asks, assistants), lastTopAt: at });
   return {
     state: { ...state, employees: { ...state.employees, [sessionId]: employee } },
     changes: [{ type: 'upsert', employee }],

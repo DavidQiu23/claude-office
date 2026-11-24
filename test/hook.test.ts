@@ -118,6 +118,32 @@ test('Desktop 的 session id 有設才送，純 CLI 的事件不帶這個欄位'
   }
 });
 
+test('工具結果很大也送得到：只留配對助理的欄位，批次只留工具名稱', async () => {
+  const bodies: any[] = [];
+  const srv = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      bodies.push(JSON.parse(raw));
+      res.writeHead(204).end();
+    });
+  });
+  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+  try {
+    const home = homeWithPort((srv.address() as AddressInfo).port);
+    const big = 'x'.repeat(2 * 1024 * 1024);
+    await run(home, JSON.stringify({ hook_event_name: 'PostToolUse', session_id: 's', tool_name: 'Agent', tool_response: { status: 'async_launched', agentId: 'a1', content: big } }));
+    await run(home, JSON.stringify({ hook_event_name: 'PostToolBatch', session_id: 's', tool_calls: [{ tool_name: 'Read', tool_response: big }] }));
+    await run(home, JSON.stringify({ hook_event_name: 'PostToolUse', session_id: 's', tool_name: 'Read', tool_response: big }));
+    expect(bodies[0].tool_response).toEqual({ status: 'async_launched', agentId: 'a1' });
+    expect(bodies[1].tool_calls).toEqual([{ tool_name: 'Read' }]);
+    expect(bodies[2]).not.toHaveProperty('tool_response');
+  } finally {
+    srv.closeAllConnections();
+    await new Promise((r) => srv.close(r));
+  }
+});
+
 test('--record 模式仍寫出錄製檔', async () => {
   const root = mkdtempSync(join(tmpdir(), 'rec-'));
   tmps.push(root);

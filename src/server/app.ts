@@ -1,11 +1,11 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import http from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
 import { CONFIG_FILE } from '../config.js';
-import { bindAgent, dismiss, setTitle, sweep } from '../state/maintenance.js';
+import { bindAgent, dismiss, interrupt, setTitle, sweep } from '../state/maintenance.js';
 import { reduce } from '../state/reduce.js';
 import { isHostSessionId, readDesktopSession, type DesktopSession } from './desktop.js';
-import { readAiTitle, readContinuedIn, readSubagentToolUseId } from './title.js';
+import { readAiTitle, readContinuedIn, readInterruptedAt, readSubagentToolUseId } from './title.js';
 import { emptyState, type Change, type HookEvent } from '../state/types.js';
 
 /** file 預設是這台機器上設定檔的完整路徑（macOS／Linux 是 ~/.claude-office/config.json，Windows 是 %USERPROFILE%\.claude-office\config.json） */
@@ -45,6 +45,7 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
   const aliases = new Map<string, string>();
   const checkedAt = new Map<string, number>(); // 新 session_id → 上次查 Desktop 紀錄的時間（子行程每個事件都會走到這裡）
   const scanned = new Set<string>(); // 整份 transcript 找過標題的員工；之後的標題一定寫在檔尾，只讀檔尾
+  const sizes = new Map<string, number>(); // 員工 → 上次看過的 transcript 大小，沒變就不讀
   const recordLists = (host: string, id: string): boolean => {
     const last = checkedAt.get(id);
     if (last !== undefined && now() - last < DESKTOP_RECHECK_MS) return false;
@@ -87,6 +88,25 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
     if (list.some((a) => a.agentId === agentId) || !list.some((a) => a.status === 'working' && !a.agentId)) return;
     const toolUseId = readSubagentToolUseId(transcript, agentId);
     if (toolUseId) apply(bindAgent(state, id, toolUseId, agentId));
+  };
+
+  // 中斷沒有 hook，只能看 transcript：只查沒輪到你的員工，檔案大小變了才讀檔尾
+  let checking = false;
+  const checkInterrupts = async () => {
+    if (checking) return;
+    checking = true;
+    try {
+      for (const { sessionId: id, transcriptPath: path, status } of Object.values(state.employees)) {
+        if (status === 'idle' || !path) continue;
+        const size = await stat(path).then((s) => s.size, () => 0);
+        if (size === (sizes.get(id) ?? 0)) continue;
+        sizes.set(id, size);
+        const at = await readInterruptedAt(path);
+        if (at) apply(interrupt(state, id, at));
+      }
+    } finally {
+      checking = false;
+    }
   };
 
   const readBody = (req: http.IncomingMessage) =>
@@ -150,6 +170,7 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
       if (!isHostSessionId(ev.host_session_id ?? '')) delete ev.host_session_id;
       if (typeof ev.hook_event_name !== 'string') ev.hook_event_name = '';
       if (typeof ev.tool_input !== 'object' || ev.tool_input === null || Array.isArray(ev.tool_input)) delete ev.tool_input;
+      if (!Array.isArray(ev.tool_calls) || ev.tool_calls.some((c: unknown) => typeof c !== 'object' || c === null)) delete ev.tool_calls;
       if (!Number.isFinite(ev.sentAt)) ev.sentAt = now();
       ev.session_id = continuedFrom(ev.session_id, ev.cwd, ev.host_session_id);
       const owner = ev.host_session_id ? desktopOwner(ev.host_session_id) : undefined;
@@ -205,6 +226,7 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
 
   return {
     server,
+    checkInterrupts,
     sweepNow: () => {
       const alive = new Set<string>();
       for (const e of Object.values(state.employees)) {
@@ -224,6 +246,7 @@ export function createApp(opts: { staticDir: string; now?: () => number; desktop
       for (const [id, to] of aliases) if (!here(to)) aliases.delete(id);
       for (const [id, at] of checkedAt) if (!here(id) && now() - at >= DESKTOP_RECHECK_MS) checkedAt.delete(id);
       for (const id of scanned) if (!here(id)) scanned.delete(id);
+      for (const id of sizes.keys()) if (!here(id)) sizes.delete(id);
     },
     clientCount: () => clients.size,
   };

@@ -17,6 +17,11 @@ try {
   } else {
     const event = JSON.parse(raw.toString('utf8'));
     if (event && typeof event === 'object') {
+      // 工具結果可能很大（圖片、整個檔案），超過伺服器上限整個事件會被丟掉；只留配對助理要用的欄位
+      const r = event.tool_response;
+      if (r && typeof r === 'object') event.tool_response = { status: r.status, agentId: r.agentId, resumedAgentId: r.resumedAgentId };
+      else delete event.tool_response;
+      if (Array.isArray(event.tool_calls)) event.tool_calls = event.tool_calls.map((c: { tool_name?: string } | null) => ({ tool_name: c?.tool_name }));
       const host = process.env.CLAUDE_CODE_HOST_SESSION_ID; // Desktop 的 session id，rewind 換 session_id 時也不變
       await fetch(`http://127.0.0.1:${loadConfig().port}/events`, {
         method: 'POST',

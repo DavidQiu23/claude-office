@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { bindAgent } from '../src/state/maintenance.js';
+import { bindAgent, interrupt } from '../src/state/maintenance.js';
 import { reduce } from '../src/state/reduce.js';
 import { emptyState } from '../src/state/types.js';
 import type { Change, HookEvent, OfficeState } from '../src/state/types.js';
@@ -239,7 +239,7 @@ test('subagent 內部的 AskUserQuestion 也讓員工等你回覆，但不動氣
 test('PermissionRequest：立刻等你回覆，記下要批准什麼；PostToolUse 回到工作中', () => {
   const asked = run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'mkdir x' } }), ev('PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'mkdir x' } })]);
   expect(asked.state.employees.s1.status).toBe('waiting');
-  expect(asked.state.employees.s1.activity).toBe('等你批准：執行 mkdir x');
+  expect(asked.state.employees.s1.asks).toMatchObject([{ label: '等你批准：執行 mkdir x' }]);
   const ok = run([ev('PostToolUse', { tool_name: 'Bash', tool_use_id: 't1' })], asked.state);
   expect(ok.state.employees.s1.status).toBe('working');
 });
@@ -403,4 +403,86 @@ test('主 session Stop 後，背景助理內部的工具事件不把輪到你改
   expect(r.state.employees.s1.status).toBe('idle');
   r = run([ev('PreToolUse', { tool_name: 'AskUserQuestion', tool_use_id: 'q9', agent_id: 'ag' })], r.state);
   expect(r.state.employees.s1.status).toBe('waiting');
+});
+
+const bash = (command: string, extra: Partial<HookEvent> = {}) => ({ tool_name: 'Bash', tool_input: { command }, ...extra });
+const status = (s: OfficeState) => s.employees.s1.status;
+
+test('兩個工具都在等：各自有結果才清掉，全部清完才回到工作中', () => {
+  let { state } = run([ev('UserPromptSubmit'), ev('PermissionRequest', bash('a')), ev('PermissionRequest', bash('b'))]);
+  ({ state } = run([ev('PostToolUse', bash('b'))], state));
+  expect([status(state), state.employees.s1.asks.map((a) => a.label)]).toEqual(['waiting', ['等你批准：執行 a']]);
+  expect(status(run([ev('PostToolUse', bash('a'))], state).state)).toBe('working');
+});
+
+test('AskUserQuestion 的 PreToolUse 和 PermissionRequest 是同一件，卡片寫問題', () => {
+  const q = { tool_name: 'AskUserQuestion', tool_input: { questions: [{ question: '紅或藍？' }] } };
+  const { state } = run([ev('UserPromptSubmit'), ev('PreToolUse', q), ev('PermissionRequest', q)]);
+  expect(state.employees.s1.asks.map((a) => a.label)).toEqual(['等你回答：紅或藍？']);
+  expect(status(run([ev('PostToolUse', q)], state).state)).toBe('working');
+});
+
+test('批准時改過參數：PostToolUse 對不上，PostToolBatch 還是會清掉；別的工具那批不會', () => {
+  const asked = run([ev('UserPromptSubmit'), ev('PermissionRequest', bash('a')), ev('PostToolUse', bash('a --dry-run'))]).state;
+  expect(status(asked)).toBe('waiting');
+  expect(status(run([ev('PostToolBatch', { tool_calls: [{ tool_name: 'Read' }] })], asked).state)).toBe('waiting');
+  expect(status(run([ev('PostToolBatch', { tool_calls: [{ tool_name: 'Bash' }] })], asked).state)).toBe('working');
+});
+
+test('PostToolBatch 在背景跑、晚到：不把輪到你改回工作中，也不蓋過 Stop 或清掉更新的等待', () => {
+  const batch = (sentAt: number) => ev('PostToolBatch', { sentAt, tool_calls: [{ tool_name: 'Bash' }] });
+  const stopped = run([ev('UserPromptSubmit', { sentAt: 1 }), ev('Stop', { sentAt: 10 }), batch(11)]).state;
+  expect(status(stopped)).toBe('idle');
+  const raced = run([ev('UserPromptSubmit', { sentAt: 1 }), batch(11), ev('Stop', { sentAt: 10 })]).state;
+  expect(status(raced)).toBe('idle');
+  const asked = run([ev('UserPromptSubmit', { sentAt: 1 }), ev('PermissionRequest', bash('a', { sentAt: 10 })), batch(9)]).state;
+  expect(status(asked)).toBe('waiting');
+  expect(run([ev('SessionStart'), ev('SessionEnd'), batch(++t)]).state.employees).toEqual({}); // 下班了不會又冒出來
+});
+
+test('PostToolBatch 緊接在助理完成之後，剛完成的助理還留在清單上', () => {
+  const { state } = run([
+    ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a' }),
+    ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 'a' }),
+    ev('PostToolBatch', { tool_calls: [{ tool_name: 'Agent' }] }),
+  ]);
+  expect(helper(state, 'a')?.status).toBe('done');
+});
+
+test('主 session 的 Stop 不因為背景助理的事件比較新就被當成過期', () => {
+  const { state } = run([
+    ev('UserPromptSubmit', { sentAt: 1 }),
+    ev('PreToolUse', { sentAt: 12, tool_name: 'Read', tool_input: {}, agent_id: 'bg' }),
+    ev('Stop', { sentAt: 10 }),
+  ]);
+  expect(status(state)).toBe('idle');
+});
+
+test('背景助理等權限：主 session Stop 後仍等你處理；批准或它停下後回到輪到你，不是工作中', () => {
+  const asked = run([ev('UserPromptSubmit'), ...launched('b1', 'ag'), ev('PermissionRequest', bash('a', { agent_id: 'ag' })), ev('Stop')]).state;
+  expect(status(asked)).toBe('waiting');
+  expect(status(run([ev('PostToolUse', bash('a', { agent_id: 'ag' }))], asked).state)).toBe('idle');
+  expect(status(run([ev('SubagentStop', { agent_id: 'ag' })], asked).state)).toBe('idle');
+});
+
+test('Stop 之後才送到的舊 PermissionRequest 不會讓人一直等你處理', () => {
+  const { state } = run([ev('UserPromptSubmit', { sentAt: 1 }), ev('Stop', { sentAt: 10 }), ev('PermissionRequest', bash('a', { sentAt: 9 }))]);
+  expect(status(state)).toBe('idle');
+});
+
+test('interrupt：工作中或等你處理變輪到你，前景助理完成、背景助理留著；之後又開始了就不動', () => {
+  const working = run([ev('UserPromptSubmit', { sentAt: 1 }), ev('PreToolUse', { sentAt: 2, tool_name: 'Agent', tool_use_id: 'f1' })]).state;
+  const r = interrupt(working, 's1', 3);
+  expect(r.state.employees.s1).toMatchObject({ status: 'idle', activity: null, assistants: [{ id: 'f1', status: 'done' }] });
+  expect(r.changes).toHaveLength(1);
+  expect(interrupt(r.state, 's1', 3).changes).toEqual([]);
+  expect(interrupt(working, 's1', 1).changes).toEqual([]);
+  expect(interrupt(working, '__proto__', 9).changes).toEqual([]);
+
+  const asking = run([ev('UserPromptSubmit', { sentAt: 1 }), ev('PermissionRequest', bash('a', { sentAt: 2 }))]).state;
+  expect(interrupt(asking, 's1', 3).state.employees.s1).toMatchObject({ status: 'idle', asks: [] });
+
+  const t0 = ++t;
+  const bg = run([ev('UserPromptSubmit', { sentAt: t0 }), ...launched('b1', 'ag'), ev('PermissionRequest', bash('a', { agent_id: 'ag' }))]).state;
+  expect(interrupt(bg, 's1', ++t).state.employees.s1).toMatchObject({ status: 'waiting', turn: 'idle', assistants: [{ id: 'b1', status: 'working' }] });
 });

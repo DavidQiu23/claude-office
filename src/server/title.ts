@@ -77,3 +77,31 @@ export function readContinuedIn(path: string): string {
   } catch {}
   return '';
 }
+
+// 你按 Esc 或拒絕權限中斷時沒有任何 hook，只會在 transcript 留下這一筆；文字是固定的，後面可能接「for tool use」
+const INTERRUPTED = '[Request interrupted by user';
+/** 檔尾最後一次中斷的時間（毫秒），沒有就是 0 */
+export async function readInterruptedAt(path: string): Promise<number> {
+  if (!path.endsWith('.jsonl')) return 0;
+  try {
+    const fh = await open(path, 'r');
+    try {
+      const size = (await fh.stat()).size;
+      const len = Math.min(size, CONT_TAIL);
+      const buf = Buffer.alloc(len);
+      await fh.read(buf, 0, len, size - len);
+      for (const line of buf.toString('utf8').split('\n').reverse()) {
+        if (!line.includes(INTERRUPTED)) continue;
+        try {
+          const rec = JSON.parse(line);
+          const c: unknown = rec.message?.content;
+          const text = Array.isArray(c) ? c.find((b) => b?.type === 'text')?.text : c;
+          if (rec.type === 'user' && !rec.isSidechain && typeof text === 'string' && text.startsWith(INTERRUPTED)) return Date.parse(rec.timestamp) || 0;
+        } catch {} // 檔尾切到一半的行
+      }
+    } finally {
+      await fh.close();
+    }
+  } catch {} // 檔案不存在或讀不到：當成沒有中斷
+  return 0;
+}

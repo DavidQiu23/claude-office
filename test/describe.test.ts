@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { describeTool, folderName, isWaitingNotification, isSubagentTool, truncate } from '../src/state/describe.js';
+import { askLabel, describeTool, folderName, isWaitingNotification, isSubagentTool, truncate } from '../src/state/describe.js';
 import type { HookEvent } from '../src/state/types.js';
 
 test('truncate 以字元計算', () => {
@@ -13,14 +13,21 @@ test('describeTool', () => {
   expect(describeTool('MultiEdit', { file_path: 'b.ts' })).toBe('編輯 b.ts');
   expect(describeTool('Write', { file_path: 'c.ts' })).toBe('編輯 c.ts');
   expect(describeTool('Bash', { command: 'npm test' })).toBe('執行 npm test');
-  expect(describeTool('Bash', { command: 'x'.repeat(40) })).toBe('執行 ' + 'x'.repeat(30) + '…');
+  expect(describeTool('Bash', { command: 'x'.repeat(170) })).toBe('執行 ' + 'x'.repeat(160) + '…');
+  expect(describeTool('PowerShell', { command: 'Get-Item a |\n  Remove-Item' })).toBe('執行 Get-Item a | Remove-Item');
+  expect(describeTool('NotebookEdit', { notebook_path: 'D:\\n\\a.ipynb' })).toBe('編輯 a.ipynb');
   expect(describeTool('Grep', {})).toBe('搜尋程式碼');
   expect(describeTool('Glob', {})).toBe('搜尋程式碼');
   expect(describeTool('WebSearch', {})).toBe('搜尋網路');
-  expect(describeTool('WebFetch', {})).toBe('搜尋網路');
+  expect(describeTool('WebFetch', { url: 'https://code.claude.com/docs' })).toBe('讀取網頁 code.claude.com');
+  expect(describeTool('WebFetch', {})).toBe('讀取網頁');
+  expect(describeTool('Skill', { skill: 'code-review' })).toBe('使用技能 code-review');
   expect(describeTool('Task', {})).toBe('派出助理');
   expect(describeTool('Agent', {})).toBe('派出助理');
-  expect(describeTool('mcp__foo__bar', {})).toBe('使用 mcp__foo__bar');
+  expect(describeTool('mcp__foo__bar', {})).toBe('使用 bar（foo）');
+  expect(describeTool('mcp__Claude_Browser__browser_batch', {})).toBe('使用 browser batch（Claude Browser）');
+  expect(describeTool('mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__update', {})).toBe('使用 update');
+  expect(describeTool('Whatever', {})).toBe('使用 Whatever');
   expect(describeTool('Read', undefined)).toBe('讀取 檔案');
 });
 test('isSubagentTool', () => {
@@ -47,4 +54,8 @@ test('isWaitingNotification：權限與 MCP 表單／網址要你處理，其餘
 });
 test('describeTool：權限詢問與提問', () => {
   expect(describeTool('AskUserQuestion', {})).toBe('提問中');
+  expect(askLabel('PowerShell', { command: 'rm x' })).toBe('等你批准：執行 rm x');
+  expect(askLabel('ExitPlanMode', {})).toBe('等你看計畫');
+  expect(askLabel('AskUserQuestion', { questions: [{ question: '要用哪個\n資料庫？' }] })).toBe('等你回答：要用哪個 資料庫？');
+  for (const input of [undefined, {}, { questions: [] }, { questions: 'x' }, { questions: [null] }]) expect(askLabel('AskUserQuestion', input)).toBe('等你回答');
 });
